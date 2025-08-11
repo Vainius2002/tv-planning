@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+  <meta charset="UTF-8" />
+  <title>TRP Rates Admin</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; padding: 16px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; font-size: 14px; }
+    th { background: #f5f5f5; text-align: left; position: sticky; top: 0; }
+    td[contenteditable="true"] { background: #fff; outline: none; }
+    tr.dirty td { background: #fff9e6; }
+    .toolbar { margin: 12px 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .btn { padding: 6px 10px; border: 1px solid #ccc; background: #fafafa; cursor: pointer; }
+    .btn:hover { background: #f0f0f0; }
+    .narrow { width: 90px; }
+    .muted { color:#666; font-size:12px; }
+    .opacity-50 { opacity: 0.5; }
+    .hidden { display:none; }
+    .editing td[contenteditable="true"] { background:#fff9e6; }
+  </style>
+</head>
+<body
+  data-trp-get="{{ url_for('contacts.list_trp') }}"
+  data-trp-post="{{ url_for('contacts.create_trp') }}"
+  data-trp-base="{{ url_for('contacts.list_trp') }}"
+>
+  <h2>TRP Rates – Admin</h2>
+
+  <div class="toolbar">
+    <label>Savininkas (filtras):
+      <select id="ownerFilter">
+        <option value="">Visi</option>
+        <option>AMB Baltics</option>
+        <option>MG grupė</option>
+      </select>
+    </label>
+
+    <button class="btn" id="addRow">+ Nauja eilutė</button>
+    <button class="btn" id="reload">Perkrauti</button>
+
+    <span class="muted">— Greitam suvedimui —</span>
+    <button class="btn" id="prefillAMB">Prefill AMB Baltics</button>
+    <button class="btn" id="prefillMG">Prefill MG grupė</button>
+    <button class="btn" id="saveDirty">Saugoti pažymėtas</button>
+  </div>
+
+  <table id="grid">
+    <thead>
+      <tr>
+        <th>Savininkas</th>
+        <th>Tikslinė grupė</th>
+        <th id="th-primary-label">Pagrindinis kanalas</th>
+        <th id="th-secondary-label">Papildomi kanalai</th>
+        <th id="th-share-primary" class="narrow">TRP dalis (pagr.) %</th>
+        <th id="th-share-secondary" class="narrow">TRP dalis (papild.) %</th>
+        <th id="th-prime-primary" class="narrow">Prime dalis (pagr.) %</th>
+        <th id="th-prime-secondary" class="narrow">Prime dalis (papild.) %</th>
+        <th class="narrow">Kaina, €/sek</th>
+        <th class="narrow">Veiksmai</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <template id="rowTpl">
+    <tr data-id="">
+      <td contenteditable="true" data-field="owner"></td>
+      <td contenteditable="true" data-field="target_group"></td>
+      <td contenteditable="true" data-field="primary_label"></td>
+      <td contenteditable="true" data-field="secondary_label"></td>
+      <td contenteditable="true" data-field="share_primary"></td>
+      <td contenteditable="true" data-field="share_secondary"></td>
+      <td contenteditable="true" data-field="prime_share_primary"></td>
+      <td contenteditable="true" data-field="prime_share_secondary"></td>
+      <td contenteditable="true" data-field="price_per_sec_eur"></td>
+      <td>
+        <button class="btn edit">Redaguoti</button>
+        <button class="btn save hidden">Saugoti</button>
+        <button class="btn revert hidden">Atšaukti</button>
+        <button class="btn delete">Šalinti</button>
+      </td>
+    </tr>
+  </template>
+
+  <!-- load the admin JS -->
+  <script defer src="{{ url_for('static', filename='js/trp_admin.js') }}?v=1"></script>
+</body>
+</html>

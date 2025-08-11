@@ -3,11 +3,17 @@ from flask import request, jsonify, render_template
 from app import models
 import sqlite3
 
-@bp.route("/")
+# Admin page at: /trp-admin
+@bp.route("/", methods=["GET"])
+def trp_admin_page():
+    return render_template("trp_admin.html")
+
+# Optional old input form at: /trp-admin/input
+@bp.route("/input", methods=["GET"])
 def contacts():
     return render_template("contacts.html")
 
-# Create/overwrite one TRP-group row (upsert by owner+target_group)
+# API
 @bp.route("/trp", methods=["POST"])
 def create_trp():
     data = request.get_json(force=True)
@@ -15,21 +21,17 @@ def create_trp():
     missing = [k for k in required if not data.get(k)]
     if missing:
         return jsonify({"status": "error", "message": f"Missing: {', '.join(missing)}"}), 400
-
     try:
         models.upsert_trp_rate(**data)
     except ValueError as e:
         return jsonify({"status": "error", "message": str(e)}), 400
-
     return jsonify({"status": "ok"}), 201
 
-# List (optionally filter by owner)
 @bp.route("/trp", methods=["GET"])
 def list_trp():
     owner = request.args.get("owner")
     return jsonify(models.list_trp_rates(owner))
 
-# Update by ID (safer than upsert when editing existing rows)
 @bp.route("/trp/<int:row_id>", methods=["PATCH"])
 def update_trp(row_id):
     data = request.get_json(force=True)
@@ -41,13 +43,7 @@ def update_trp(row_id):
     except ValueError as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
-# Delete by ID
 @bp.route("/trp/<int:row_id>", methods=["DELETE"])
 def delete_trp(row_id):
     models.delete_trp_rate(row_id)
     return jsonify({"status": "ok"})
-
-# Admin page
-@bp.route("/trp-admin", methods=["GET"])
-def trp_admin_page():
-    return render_template("trp_admin.html")

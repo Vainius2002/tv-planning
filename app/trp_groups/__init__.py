@@ -1,5 +1,5 @@
 from flask import Blueprint
 
-bp = Blueprint("trp-groups", __name__)
+bp = Blueprint("trp_groups", __name__)
 
 from . import routes

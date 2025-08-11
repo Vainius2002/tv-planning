@@ -8,11 +8,11 @@ def create_app():
 
     # Import blueprints from each package
     from app.about import bp as about_bp
-    from app.contacts import bp as contacts_bp
+    from app.trp_groups import bp as trp_admin
 
     # Register blueprints
     app.register_blueprint(about_bp, url_prefix="/about")
-    app.register_blueprint(contacts_bp, url_prefix="/contacts")
+    app.register_blueprint(trp_admin, url_prefix="/trp-admin")
 
     @app.route("/")
     def home():

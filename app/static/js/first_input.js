@@ -11,7 +11,7 @@ document.getElementById("save").onclick = async () => {
         price_per_sec_eur: document.getElementById("price").value
       };
 
-      const res = await fetch("/contacts/trp", {
+      const res = await fetch("/trp-admin/trp", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(payload)
@@ -20,7 +20,7 @@ document.getElementById("save").onclick = async () => {
       console.log("POST /contacts/trp →", await res.json());
 
       // Quick sanity: fetch all after save
-      const list = await fetch("/contacts/trp").then(r => r.json());
+      const list = await fetch("/trp-admin/trp").then(r => r.json());
       console.log("All rows:", list);
       alert("Išsaugota!");
     };

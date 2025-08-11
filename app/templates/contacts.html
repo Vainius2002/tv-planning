@@ -2,21 +2,73 @@
 <html lang="lt">
 <head>
   <meta charset="UTF-8" />
-  <title>TV-Planning</title>
+  <title>TRP įkainių įvedimas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h3>Įvesti TRP grupės įkainį</h3>
-  <label>Savininkas (owner): <input id="owner" value="AMB Baltics" /></label><br>
-  <label>Tikslinė grupė: <input id="tg" placeholder="pvz. A25-55" /></label><br>
-  <label>Pagr. kanalas: <input id="primary_label" placeholder="pvz. TV3 / LNK" /></label><br>
-  <label>Antrinis kanalas: <input id="secondary_label" placeholder="pvz. TV6+TV8+TV3 Plus" /></label><br>
-  <label>TRP dalis (prim): <input id="share_primary" type="number" step="0.01" placeholder="pvz. 75" /></label><br>
-  <label>TRP dalis (sec): <input id="share_secondary" type="number" step="0.01" placeholder="pvz. 25" /></label><br>
-  <label>Prime dalis (prim): <input id="prime_primary" type="number" step="0.01" placeholder="pvz. 60" /></label><br>
-  <label>Prime dalis (sec): <input id="prime_secondary" type="number" step="0.01" placeholder="pvz. 60" /></label><br>
-  <label>Kaina €/sek: <input id="price" type="number" step="0.01" placeholder="pvz. 18.40" /></label><br>
-  <button id="save">Saugoti</button>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-3xl mx-auto px-4 py-4">
+      <h1 class="text-xl font-semibold tracking-tight">Įvesti TRP grupės įkainį</h1>
+    </div>
+  </header>
 
-  <script defer src="{{ url_for('static', filename='js/first_input.js') }}"></script>
+  <main class="max-w-3xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">Savininkas</span>
+          <input id="owner" value="AMB Baltics" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+        </label>
+
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">Tikslinė grupė</span>
+          <input id="tg" placeholder="pvz. A25-55" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+        </label>
+
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">Pagrindinis kanalas</span>
+          <input id="primary_label" placeholder="pvz. TV3 / LNK" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+        </label>
+
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">Papildomi kanalai</span>
+          <input id="secondary_label" placeholder="pvz. TV6+TV8+TV3 Plus" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+        </label>
+
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">TRP dalis (pagr.) %</span>
+          <input id="share_primary" type="number" step="0.01" placeholder="pvz. 75" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+        </label>
+
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">TRP dalis (papild.) %</span>
+          <input id="share_secondary" type="number" step="0.01" placeholder="pvz. 25" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+        </label>
+
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">Prime dalis (pagr.) %</span>
+          <input id="prime_primary" type="number" step="0.01" placeholder="pvz. 60" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+        </label>
+
+        <label class="text-sm">
+          <span class="block text-slate-600 mb-1">Prime dalis (papild.) %</span>
+          <input id="prime_secondary" type="number" step="0.01" placeholder="pvz. 60" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+        </label>
+
+        <label class="text-sm md:col-span-2">
+          <span class="block text-slate-600 mb-1">Kaina, €/sek</span>
+          <input id="price" type="number" step="0.01" placeholder="pvz. 18.40" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+        </label>
+      </div>
+
+      <div class="mt-6">
+        <button id="save" class="btn inline-flex items-center px-4 py-2 rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 text-sm hover:bg-emerald-100">
+          Saugoti
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <script defer src="{{ url_for('static', filename='js/first_input.js') }}?v=2"></script>
 </body>
 </html>

@@ -3,87 +3,108 @@
 <head>
   <meta charset="UTF-8" />
   <title>TRP Rates Admin</title>
+  <!-- Tailwind (quick dev). For prod, build Tailwind into static CSS. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; padding: 16px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #ddd; padding: 8px; font-size: 14px; }
-    th { background: #f5f5f5; text-align: left; position: sticky; top: 0; }
-    td[contenteditable="true"] { background: #fff; outline: none; }
-    tr.dirty td { background: #fff9e6; }
-    .toolbar { margin: 12px 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    .btn { padding: 6px 10px; border: 1px solid #ccc; background: #fafafa; cursor: pointer; }
-    .btn:hover { background: #f0f0f0; }
-    .narrow { width: 90px; }
-    .muted { color:#666; font-size:12px; }
-    .opacity-50 { opacity: 0.5; }
-    .hidden { display:none; }
-    .editing td[contenteditable="true"] { background:#fff9e6; }
+    /* keep your functional helpers */
+    td[contenteditable="true"] { outline: none; }
+    .dirty td { background: #FFFBEB; }            /* amber-50 */
+    .editing td[contenteditable="true"] { background:#F0F9FF; } /* sky-50 */
   </style>
 </head>
 <body
+  class="min-h-screen bg-slate-50 text-slate-900"
   data-trp-get="{{ url_for('trp_groups.list_trp') }}"
   data-trp-post="{{ url_for('trp_groups.create_trp') }}"
   data-trp-base="{{ url_for('trp_groups.list_trp') }}"
 >
-  <h2>TRP Rates – Admin</h2>
+  <!-- Top bar -->
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <h1 class="text-xl font-semibold tracking-tight">TV Planning – TRP įkainiai</h1>
+      <nav class="text-sm text-slate-500">
+        <a href="/trp-admin" class="hover:text-slate-700">Admin</a>
+        <span class="mx-2">•</span>
+        <a href="/trp-admin/input" class="hover:text-slate-700">Greitas įvedimas</a>
+      </nav>
+    </div>
+  </header>
 
-  <div class="toolbar">
-    <label>Savininkas (filtras):
-      <select id="ownerFilter">
-        <option value="">Visi</option>
-        <option>AMB Baltics</option>
-        <option>MG grupė</option>
-      </select>
-    </label>
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <!-- Card -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <!-- Toolbar -->
+      <div class="p-4 md:p-5 border-b border-slate-200">
+        <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+          <div class="flex items-center gap-3">
+            <label class="text-sm text-slate-600">Savininkas (filtras):</label>
+            <select id="ownerFilter" class="rounded-lg border-slate-300 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
+              <option value="">Visi</option>
+              <option>AMB Baltics</option>
+              <option>MG grupė</option>
+            </select>
+          </div>
 
-    <button class="btn" id="addRow">+ Nauja eilutė</button>
-    <button class="btn" id="reload">Perkrauti</button>
+          <div class="flex flex-wrap gap-2">
+            <button id="addRow" class="btn inline-flex items-center gap-1 px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50">+ Nauja eilutė</button>
+            <button id="reload" class="btn inline-flex items-center gap-1 px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Perkrauti</button>
 
-    <span class="muted">— Greitam suvedimui —</span>
-    <button class="btn" id="prefillAMB">Prefill AMB Baltics</button>
-    <button class="btn" id="prefillMG">Prefill MG grupė</button>
-    <button class="btn" id="saveDirty">Saugoti pažymėtas</button>
-  </div>
+            <span class="hidden md:inline text-slate-300">|</span>
 
-  <table id="grid">
-    <thead>
-      <tr>
-        <th>Savininkas</th>
-        <th>Tikslinė grupė</th>
-        <th id="th-primary-label">Pagrindinis kanalas</th>
-        <th id="th-secondary-label">Papildomi kanalai</th>
-        <th id="th-share-primary" class="narrow">TRP dalis (pagr.) %</th>
-        <th id="th-share-secondary" class="narrow">TRP dalis (papild.) %</th>
-        <th id="th-prime-primary" class="narrow">Prime dalis (pagr.) %</th>
-        <th id="th-prime-secondary" class="narrow">Prime dalis (papild.) %</th>
-        <th class="narrow">Kaina, €/sek</th>
-        <th class="narrow">Veiksmai</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+            <button id="prefillAMB" class="btn inline-flex items-center gap-1 px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Prefill AMB Baltics</button>
+            <button id="prefillMG" class="btn inline-flex items-center gap-1 px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Prefill MG grupė</button>
+            <button id="saveDirty" class="btn inline-flex items-center gap-1 px-3 py-2 text-sm rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">Saugoti pažymėtas</button>
+          </div>
+        </div>
+      </div>
 
+      <!-- Table -->
+      <div class="overflow-x-auto">
+        <table id="grid" class="min-w-full text-sm">
+          <thead class="bg-slate-50 text-slate-700 border-b border-slate-200 sticky top-0">
+            <tr>
+              <th class="text-left font-medium px-4 py-2">Savininkas</th>
+              <th class="text-left font-medium px-4 py-2">Tikslinė grupė</th>
+              <th id="th-primary-label" class="text-left font-medium px-4 py-2">Pagrindinis kanalas</th>
+              <th id="th-secondary-label" class="text-left font-medium px-4 py-2">Papildomi kanalai</th>
+              <th id="th-share-primary" class="text-left font-medium px-4 py-2 w-36">TRP dalis (pagr.) %</th>
+              <th id="th-share-secondary" class="text-left font-medium px-4 py-2 w-36">TRP dalis (papild.) %</th>
+              <th id="th-prime-primary" class="text-left font-medium px-4 py-2 w-36">Prime dalis (pagr.) %</th>
+              <th id="th-prime-secondary" class="text-left font-medium px-4 py-2 w-36">Prime dalis (papild.) %</th>
+              <th class="text-left font-medium px-4 py-2 w-32">Kaina, €/sek</th>
+              <th class="text-left font-medium px-4 py-2 w-44">Veiksmai</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Row template -->
   <template id="rowTpl">
-    <tr data-id="">
-      <td contenteditable="true" data-field="owner"></td>
-      <td contenteditable="true" data-field="target_group"></td>
-      <td contenteditable="true" data-field="primary_label"></td>
-      <td contenteditable="true" data-field="secondary_label"></td>
-      <td contenteditable="true" data-field="share_primary"></td>
-      <td contenteditable="true" data-field="share_secondary"></td>
-      <td contenteditable="true" data-field="prime_share_primary"></td>
-      <td contenteditable="true" data-field="prime_share_secondary"></td>
-      <td contenteditable="true" data-field="price_per_sec_eur"></td>
-      <td>
-        <button class="btn edit">Redaguoti</button>
-        <button class="btn save hidden">Saugoti</button>
-        <button class="btn revert hidden">Atšaukti</button>
-        <button class="btn delete">Šalinti</button>
+    <tr data-id="" class="hover:bg-slate-50">
+      <td contenteditable="true" data-field="owner" class="px-4 py-2"></td>
+      <td contenteditable="true" data-field="target_group" class="px-4 py-2"></td>
+      <td contenteditable="true" data-field="primary_label" class="px-4 py-2"></td>
+      <td contenteditable="true" data-field="secondary_label" class="px-4 py-2"></td>
+      <td contenteditable="true" data-field="share_primary" class="px-4 py-2"></td>
+      <td contenteditable="true" data-field="share_secondary" class="px-4 py-2"></td>
+      <td contenteditable="true" data-field="prime_share_primary" class="px-4 py-2"></td>
+      <td contenteditable="true" data-field="prime_share_secondary" class="px-4 py-2"></td>
+      <td contenteditable="true" data-field="price_per_sec_eur" class="px-4 py-2"></td>
+      <td class="px-4 py-2">
+        <div class="flex flex-wrap gap-2">
+          <button class="btn edit inline-flex items-center px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Redaguoti</button>
+          <button class="btn save hidden inline-flex items-center px-3 py-1.5 text-xs rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">Saugoti</button>
+          <button class="btn revert hidden inline-flex items-center px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Atšaukti</button>
+          <button class="btn delete inline-flex items-center px-3 py-1.5 text-xs rounded-lg border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100">Šalinti</button>
+        </div>
       </td>
     </tr>
   </template>
 
-  <!-- load the admin JS -->
-  <script defer src="{{ url_for('static', filename='js/trp_admin.js') }}?v=1"></script>
+  <script defer src="{{ url_for('static', filename='js/trp_admin.js') }}?v=3"></script>
 </body>
 </html>

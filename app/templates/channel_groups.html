@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kanalų grupės</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body
+  class="min-h-screen bg-slate-50 text-slate-900"
+  data-cg-list="{{ url_for('channel_groups.cg_list') }}"
+  data-cg-create="{{ url_for('channel_groups.cg_create') }}"
+  data-cg-update-base="{{ url_for('channel_groups.cg_update', gid=0) }}"
+  data-cg-delete-base="{{ url_for('channel_groups.cg_delete', gid=0) }}"
+  data-ch-list-base="{{ url_for('channel_groups.cg_list') }}"
+  data-ch-update-base="{{ url_for('channel_groups.ch_update', cid=0) }}"
+  data-ch-delete-base="{{ url_for('channel_groups.ch_delete', cid=0) }}"
+  data-dev-seed="{{ url_for('channel_groups.dev_seed_cg') }}"
+>
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+      <h1 class="text-xl font-semibold">Kanalų grupės ir kanalai</h1>
+      <nav class="text-sm text-slate-600">
+        <a href="/trp-admin" class="hover:text-slate-800">TRP Admin</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-8 space-y-8">
+    <!-- Card: Groups -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <div class="flex items-end gap-3 mb-4">
+        <div>
+          <label class="block text-sm text-slate-600 mb-1">Nauja grupė</label>
+          <input id="cgName" class="rounded-lg border-slate-300 px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-sky-400" placeholder="pvz. AMB Baltics">
+        </div>
+        <button id="cgAdd" class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Pridėti</button>
+        <button id="cgSeed" class="px-3 py-2 text-sm rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">Užpildyti pavyzdžiais</button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50 text-slate-700 border-b border-slate-200">
+            <tr>
+              <th class="text-left font-medium px-4 py-2 w-16">#</th>
+              <th class="text-left font-medium px-4 py-2">Pavadinimas</th>
+              <th class="text-left font-medium px-4 py-2 w-40">Veiksmai</th>
+            </tr>
+          </thead>
+          <tbody id="cgTbody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Card: Channels of selected group -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <label class="text-sm text-slate-600">Pasirinkite grupę:</label>
+        <select id="cgSelect" class="rounded-lg border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"></select>
+      </div>
+
+      <div class="flex items-end gap-3 mb-4">
+        <div>
+          <label class="block text-sm text-slate-600 mb-1">Kanalas</label>
+          <input id="chName" class="rounded-lg border-slate-300 px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-sky-400" placeholder="pvz. TV3">
+        </div>
+        <div>
+          <label class="block text-sm text-slate-600 mb-1">Dydis</label>
+          <select id="chSize" class="rounded-lg border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+            <option value="big">Didelis</option>
+            <option value="small">Mažas</option>
+          </select>
+        </div>
+        <button id="chAdd" class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Pridėti kanalą</button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50 text-slate-700 border-b border-slate-200">
+            <tr>
+              <th class="text-left font-medium px-4 py-2 w-16">#</th>
+              <th class="text-left font-medium px-4 py-2">Kanalas</th>
+              <th class="text-left font-medium px-4 py-2 w-32">Dydis</th>
+              <th class="text-left font-medium px-4 py-2 w-40">Veiksmai</th>
+            </tr>
+          </thead>
+          <tbody id="chTbody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- separate JS file -->
+  <script defer src="{{ url_for('static', filename='js/channel_groups.js') }}?v=1"></script>
+</body>
+</html>

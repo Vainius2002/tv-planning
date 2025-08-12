@@ -22,6 +22,15 @@
     const I_UPDATE  = document.body.dataset.iUpdateBase;    // /wave-items/0
     const I_DELETE  = document.body.dataset.iDeleteBase;    // /wave-items/0
 
+    const CD_LIST   = document.body.dataset.cdListBase;     // /campaigns/0/discounts
+    const CD_CREATE = document.body.dataset.cdCreateBase;   // /campaigns/0/discounts
+    const WD_LIST   = document.body.dataset.wdListBase;     // /waves/0/discounts
+    const WD_CREATE = document.body.dataset.wdCreateBase;   // /waves/0/discounts
+    const D_UPDATE  = document.body.dataset.dUpdateBase;    // /discounts/0
+    const D_DELETE  = document.body.dataset.dDeleteBase;    // /discounts/0
+    const W_TOTAL   = document.body.dataset.wTotalBase;     // /waves/0/total
+    const C_STATUS  = document.body.dataset.cStatusBase;   // /campaigns/0/status
+
     const $ = s => document.querySelector(s);
     const cTbody = $('#cTbody');
     const cName = $('#cName'), cPL = $('#cPL'), cStart = $('#cStart'), cEnd = $('#cEnd');
@@ -60,14 +69,40 @@
       cTbody.innerHTML = '';
       campaigns.forEach(c => {
         const tr = document.createElement('tr');
+        const statusColors = {
+          'draft': 'bg-slate-100 text-slate-700',
+          'confirmed': 'bg-blue-100 text-blue-700',
+          'orders_sent': 'bg-yellow-100 text-yellow-700',
+          'active': 'bg-green-100 text-green-700',
+          'completed': 'bg-gray-100 text-gray-700'
+        };
+        const statusLabels = {
+          'draft': 'Juodraštis',
+          'confirmed': 'Patvirtinta',
+          'orders_sent': 'Užsakymai išsiųsti',
+          'active': 'Aktyvi',
+          'completed': 'Užbaigta'
+        };
+        
         tr.innerHTML = `
           <td class="px-4 py-2 text-slate-500">${c.id}</td>
           <td class="px-4 py-2">${c.name}</td>
           <td class="px-4 py-2">${c.pricing_list_name}</td>
           <td class="px-4 py-2">${(c.start_date||'')}${c.end_date?(' – '+c.end_date):''}</td>
           <td class="px-4 py-2">
-            <div class="flex gap-2">
+            <select class="status-select rounded border-slate-300 px-2 py-1 text-xs ${statusColors[c.status] || statusColors.draft}">
+              <option value="draft" ${c.status === 'draft' ? 'selected' : ''}>Juodraštis</option>
+              <option value="confirmed" ${c.status === 'confirmed' ? 'selected' : ''}>Patvirtinta</option>
+              <option value="orders_sent" ${c.status === 'orders_sent' ? 'selected' : ''}>Užsakymai išsiųsti</option>
+              <option value="active" ${c.status === 'active' ? 'selected' : ''}>Aktyvi</option>
+              <option value="completed" ${c.status === 'completed' ? 'selected' : ''}>Užbaigta</option>
+            </select>
+          </td>
+          <td class="px-4 py-2">
+            <div class="flex flex-wrap gap-1">
               <button class="open px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Atidaryti</button>
+              <a href="/trp-admin/campaigns/${c.id}/export/client-excel" class="export-client px-3 py-1.5 text-xs rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 no-underline inline-block">Excel klientui</a>
+              <a href="/trp-admin/campaigns/${c.id}/export/agency-csv" class="export-agency px-3 py-1.5 text-xs rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 no-underline inline-block">CSV agentūrai</a>
               <button class="del px-3 py-1.5 text-xs rounded-lg border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100">Šalinti</button>
             </div>
           </td>`;
@@ -79,6 +114,22 @@
           if(currentCampaign && currentCampaign.id === c.id){
             currentCampaign = null;
             renderCurrentCampaign();
+          }
+        });
+        tr.querySelector('.status-select').addEventListener('change', async (e) => {
+          const newStatus = e.target.value;
+          try {
+            await fetchJSON(urlReplace(C_STATUS, c.id), {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: newStatus })
+            });
+            c.status = newStatus; // Update local data
+            // Update the select styling
+            e.target.className = `status-select rounded border-slate-300 px-2 py-1 text-xs ${statusColors[newStatus] || statusColors.draft}`;
+          } catch (error) {
+            alert('Klaida keičiant statusą: ' + error.message);
+            e.target.value = c.status; // Revert on error
           }
         });
         cTbody.appendChild(tr);
@@ -151,6 +202,25 @@
               </div>
               <button class="i-add px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Pridėti į eilutę</button>
             </div>
+            <!-- Discounts Section -->
+            <div class="mb-4 p-3 bg-slate-50 rounded-lg">
+              <h4 class="text-sm font-medium text-slate-700 mb-2">Nuolaidos</h4>
+              <div class="grid md:grid-cols-3 gap-3 items-end">
+                <div>
+                  <label class="block text-xs text-slate-600 mb-1">Kliento nuolaida (%)</label>
+                  <input class="client-discount w-full rounded border-slate-300 px-2 py-1 text-sm" type="number" step="0.1" min="0" max="100" placeholder="0">
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-600 mb-1">Agentūros nuolaida (%)</label>
+                  <input class="agency-discount w-full rounded border-slate-300 px-2 py-1 text-sm" type="number" step="0.1" min="0" max="100" placeholder="0">
+                </div>
+                <div class="flex gap-2">
+                  <button class="save-discounts px-3 py-1 text-xs rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">Išsaugoti nuolaidas</button>
+                </div>
+              </div>
+              <div class="wave-costs mt-2 text-xs text-slate-600"></div>
+            </div>
+            
             <div class="overflow-x-auto">
               <table class="min-w-full text-sm">
                 <thead class="bg-white text-slate-700 border-b border-slate-200">
@@ -193,6 +263,7 @@
             body: JSON.stringify({ owner: ownerSel.value, target_group: tgSel.value, trps })
           });
           await reloadItems();
+          await updateCostDisplay(); // Update costs after adding item
           section.querySelector('.trps').value = '';
         });
 
@@ -201,6 +272,76 @@
           if(!confirm('Šalinti bangą?')) return;
           await fetchJSON(urlReplace(W_DELETE, w.id), { method:'DELETE' });
           await loadWaves(currentCampaign.id);
+        });
+
+        // discount management
+        const clientDiscountInput = section.querySelector('.client-discount');
+        const agencyDiscountInput = section.querySelector('.agency-discount');
+        const saveDiscountsBtn = section.querySelector('.save-discounts');
+        const waveCostsDiv = section.querySelector('.wave-costs');
+
+        async function loadDiscounts() {
+          try {
+            const discounts = await fetchJSON(urlReplace(WD_LIST, w.id));
+            discounts.forEach(d => {
+              if (d.discount_type === 'client') {
+                clientDiscountInput.value = d.discount_percentage;
+              } else if (d.discount_type === 'agency') {
+                agencyDiscountInput.value = d.discount_percentage;
+              }
+            });
+            await updateCostDisplay();
+          } catch (e) {
+            console.error('Error loading discounts:', e);
+          }
+        }
+
+        async function updateCostDisplay() {
+          try {
+            const costs = await fetchJSON(urlReplace(W_TOTAL, w.id));
+            waveCostsDiv.innerHTML = `
+              <div>Bazinė kaina: €${costs.base_cost.toFixed(2)}</div>
+              <div>Kaina klientui: €${costs.client_cost.toFixed(2)} ${costs.client_discount_percent > 0 ? `(-${costs.client_discount_percent}%)` : ''}</div>
+              <div>Kaina agentūrai: €${costs.agency_cost.toFixed(2)} ${costs.agency_discount_percent > 0 ? `(-${costs.agency_discount_percent}%)` : ''}</div>
+            `;
+          } catch (e) {
+            console.error('Error updating cost display:', e);
+          }
+        }
+
+        saveDiscountsBtn.addEventListener('click', async () => {
+          try {
+            const clientDiscount = parseFloat(clientDiscountInput.value || 0);
+            const agencyDiscount = parseFloat(agencyDiscountInput.value || 0);
+
+            // Delete existing discounts for this wave
+            const existingDiscounts = await fetchJSON(urlReplace(WD_LIST, w.id));
+            for (const discount of existingDiscounts) {
+              await fetchJSON(urlReplace(D_DELETE, discount.id), { method: 'DELETE' });
+            }
+
+            // Create new discounts if values are provided
+            if (clientDiscount > 0) {
+              await fetchJSON(urlReplace(WD_CREATE, w.id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ discount_type: 'client', discount_percentage: clientDiscount })
+              });
+            }
+
+            if (agencyDiscount > 0) {
+              await fetchJSON(urlReplace(WD_CREATE, w.id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ discount_type: 'agency', discount_percentage: agencyDiscount })
+              });
+            }
+
+            await updateCostDisplay();
+            alert('Nuolaidos išsaugotos');
+          } catch (e) {
+            alert('Klaida išsaugant nuolaidas: ' + e.message);
+          }
         });
 
         async function reloadItems(){
@@ -227,18 +368,21 @@
                 method:'PATCH', headers:{'Content-Type':'application/json'},
                 body: JSON.stringify({ trps, price_per_sec_eur: pps })
               });
+              await updateCostDisplay(); // Update costs after saving item
               alert('Išsaugota');
             });
             tr.querySelector('.itm-del').addEventListener('click', async () => {
               if(!confirm('Šalinti eilutę?')) return;
               await fetchJSON(urlReplace(I_DELETE, r.id), { method:'DELETE' });
               tr.remove();
+              await updateCostDisplay(); // Update costs after deleting item
             });
             itemsTbody.appendChild(tr);
           });
         }
 
         await reloadItems();
+        await loadDiscounts(); // Load existing discounts when wave loads
         wavesDiv.appendChild(section);
       }
     }

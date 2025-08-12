@@ -137,6 +137,21 @@ def init_db():
         )""")
 
         db.commit()
+        
+        # discount table
+        
+        db.execute("""
+        CREATE TABLE IF NOT EXISTS discounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            campaign_id INTEGER,
+            wave_id INTEGER,
+            discount_type TEXT CHECK(discount_type IN ('client', 'agency')) NOT NULL,
+            discount_percentage REAL NOT NULL,
+            FOREIGN KEY(campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE,
+            FOREIGN KEY(wave_id) REFERENCES waves(id) ON DELETE CASCADE
+        )
+        """)
+        db.commit()
 
 # ---------------- Channel groups / channels ----------------
 
@@ -541,3 +556,359 @@ def update_wave_item(item_id: int, data: dict):
 def delete_wave_item(item_id: int):
     with get_db() as db:
         db.execute("DELETE FROM wave_items WHERE id=?", (item_id,))
+
+# ---------------- Discounts ----------------
+
+def create_discount(campaign_id: int = None, wave_id: int = None, discount_type: str = "client", discount_percentage: float = 0.0):
+    """Create a discount for a campaign or wave"""
+    if not campaign_id and not wave_id:
+        raise ValueError("Either campaign_id or wave_id must be provided")
+    if discount_type not in ['client', 'agency']:
+        raise ValueError("discount_type must be 'client' or 'agency'")
+    
+    with get_db() as db:
+        cursor = db.execute("""
+        INSERT INTO discounts (campaign_id, wave_id, discount_type, discount_percentage)
+        VALUES (?, ?, ?, ?)
+        """, (campaign_id, wave_id, discount_type, discount_percentage))
+        return cursor.lastrowid
+
+def get_discounts_for_campaign(campaign_id: int):
+    """Get all discounts for a campaign (both campaign-level and wave-level)"""
+    with get_db() as db:
+        rows = db.execute("""
+        SELECT d.*, w.name as wave_name 
+        FROM discounts d
+        LEFT JOIN waves w ON d.wave_id = w.id
+        WHERE d.campaign_id = ? OR d.wave_id IN (
+            SELECT id FROM waves WHERE campaign_id = ?
+        )
+        ORDER BY d.discount_type, d.wave_id
+        """, (campaign_id, campaign_id)).fetchall()
+        return [dict(r) for r in rows]
+
+def get_discounts_for_wave(wave_id: int):
+    """Get all discounts for a specific wave"""
+    with get_db() as db:
+        rows = db.execute("""
+        SELECT * FROM discounts WHERE wave_id = ?
+        ORDER BY discount_type
+        """, (wave_id,)).fetchall()
+        return [dict(r) for r in rows]
+
+def update_discount(discount_id: int, discount_percentage: float):
+    """Update discount percentage"""
+    with get_db() as db:
+        db.execute("UPDATE discounts SET discount_percentage = ? WHERE id = ?", 
+                  (discount_percentage, discount_id))
+
+def delete_discount(discount_id: int):
+    """Delete a discount"""
+    with get_db() as db:
+        db.execute("DELETE FROM discounts WHERE id = ?", (discount_id,))
+
+def calculate_wave_total_with_discounts(wave_id: int):
+    """Calculate wave total cost with discounts applied"""
+    with get_db() as db:
+        # Get base cost from wave items
+        items = db.execute("""
+        SELECT price_per_sec_eur, trps FROM wave_items WHERE wave_id = ?
+        """, (wave_id,)).fetchall()
+        
+        base_cost = sum(item['price_per_sec_eur'] * item['trps'] for item in items)
+        
+        # Get discounts for this wave
+        discounts = get_discounts_for_wave(wave_id)
+        
+        client_discount = 0
+        agency_discount = 0
+        
+        for discount in discounts:
+            if discount['discount_type'] == 'client':
+                client_discount = max(client_discount, discount['discount_percentage'])
+            elif discount['discount_type'] == 'agency':
+                agency_discount = max(agency_discount, discount['discount_percentage'])
+        
+        # Apply discounts sequentially
+        client_cost = base_cost * (1 - client_discount / 100)
+        agency_cost = client_cost * (1 - agency_discount / 100)
+        
+        return {
+            'base_cost': base_cost,
+            'client_cost': client_cost,
+            'agency_cost': agency_cost,
+            'client_discount_percent': client_discount,
+            'agency_discount_percent': agency_discount
+        }
+
+# ---------------- Campaign Status ----------------
+
+def update_campaign_status(campaign_id: int, status: str):
+    """Update campaign status"""
+    valid_statuses = ['draft', 'confirmed', 'orders_sent', 'active', 'completed']
+    if status not in valid_statuses:
+        raise ValueError(f"Status must be one of: {', '.join(valid_statuses)}")
+    
+    with get_db() as db:
+        db.execute("UPDATE campaigns SET status = ? WHERE id = ?", (status, campaign_id))
+
+def get_campaign_status(campaign_id: int):
+    """Get campaign status"""
+    with get_db() as db:
+        row = db.execute("SELECT status FROM campaigns WHERE id = ?", (campaign_id,)).fetchone()
+        return row['status'] if row else None
+
+# ---------------- Report Generation ----------------
+
+def get_campaign_report_data(campaign_id: int):
+    """Get all data needed for campaign reports"""
+    with get_db() as db:
+        # Get campaign info
+        campaign = db.execute("""
+        SELECT c.*, pl.name as pricing_list_name 
+        FROM campaigns c
+        JOIN pricing_lists pl ON c.pricing_list_id = pl.id
+        WHERE c.id = ?
+        """, (campaign_id,)).fetchone()
+        
+        if not campaign:
+            return None
+        
+        # Get waves with items and costs
+        waves_data = []
+        waves = db.execute("SELECT * FROM waves WHERE campaign_id = ? ORDER BY start_date, name", (campaign_id,)).fetchall()
+        
+        for wave in waves:
+            wave_dict = dict(wave)
+            
+            # Get wave items
+            items = db.execute("""
+            SELECT * FROM wave_items WHERE wave_id = ? ORDER BY owner, target_group
+            """, (wave['id'],)).fetchall()
+            wave_dict['items'] = [dict(item) for item in items]
+            
+            # Get wave costs with discounts
+            wave_dict['costs'] = calculate_wave_total_with_discounts(wave['id'])
+            
+            # Get discounts
+            discounts = get_discounts_for_wave(wave['id'])
+            wave_dict['discounts'] = discounts
+            
+            waves_data.append(wave_dict)
+        
+        return {
+            'campaign': dict(campaign),
+            'waves': waves_data
+        }
+
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from io import BytesIO
+import csv
+import io
+
+def generate_client_excel_report(campaign_id: int):
+    """Generate Excel report for client (with client discounts applied)"""
+    data = get_campaign_report_data(campaign_id)
+    if not data:
+        return None
+    
+    campaign = data['campaign']
+    waves = data['waves']
+    
+    # Create workbook
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f"Campaign_{campaign['name']}_Client"
+    
+    # Styles
+    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    wave_fill = PatternFill(start_color="D9E2F3", end_color="D9E2F3", fill_type="solid")
+    wave_font = Font(bold=True)
+    border = Border(left=Side(style='thin'), right=Side(style='thin'), 
+                   top=Side(style='thin'), bottom=Side(style='thin'))
+    
+    current_row = 1
+    
+    # Campaign header
+    ws.merge_cells(f'A{current_row}:H{current_row}')
+    cell = ws[f'A{current_row}']
+    cell.value = f"TV PLANAS - {campaign['name']}"
+    cell.font = Font(size=16, bold=True)
+    cell.alignment = Alignment(horizontal='center')
+    current_row += 2
+    
+    # Campaign details
+    ws[f'A{current_row}'] = "Laikotarpis:"
+    ws[f'B{current_row}'] = f"{campaign.get('start_date', '')} - {campaign.get('end_date', '')}"
+    current_row += 1
+    
+    ws[f'A{current_row}'] = "Kainoraštis:"
+    ws[f'B{current_row}'] = campaign.get('pricing_list_name', '')
+    current_row += 1
+    
+    ws[f'A{current_row}'] = "Statusas:"
+    ws[f'B{current_row}'] = campaign.get('status', 'draft').replace('_', ' ').title()
+    current_row += 2
+    
+    # Table headers
+    headers = ['Banga', 'Laikotarpis', 'Savininkas', 'Tikslinė grupė', 'Kanalas', 'TRP', '€/sek', 'Viso €']
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=current_row, column=col)
+        cell.value = header
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = border
+    
+    current_row += 1
+    
+    # Data rows
+    total_cost = 0
+    for wave in waves:
+        wave_start_row = current_row
+        
+        for item in wave['items']:
+            item_cost = item['trps'] * item['price_per_sec_eur']
+            
+            ws.cell(row=current_row, column=1).value = wave['name'] or f"Banga {wave['id']}"
+            ws.cell(row=current_row, column=2).value = f"{wave.get('start_date', '')} - {wave.get('end_date', '')}"
+            ws.cell(row=current_row, column=3).value = item['owner']
+            ws.cell(row=current_row, column=4).value = item['target_group']
+            ws.cell(row=current_row, column=5).value = f"{item['primary_label']}{' + ' + item['secondary_label'] if item['secondary_label'] else ''}"
+            ws.cell(row=current_row, column=6).value = item['trps']
+            ws.cell(row=current_row, column=7).value = round(item['price_per_sec_eur'], 2)
+            ws.cell(row=current_row, column=8).value = round(item_cost, 2)
+            
+            # Apply borders
+            for col in range(1, 9):
+                ws.cell(row=current_row, column=col).border = border
+            
+            current_row += 1
+        
+        # Wave summary with client discount
+        if wave['items']:
+            costs = wave['costs']
+            client_cost = costs['client_cost']
+            total_cost += client_cost
+            
+            ws.merge_cells(f'A{current_row}:G{current_row}')
+            cell = ws[f'A{current_row}']
+            discount_text = f" (-{costs['client_discount_percent']}%)" if costs['client_discount_percent'] > 0 else ""
+            cell.value = f"Bangos suma{discount_text}:"
+            cell.font = wave_font
+            cell.fill = wave_fill
+            cell.alignment = Alignment(horizontal='right')
+            
+            ws.cell(row=current_row, column=8).value = round(client_cost, 2)
+            ws.cell(row=current_row, column=8).font = wave_font
+            ws.cell(row=current_row, column=8).fill = wave_fill
+            
+            for col in range(1, 9):
+                ws.cell(row=current_row, column=col).border = border
+            
+            current_row += 2
+    
+    # Grand total
+    ws.merge_cells(f'A{current_row}:G{current_row}')
+    cell = ws[f'A{current_row}']
+    cell.value = "BENDRA SUMA:"
+    cell.font = Font(bold=True, size=14)
+    cell.alignment = Alignment(horizontal='right')
+    
+    ws.cell(row=current_row, column=8).value = round(total_cost, 2)
+    ws.cell(row=current_row, column=8).font = Font(bold=True, size=14)
+    
+    # Adjust column widths
+    column_widths = [15, 20, 15, 20, 30, 10, 10, 12]
+    for col, width in enumerate(column_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
+    
+    # Save to BytesIO
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+def generate_agency_csv_order(campaign_id: int):
+    """Generate CSV order file for agency (with both client and agency discounts)"""
+    data = get_campaign_report_data(campaign_id)
+    if not data:
+        return None
+    
+    campaign = data['campaign']
+    waves = data['waves']
+    
+    csv_content = []
+    csv_content.append(['# TV UŽSAKYMAS'])
+    csv_content.append(['Kampanija', campaign['name']])
+    csv_content.append(['Laikotarpis', f"{campaign.get('start_date', '')} - {campaign.get('end_date', '')}"])
+    csv_content.append(['Kainoraštis', campaign.get('pricing_list_name', '')])
+    csv_content.append(['Statusas', campaign.get('status', 'draft')])
+    csv_content.append([])  # Empty row
+    
+    # Headers
+    csv_content.append([
+        'Banga', 'Laikotarpis', 'Savininkas', 'Tikslinė grupė', 'Kanalas', 
+        'TRP', 'Bazinė kaina €/sek', 'Kliento kaina €/sek', 'Agentūros kaina €/sek', 
+        'Kliento nuolaida %', 'Agentūros nuolaida %', 'Galutinė suma €'
+    ])
+    
+    total_agency_cost = 0
+    
+    for wave in waves:
+        costs = wave['costs']
+        
+        for item in wave['items']:
+            base_price = item['price_per_sec_eur']
+            trps = item['trps']
+            
+            # Calculate discounted prices per second
+            client_discount_percent = costs['client_discount_percent']
+            agency_discount_percent = costs['agency_discount_percent']
+            
+            client_price_per_sec = base_price * (1 - client_discount_percent / 100)
+            agency_price_per_sec = client_price_per_sec * (1 - agency_discount_percent / 100)
+            
+            final_cost = agency_price_per_sec * trps
+            total_agency_cost += final_cost
+            
+            csv_content.append([
+                wave['name'] or f"Banga {wave['id']}",
+                f"{wave.get('start_date', '')} - {wave.get('end_date', '')}",
+                item['owner'],
+                item['target_group'],
+                f"{item['primary_label']}{' + ' + item['secondary_label'] if item['secondary_label'] else ''}",
+                trps,
+                round(base_price, 4),
+                round(client_price_per_sec, 4),
+                round(agency_price_per_sec, 4),
+                client_discount_percent,
+                agency_discount_percent,
+                round(final_cost, 2)
+            ])
+    
+    # Total
+    csv_content.append([])
+    csv_content.append(['BENDRA AGENTŪROS SUMA €', '', '', '', '', '', '', '', '', '', '', round(total_agency_cost, 2)])
+    
+    # Write CSV
+    import csv as csv_module
+    from io import StringIO
+    
+    # First write to string
+    string_buffer = StringIO()
+    writer = csv_module.writer(string_buffer, delimiter=';', lineterminator='\n')
+    
+    for row in csv_content:
+        writer.writerow(row)
+    
+    # Convert to bytes with UTF-8 BOM
+    csv_string = string_buffer.getvalue()
+    output = BytesIO()
+    output.write('\ufeff'.encode('utf-8'))  # BOM
+    output.write(csv_string.encode('utf-8'))
+    output.seek(0)
+    
+    return output

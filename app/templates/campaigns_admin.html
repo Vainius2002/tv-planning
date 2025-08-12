@@ -22,6 +22,14 @@
   data-i-create-base="{{ url_for('campaigns.wave_items_create', wid=0) }}"
   data-i-update-base="{{ url_for('campaigns.wave_items_update', iid=0) }}"
   data-i-delete-base="{{ url_for('campaigns.wave_items_delete', iid=0) }}"
+  data-cd-list-base="{{ url_for('campaigns.get_campaign_discounts', cid=0) }}"
+  data-cd-create-base="{{ url_for('campaigns.create_campaign_discount', cid=0) }}"
+  data-wd-list-base="{{ url_for('campaigns.get_wave_discounts', wid=0) }}"
+  data-wd-create-base="{{ url_for('campaigns.create_wave_discount', wid=0) }}"
+  data-d-update-base="{{ url_for('campaigns.update_discount', did=0) }}"
+  data-d-delete-base="{{ url_for('campaigns.delete_discount', did=0) }}"
+  data-w-total-base="{{ url_for('campaigns.get_wave_total', wid=0) }}"
+  data-c-status-base="{{ url_for('campaigns.update_campaign_status', cid=0) }}"
 >
   <header class="bg-white border-b border-slate-200">
     <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -67,6 +75,7 @@
               <th class="text-left font-medium px-4 py-2">Pavadinimas</th>
               <th class="text-left font-medium px-4 py-2">Kainoraštis</th>
               <th class="text-left font-medium px-4 py-2">Laikotarpis</th>
+              <th class="text-left font-medium px-4 py-2">Statusas</th>
               <th class="text-left font-medium px-4 py-2 w-40">Veiksmai</th>
             </tr>
           </thead>

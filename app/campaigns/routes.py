@@ -5,8 +5,8 @@ from app import models
 from datetime import datetime
 
 # ---------- Page ----------
-@bp.route("/campaigns-admin", methods=["GET"])
-def campaigns_admin_page():
+@bp.route("/campaigns", methods=["GET"])
+def campaigns_page():
     return render_template("campaigns_admin.html")
 
 # ---------- Pricing list helpers (read-only) ----------
@@ -23,12 +23,12 @@ def pl_targets(pl_id):
     owner = request.args.get("owner","")
     return jsonify(models.list_pricing_targets(pl_id, owner))
 
-# ---------- Campaigns ----------
-@bp.route("/campaigns", methods=["GET"])
+# ---------- Campaigns API ----------
+@bp.route("/campaigns-api", methods=["GET"])
 def campaigns_list():
     return jsonify(models.list_campaigns())
 
-@bp.route("/campaigns", methods=["POST"])
+@bp.route("/campaigns-api", methods=["POST"])
 def campaigns_create():
     data = request.get_json(force=True)
     name = (data.get("name") or "").strip()
@@ -38,13 +38,13 @@ def campaigns_create():
     cid = models.create_campaign(name, pl_id, data.get("start_date"), data.get("end_date"))
     return jsonify({"status":"ok","id":cid}), 201
 
-@bp.route("/campaigns/<int:cid>", methods=["PATCH"])
+@bp.route("/campaigns-api/<int:cid>", methods=["PATCH"])
 def campaigns_update(cid):
     data = request.get_json(force=True)
     models.update_campaign(cid, data)
     return jsonify({"status":"ok"})
 
-@bp.route("/campaigns/<int:cid>", methods=["DELETE"])
+@bp.route("/campaigns-api/<int:cid>", methods=["DELETE"])
 def campaigns_delete(cid):
     models.delete_campaign(cid)
     return jsonify({"status":"ok"})

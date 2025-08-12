@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - TRP Admin{% endblock %}
+{% block title %}Dashboard - TV Planner{% endblock %}
 
 {% block content %}
 <div>
   <!-- Welcome Header -->
   <div class="mb-8">
-    <h1 class="text-4xl font-bold text-gray-900">Sveiki atvykę į TRP Admin</h1>
+    <h1 class="text-4xl font-bold text-gray-900">Sveiki atvykę į TV Planner</h1>
     <p class="mt-2 text-lg text-gray-600">Televizijos reklamos planavimo ir valdymo sistema</p>
   </div>
 
@@ -14,7 +14,7 @@
   <div class="mb-8">
     <h2 class="text-xl font-semibold text-gray-900 mb-4">Greiti veiksmai</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <a href="/trp-admin/campaigns-admin" class="group block p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-brand-300 transition-all">
+      <a href="/tv-planner/campaigns" class="group block p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-brand-300 transition-all">
         <div class="flex items-center">
           <div class="p-3 bg-brand-100 rounded-lg">
             <svg class="w-6 h-6 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,7 +28,7 @@
         </div>
       </a>
 
-      <a href="/trp-admin/calendar" class="group block p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-brand-300 transition-all">
+      <a href="/tv-planner/calendar" class="group block p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-brand-300 transition-all">
         <div class="flex items-center">
           <div class="p-3 bg-emerald-100 rounded-lg">
             <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -42,7 +42,7 @@
         </div>
       </a>
 
-      <a href="/trp-admin/pricing-lists-admin" class="group block p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-brand-300 transition-all">
+      <a href="/tv-planner/pricing" class="group block p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-brand-300 transition-all">
         <div class="flex items-center">
           <div class="p-3 bg-amber-100 rounded-lg">
             <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -56,7 +56,7 @@
         </div>
       </a>
 
-      <a href="/trp-admin/channel-groups-admin" class="group block p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-brand-300 transition-all">
+      <a href="/tv-planner/channels" class="group block p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-brand-300 transition-all">
         <div class="flex items-center">
           <div class="p-3 bg-purple-100 rounded-lg">
             <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -157,9 +157,9 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Load basic stats
   try {
     const [campaigns, channelGroups, pricingLists] = await Promise.all([
-      fetch('/trp-admin/campaigns').then(r => r.json()),
-      fetch('/trp-admin/channel-groups').then(r => r.json()),
-      fetch('/trp-admin/pricing-lists').then(r => r.json())
+      fetch('/tv-planner/campaigns-api').then(r => r.json()),
+      fetch('/tv-planner/channel-groups').then(r => r.json()),
+      fetch('/tv-planner/pricing-lists').then(r => r.json())
     ]);
     
     document.getElementById('campaignCount').textContent = campaigns.length || 0;

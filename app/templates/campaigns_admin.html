@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Kampanijos ir bangos - TRP Admin{% endblock %}
+{% block title %}Kampanijos ir bangos - TV Planner{% endblock %}
 
 {% block content %}
 <div
@@ -43,24 +43,24 @@
     <!-- Campaigns -->
     <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <h2 class="text-xl font-semibold text-gray-900 mb-4">Kampanijos</h2>
-      <div class="grid md:grid-cols-5 gap-3 items-end">
-        <div class="md:col-span-2">
+      <div class="grid grid-cols-1 lg:grid-cols-6 xl:grid-cols-8 gap-4 items-end">
+        <div class="lg:col-span-2">
           <label class="block text-sm text-slate-600 mb-1">Pavadinimas</label>
           <input id="cName" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
         </div>
-        <div class="md:col-span-2">
+        <div class="lg:col-span-2">
           <label class="block text-sm text-slate-600 mb-1">Kainoraštis</label>
           <select id="cPL" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm"></select>
         </div>
-        <div>
+        <div class="lg:col-span-2 xl:col-span-3">
           <label class="block text-sm text-slate-600 mb-1">Laikotarpis</label>
-          <div class="flex gap-2">
-            <input id="cStart" type="date" class="rounded-lg border-slate-300 px-3 py-2 text-sm">
-            <input id="cEnd" type="date" class="rounded-lg border-slate-300 px-3 py-2 text-sm">
+          <div class="grid grid-cols-2 gap-2">
+            <input id="cStart" type="date" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
+            <input id="cEnd" type="date" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
           </div>
         </div>
-        <div>
-          <button id="cCreate" class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50 w-full">Sukurti</button>
+        <div class="xl:col-span-1">
+          <button id="cCreate" class="px-4 py-2 text-sm rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors w-full">Sukurti</button>
         </div>
       </div>
 
@@ -102,19 +102,21 @@
           <div id="tvcList" class="space-y-2"></div>
         </div>
         
-        <div class="flex items-end gap-3 mb-4">
-          <div>
+        <div class="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-6 gap-4 items-end mb-4">
+          <div class="lg:col-span-2">
             <label class="block text-sm text-slate-600 mb-1">Bangos pavadinimas</label>
-            <input id="wName" class="rounded-lg border-slate-300 px-3 py-2 text-sm w-64">
+            <input id="wName" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
           </div>
-          <div>
+          <div class="lg:col-span-2 xl:col-span-3">
             <label class="block text-sm text-slate-600 mb-1">Laikotarpis</label>
-            <div class="flex gap-2">
-              <input id="wStart" type="date" class="rounded-lg border-slate-300 px-3 py-2 text-sm">
-              <input id="wEnd" type="date" class="rounded-lg border-slate-300 px-3 py-2 text-sm">
+            <div class="grid grid-cols-2 gap-2">
+              <input id="wStart" type="date" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
+              <input id="wEnd" type="date" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
             </div>
           </div>
-          <button id="wAdd" class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Pridėti bangą</button>
+          <div class="xl:col-span-1">
+            <button id="wAdd" class="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors w-full">Pridėti bangą</button>
+          </div>
         </div>
 
         <div id="waves"></div>

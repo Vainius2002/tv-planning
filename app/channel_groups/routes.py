@@ -6,8 +6,8 @@ import sqlite3
 # ---------------------------
 # Page (HTML)
 # ---------------------------
-@bp.route("/channel-groups-admin", methods=["GET"])
-def channel_groups_admin_page():
+@bp.route("/channels", methods=["GET"])
+def channels_page():
     return render_template("channel_groups.html")
 
 

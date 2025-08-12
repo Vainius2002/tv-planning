@@ -5,8 +5,8 @@ from app import models
 import sqlite3
 
 # Page (HTML)
-@bp.route("/pricing-lists-admin", methods=["GET"])
-def pricing_lists_admin_page():
+@bp.route("/pricing", methods=["GET"])
+def pricing_page():
     return render_template("pricing_lists.html")
 
 # Lists

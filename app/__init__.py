@@ -17,16 +17,17 @@ def create_app():
 
     # Register blueprints
     app.register_blueprint(about_bp, url_prefix="/about")
-    app.register_blueprint(trp_admin, url_prefix="/trp-admin")
-    app.register_blueprint(channel_groups_bp, url_prefix="/trp-admin")
-    app.register_blueprint(pricing_lists_bp, url_prefix="/trp-admin")
-    app.register_blueprint(campaigns_bp, url_prefix="/trp-admin")
-    app.register_blueprint(calendar_bp, url_prefix="/trp-admin")
+    app.register_blueprint(trp_admin, url_prefix="/tv-planner")
+    app.register_blueprint(channel_groups_bp, url_prefix="/tv-planner")
+    app.register_blueprint(pricing_lists_bp, url_prefix="/tv-planner")
+    app.register_blueprint(campaigns_bp, url_prefix="/tv-planner")
+    app.register_blueprint(calendar_bp, url_prefix="/tv-planner")
     
     
 
     @app.route("/")
     def home():
-        return "Main page"
+        from flask import redirect
+        return redirect("/tv-planner")
 
     return app

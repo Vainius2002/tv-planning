@@ -1,12 +1,9 @@
-<!DOCTYPE html>
-<html lang="lt">
-<head>
-  <meta charset="UTF-8" />
-  <title>Kanalų grupės</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body
-  class="min-h-screen bg-slate-50 text-slate-900"
+{% extends "base.html" %}
+
+{% block title %}Kanalų grupės - TRP Admin{% endblock %}
+
+{% block content %}
+<div
   data-cg-list="{{ url_for('channel_groups.cg_list') }}"
   data-cg-create="{{ url_for('channel_groups.cg_create') }}"
   data-cg-update-base="{{ url_for('channel_groups.cg_update', gid=0) }}"
@@ -16,16 +13,13 @@
   data-ch-delete-base="{{ url_for('channel_groups.ch_delete', cid=0) }}"
   data-dev-seed="{{ url_for('channel_groups.dev_seed_cg') }}"
 >
-  <header class="bg-white border-b border-slate-200">
-    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-      <h1 class="text-xl font-semibold">Kanalų grupės ir kanalai</h1>
-      <nav class="text-sm text-slate-600">
-        <a href="/trp-admin" class="hover:text-slate-800">TRP Admin</a>
-      </nav>
-    </div>
-  </header>
+  <!-- Page Header -->
+  <div class="mb-6">
+    <h1 class="text-3xl font-bold text-gray-900">Kanalų grupės ir kanalai</h1>
+    <p class="mt-1 text-sm text-gray-600">Valdykite televizijos kanalų grupes ir kanalus</p>
+  </div>
 
-  <main class="max-w-5xl mx-auto px-4 py-8 space-y-8">
+  <div class="space-y-8">
     <!-- Card: Groups -->
     <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
       <div class="flex items-end gap-3 mb-4">
@@ -87,9 +81,10 @@
         </table>
       </div>
     </section>
-  </main>
+  </div>
+</div>
+{% endblock %}
 
-  <!-- separate JS file -->
-  <script defer src="{{ url_for('static', filename='js/channel_groups.js') }}?v=1"></script>
-</body>
-</html>
+{% block scripts %}
+<script defer src="{{ url_for('static', filename='js/channel_groups.js') }}?v=2"></script>
+{% endblock %}

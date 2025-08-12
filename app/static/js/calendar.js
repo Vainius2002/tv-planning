@@ -3,8 +3,9 @@
   'use strict';
 
   window.addEventListener('DOMContentLoaded', () => {
-    const EVENTS_URL = document.body.dataset.calendarEvents;
-    const MONTH_URL = document.body.dataset.calendarMonth;
+    const dataDiv = document.querySelector('[data-calendar-events]');
+    const EVENTS_URL = dataDiv.dataset.calendarEvents;
+    const MONTH_URL = dataDiv.dataset.calendarMonth;
 
     const $ = s => document.querySelector(s);
     const prevMonthBtn = $('#prevMonth');
@@ -100,7 +101,7 @@
             const dayNumber = document.createElement('div');
             dayNumber.className = 'font-medium text-slate-900 mb-1';
             if (isSameDay(currentDayDate, today)) {
-              dayNumber.classList.add('bg-blue-100', 'text-blue-800', 'rounded-full', 'w-6', 'h-6', 'flex', 'items-center', 'justify-center', 'text-xs');
+              dayNumber.classList.add('bg-brand-100', 'text-brand-800', 'rounded-full', 'w-6', 'h-6', 'flex', 'items-center', 'justify-center', 'text-xs');
             }
             dayNumber.textContent = day;
             dayElement.appendChild(dayNumber);
@@ -112,8 +113,8 @@
             
             dayEvents.forEach(event => {
               const eventElement = document.createElement('div');
-              eventElement.className = `text-xs p-1 mb-1 rounded cursor-pointer truncate ${
-                event.type === 'campaign' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
+              eventElement.className = `text-xs p-1 mb-1 rounded cursor-pointer truncate transition-colors ${
+                event.type === 'campaign' ? 'bg-brand-100 text-brand-800 hover:bg-brand-200' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
               }`;
               eventElement.textContent = event.title;
               eventElement.addEventListener('click', () => showEventDetails(event));

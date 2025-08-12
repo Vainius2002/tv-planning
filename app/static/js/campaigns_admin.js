@@ -3,38 +3,39 @@
   'use strict';
 
   window.addEventListener('DOMContentLoaded', () => {
-    const PL_LIST   = document.body.dataset.plList;
-    const PL_OWNERS = document.body.dataset.plOwnersBase;   // ends with /0
-    const PL_TARGETS= document.body.dataset.plTargetsBase;  // ends with /0
+    const dataDiv = document.querySelector('[data-pl-list]');
+    const PL_LIST   = dataDiv.dataset.plList;
+    const PL_OWNERS = dataDiv.dataset.plOwnersBase;   // ends with /0
+    const PL_TARGETS= dataDiv.dataset.plTargetsBase;  // ends with /0
 
-    const C_LIST    = document.body.dataset.cList;
-    const C_CREATE  = document.body.dataset.cCreate;
-    const C_UPDATE  = document.body.dataset.cUpdateBase;    // ends with /0
-    const C_DELETE  = document.body.dataset.cDeleteBase;    // ends with /0
+    const C_LIST    = dataDiv.dataset.cList;
+    const C_CREATE  = dataDiv.dataset.cCreate;
+    const C_UPDATE  = dataDiv.dataset.cUpdateBase;    // ends with /0
+    const C_DELETE  = dataDiv.dataset.cDeleteBase;    // ends with /0
 
-    const W_LIST    = document.body.dataset.wListBase;      // /campaigns/0/waves
-    const W_CREATE  = document.body.dataset.wCreateBase;    // /campaigns/0/waves
-    const W_UPDATE  = document.body.dataset.wUpdateBase;    // /waves/0
-    const W_DELETE  = document.body.dataset.wDeleteBase;    // /waves/0
+    const W_LIST    = dataDiv.dataset.wListBase;      // /campaigns/0/waves
+    const W_CREATE  = dataDiv.dataset.wCreateBase;    // /campaigns/0/waves
+    const W_UPDATE  = dataDiv.dataset.wUpdateBase;    // /waves/0
+    const W_DELETE  = dataDiv.dataset.wDeleteBase;    // /waves/0
 
-    const I_LIST    = document.body.dataset.iListBase;      // /waves/0/items
-    const I_CREATE  = document.body.dataset.iCreateBase;    // /waves/0/items
-    const I_UPDATE  = document.body.dataset.iUpdateBase;    // /wave-items/0
-    const I_DELETE  = document.body.dataset.iDeleteBase;    // /wave-items/0
+    const I_LIST    = dataDiv.dataset.iListBase;      // /waves/0/items
+    const I_CREATE  = dataDiv.dataset.iCreateBase;    // /waves/0/items
+    const I_UPDATE  = dataDiv.dataset.iUpdateBase;    // /wave-items/0
+    const I_DELETE  = dataDiv.dataset.iDeleteBase;    // /wave-items/0
 
-    const CD_LIST   = document.body.dataset.cdListBase;     // /campaigns/0/discounts
-    const CD_CREATE = document.body.dataset.cdCreateBase;   // /campaigns/0/discounts
-    const WD_LIST   = document.body.dataset.wdListBase;     // /waves/0/discounts
-    const WD_CREATE = document.body.dataset.wdCreateBase;   // /waves/0/discounts
-    const D_UPDATE  = document.body.dataset.dUpdateBase;    // /discounts/0
-    const D_DELETE  = document.body.dataset.dDeleteBase;    // /discounts/0
-    const W_TOTAL   = document.body.dataset.wTotalBase;     // /waves/0/total
-    const C_STATUS  = document.body.dataset.cStatusBase;   // /campaigns/0/status
+    const CD_LIST   = dataDiv.dataset.cdListBase;     // /campaigns/0/discounts
+    const CD_CREATE = dataDiv.dataset.cdCreateBase;   // /campaigns/0/discounts
+    const WD_LIST   = dataDiv.dataset.wdListBase;     // /waves/0/discounts
+    const WD_CREATE = dataDiv.dataset.wdCreateBase;   // /waves/0/discounts
+    const D_UPDATE  = dataDiv.dataset.dUpdateBase;    // /discounts/0
+    const D_DELETE  = dataDiv.dataset.dDeleteBase;    // /discounts/0
+    const W_TOTAL   = dataDiv.dataset.wTotalBase;     // /waves/0/total
+    const C_STATUS  = dataDiv.dataset.cStatusBase;   // /campaigns/0/status
     
-    const TVC_LIST   = document.body.dataset.tvcListBase;   // /campaigns/0/tvcs
-    const TVC_CREATE = document.body.dataset.tvcCreateBase; // /campaigns/0/tvcs
-    const TVC_UPDATE = document.body.dataset.tvcUpdateBase; // /tvcs/0
-    const TVC_DELETE = document.body.dataset.tvcDeleteBase; // /tvcs/0
+    const TVC_LIST   = dataDiv.dataset.tvcListBase;   // /campaigns/0/tvcs
+    const TVC_CREATE = dataDiv.dataset.tvcCreateBase; // /campaigns/0/tvcs
+    const TVC_UPDATE = dataDiv.dataset.tvcUpdateBase; // /tvcs/0
+    const TVC_DELETE = dataDiv.dataset.tvcDeleteBase; // /tvcs/0
 
     const $ = s => document.querySelector(s);
     const cTbody = $('#cTbody');

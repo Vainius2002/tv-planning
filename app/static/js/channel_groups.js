@@ -2,16 +2,17 @@
   'use strict';
 
   window.addEventListener('DOMContentLoaded', () => {
-    const CG_LIST        = document.body.dataset.cgList;
-    const CG_CREATE      = document.body.dataset.cgCreate;
-    const CG_UPDATE_BASE = document.body.dataset.cgUpdateBase; // .../channel-groups/0
-    const CG_DELETE_BASE = document.body.dataset.cgDeleteBase; // .../channel-groups/0
+    const dataDiv = document.querySelector('[data-cg-list]');
+    const CG_LIST        = dataDiv.dataset.cgList;
+    const CG_CREATE      = dataDiv.dataset.cgCreate;
+    const CG_UPDATE_BASE = dataDiv.dataset.cgUpdateBase; // .../channel-groups/0
+    const CG_DELETE_BASE = dataDiv.dataset.cgDeleteBase; // .../channel-groups/0
 
-    const CH_LIST_BASE   = document.body.dataset.chListBase;   // append /<gid>/channels
-    const CH_UPDATE_BASE = document.body.dataset.chUpdateBase; // .../channels/0
-    const CH_DELETE_BASE = document.body.dataset.chDeleteBase; // .../channels/0
+    const CH_LIST_BASE   = dataDiv.dataset.chListBase;   // append /<gid>/channels
+    const CH_UPDATE_BASE = dataDiv.dataset.chUpdateBase; // .../channels/0
+    const CH_DELETE_BASE = dataDiv.dataset.chDeleteBase; // .../channels/0
 
-    const DEV_SEED  = document.body.dataset.devSeed;
+    const DEV_SEED  = dataDiv.dataset.devSeed;
 
     const $ = s => document.querySelector(s);
     const cgTbody  = $('#cgTbody');

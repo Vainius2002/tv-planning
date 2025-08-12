@@ -5,6 +5,13 @@ from app import models
 from datetime import datetime, timedelta
 import calendar
 
+# Lithuanian month names
+LITHUANIAN_MONTHS = {
+    1: 'Sausis', 2: 'Vasaris', 3: 'Kovas', 4: 'Balandis',
+    5: 'Gegužė', 6: 'Birželis', 7: 'Liepa', 8: 'Rugpjūtis',
+    9: 'Rugsėjis', 10: 'Spalis', 11: 'Lapkritis', 12: 'Gruodis'
+}
+
 @bp.route("/calendar", methods=["GET"])
 def calendar_page():
     """Calendar view page"""
@@ -57,7 +64,7 @@ def calendar_month_data(year, month):
     """Get calendar structure for a specific month"""
     # Create calendar matrix
     cal = calendar.monthcalendar(year, month)
-    month_name = calendar.month_name[month]
+    month_name = LITHUANIAN_MONTHS.get(month, f'Month {month}')
     
     return jsonify({
         'year': year,

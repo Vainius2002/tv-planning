@@ -2,9 +2,10 @@
   'use strict';
 
   window.addEventListener("DOMContentLoaded", () => {
-    const TRP_GET  = document.body.dataset.trpGet;
-    const TRP_POST = document.body.dataset.trpPost;
-    const TRP_BASE = document.body.dataset.trpBase;
+    const dataDiv = document.querySelector('[data-trp-get]');
+    const TRP_GET  = dataDiv.dataset.trpGet;
+    const TRP_POST = dataDiv.dataset.trpPost;
+    const TRP_BASE = dataDiv.dataset.trpBase;
 
     const FIELDS = [
       "owner","target_group","primary_label","secondary_label",

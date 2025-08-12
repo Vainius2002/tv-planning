@@ -2,16 +2,17 @@
   'use strict';
 
   window.addEventListener('DOMContentLoaded', () => {
-    const PL_LIST   = document.body.dataset.plList;
-    const PL_CREATE = document.body.dataset.plCreate;
-    const PL_DELETE_BASE = document.body.dataset.plDeleteBase; // .../pricing-lists/0
-    const PL_DUP_BASE    = document.body.dataset.plDupBase;    // .../pricing-lists/0/duplicate
+    const dataDiv = document.querySelector('[data-pl-list]');
+    const PL_LIST   = dataDiv.dataset.plList;
+    const PL_CREATE = dataDiv.dataset.plCreate;
+    const PL_DELETE_BASE = dataDiv.dataset.plDeleteBase; // .../pricing-lists/0
+    const PL_DUP_BASE    = dataDiv.dataset.plDupBase;    // .../pricing-lists/0/duplicate
 
-    const PLI_LIST_BASE   = document.body.dataset.pliListBase;   // .../pricing-lists/0/items
-    const PLI_UPDATE_BASE = document.body.dataset.pliUpdateBase; // .../pricing-list-items/0
-    const PLI_DELETE_BASE = document.body.dataset.pliDeleteBase; // .../pricing-list-items/0
+    const PLI_LIST_BASE   = dataDiv.dataset.pliListBase;   // .../pricing-lists/0/items
+    const PLI_UPDATE_BASE = dataDiv.dataset.pliUpdateBase; // .../pricing-list-items/0
+    const PLI_DELETE_BASE = dataDiv.dataset.pliDeleteBase; // .../pricing-list-items/0
 
-    const CG_LIST = document.body.dataset.cgList;
+    const CG_LIST = dataDiv.dataset.cgList;
 
     const $ = s => document.querySelector(s);
     const plSelect = $('#plSelect');

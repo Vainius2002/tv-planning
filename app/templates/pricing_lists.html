@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pricing Lists</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    td[contenteditable="true"] { outline: none; }
+    .dirty td { background: #FFFBEB; }  /* amber-50 */
+  </style>
+</head>
+<body
+  class="min-h-screen bg-slate-50 text-slate-900"
+  data-pl-list="{{ url_for('pricing_lists.pl_list') }}"
+  data-pl-create="{{ url_for('pricing_lists.pl_create') }}"
+  data-pl-delete-base="{{ url_for('pricing_lists.pl_delete', list_id=0) }}"
+  data-pl-dup-base="{{ url_for('pricing_lists.pl_duplicate', list_id=0) }}"
+  data-pli-list-base="{{ url_for('pricing_lists.pli_list', list_id=0) }}"
+  data-pli-update-base="{{ url_for('pricing_lists.pli_update', item_id=0) }}"
+  data-pli-delete-base="{{ url_for('pricing_lists.pli_delete', item_id=0) }}"
+  data-cg-list="{{ url_for('channel_groups.cg_list') }}"
+>
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <h1 class="text-xl font-semibold">Pricing Lists</h1>
+      <nav class="text-sm text-slate-600">
+        <a class="hover:text-slate-900" href="/trp-admin">TRP Admin</a>
+        <span class="mx-2">•</span>
+        <a class="hover:text-slate-900" href="/trp-admin/channel-groups-admin">Channel Groups</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8 space-y-6">
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+      <div class="flex flex-wrap items-end gap-3">
+        <div>
+          <label class="block text-sm text-slate-600 mb-1">Pasirinkite sąrašą</label>
+          <select id="plSelect" class="rounded-lg border-slate-300 px-3 py-2 text-sm min-w-[220px]"></select>
+        </div>
+
+        <div>
+          <label class="block text-sm text-slate-600 mb-1">Naujas sąrašas</label>
+          <input id="plName" class="rounded-lg border-slate-300 px-3 py-2 text-sm" placeholder="pvz. 2025 H2">
+        </div>
+        <button id="plAdd" class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Sukurti</button>
+
+        <div class="hidden md:block w-px h-8 bg-slate-200 mx-1"></div>
+
+        <div>
+          <label class="block text-sm text-slate-600 mb-1">Kopijos pavadinimas</label>
+          <input id="plCopyName" class="rounded-lg border-slate-300 px-3 py-2 text-sm" placeholder="pvz. 2025 H2 Promo">
+        </div>
+        <button id="plDuplicate" class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Dubliuoti</button>
+
+        <button id="plDelete" class="px-3 py-2 text-sm rounded-lg border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 ml-auto">Šalinti sąrašą</button>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200">
+      <div class="p-4 border-b border-slate-200 flex items-center gap-3">
+        <button id="addRow" class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50">+ Nauja eilutė</button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50 text-slate-700 border-b border-slate-200">
+            <tr>
+              <th class="text-left font-medium px-4 py-2">Grupė</th>
+              <th class="text-left font-medium px-4 py-2">Tikslinė grupė</th>
+              <th class="text-left font-medium px-4 py-2">Pagr. kanalas</th>
+              <th class="text-left font-medium px-4 py-2">Papildomi</th>
+              <th class="text-left font-medium px-4 py-2 w-36">TRP dalis (pagr.) %</th>
+              <th class="text-left font-medium px-4 py-2 w-36">TRP dalis (papild.) %</th>
+              <th class="text-left font-medium px-4 py-2 w-36">Prime dalis (pagr.) %</th>
+              <th class="text-left font-medium px-4 py-2 w-36">Prime dalis (papild.) %</th>
+              <th class="text-left font-medium px-4 py-2 w-32">Kaina, €/sek</th>
+              <th class="text-left font-medium px-4 py-2 w-44">Veiksmai</th>
+            </tr>
+          </thead>
+          <tbody id="pliTbody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <template id="rowTpl">
+    <tr data-id="">
+      <td class="px-4 py-2">
+        <select data-field="channel_group_id" class="ownerSel rounded-lg border-slate-300 px-2 py-1 text-sm"></select>
+      </td>
+      <td contenteditable="true" data-field="target_group" class="px-4 py-2"></td>
+      <td contenteditable="true" data-field="primary_label" class="px-4 py-2"></td>
+      <td contenteditable="true" data-field="secondary_label" class="px-4 py-2"></td>
+      <td contenteditable="true" data-field="share_primary" class="px-4 py-2"></td>
+      <td contenteditable="true" data-field="share_secondary" class="px-4 py-2"></td>
+      <td contenteditable="true" data-field="prime_share_primary" class="px-4 py-2"></td>
+      <td contenteditable="true" data-field="prime_share_secondary" class="px-4 py-2"></td>
+      <td contenteditable="true" data-field="price_per_sec_eur" class="px-4 py-2"></td>
+      <td class="px-4 py-2">
+        <div class="flex flex-wrap gap-2">
+          <button class="save px-3 py-1.5 text-xs rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">Saugoti</button>
+          <button class="revert px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Atšaukti</button>
+          <button class="delete px-3 py-1.5 text-xs rounded-lg border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100">Šalinti</button>
+        </div>
+      </td>
+    </tr>
+  </template>
+
+  <script defer src="{{ url_for('static', filename='js/pricing_lists.js') }}?v=1"></script>
+</body>
+</html>

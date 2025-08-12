@@ -40,8 +40,12 @@ def cg_update(gid):
 
 @bp.route("/channel-groups/<int:gid>", methods=["DELETE"])
 def cg_delete(gid):
-    models.delete_channel_group(gid)
-    return jsonify({"status": "ok"})
+    try:
+        models.delete_channel_group(gid)
+        return jsonify({"status": "ok"})
+    except ValueError as e:
+        # Group used by TRP rates → block deletion
+        return jsonify({"status": "error", "message": str(e)}), 409
 
 
 # ---------------------------

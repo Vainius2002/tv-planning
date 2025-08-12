@@ -1,6 +1,9 @@
 # models.py
-import sqlite3, os
+import os
+import sqlite3
+
 DB_PATH = os.path.join(os.path.dirname(__file__), "tv-calc.db")
+
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -8,6 +11,7 @@ def get_db():
     # important for ON DELETE CASCADE
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
 
 def init_db():
     with get_db() as db:
@@ -45,6 +49,7 @@ def init_db():
         """)
         db.commit()
 
+
 # -------------------------------------------------------------------
 # Channel groups / channels helpers
 # -------------------------------------------------------------------
@@ -55,20 +60,29 @@ def upsert_channel_group(name: str) -> int:
         row = db.execute("SELECT id FROM channel_groups WHERE name=?", (name,)).fetchone()
         return row["id"]
 
+
 def list_channel_groups():
     with get_db() as db:
         rows = db.execute("SELECT id, name FROM channel_groups ORDER BY name").fetchall()
         return [dict(r) for r in rows]
 
+
+def channel_group_name(group_id: int) -> str | None:
+    with get_db() as db:
+        row = db.execute("SELECT name FROM channel_groups WHERE id=?", (group_id,)).fetchone()
+        return row["name"] if row else None
+
+
 def create_channel(channel_group_id: int, name: str, size: str):
     size = size.lower()
-    if size not in ("big","small"):
+    if size not in ("big", "small"):
         raise ValueError("size must be 'big' or 'small'")
     with get_db() as db:
         db.execute("""
             INSERT INTO channels(channel_group_id, name, size)
             VALUES (?,?,?)
         """, (channel_group_id, name, size))
+
 
 def list_channels(channel_group_id: int | None = None):
     with get_db() as db:
@@ -89,13 +103,14 @@ def list_channels(channel_group_id: int | None = None):
             """).fetchall()
         return [dict(r) for r in rows]
 
+
 def update_channel(channel_id: int, *, name: str | None = None, size: str | None = None):
     sets, args = [], []
     if name is not None:
         sets.append("name=?"); args.append(name)
     if size is not None:
         size = size.lower()
-        if size not in ("big","small"):
+        if size not in ("big", "small"):
             raise ValueError("size must be 'big' or 'small'")
         sets.append("size=?"); args.append(size)
     if not sets:
@@ -104,16 +119,50 @@ def update_channel(channel_id: int, *, name: str | None = None, size: str | None
     with get_db() as db:
         db.execute(f"UPDATE channels SET {', '.join(sets)} WHERE id=?", args)
 
+
 def delete_channel(channel_id: int):
     with get_db() as db:
         db.execute("DELETE FROM channels WHERE id=?", (channel_id,))
 
+
+def update_channel_group(group_id: int, name: str):
+    """Rename group and propagate the new name to trp_rates.owner."""
+    if not name or not name.strip():
+        raise ValueError("name required")
+    new_name = name.strip()
+    with get_db() as db:
+        # find old name
+        row = db.execute("SELECT name FROM channel_groups WHERE id=?", (group_id,)).fetchone()
+        if not row:
+            return
+        old_name = row["name"]
+
+        # update group name (may raise sqlite3.IntegrityError if duplicate)
+        db.execute("UPDATE channel_groups SET name=? WHERE id=?", (new_name, group_id))
+
+        # propagate to trp_rates
+        if old_name != new_name:
+            db.execute("UPDATE trp_rates SET owner=? WHERE owner=?", (new_name, old_name))
+
+
+def delete_channel_group(group_id: int):
+    """Block delete if referenced by TRP rates; otherwise delete (channels cascade)."""
+    name = channel_group_name(group_id)
+    if not name:
+        return
+    with get_db() as db:
+        used = db.execute("SELECT COUNT(*) AS c FROM trp_rates WHERE owner=?", (name,)).fetchone()["c"]
+        if used:
+            raise ValueError("Negalima ištrinti: grupė naudojama TRP kainodaroje.")
+        db.execute("DELETE FROM channel_groups WHERE id=?", (group_id,))
+
+
 def seed_channel_groups():
     """Idempotent seed for AMB Baltics, MG grupė and their channels."""
     amb_id = upsert_channel_group("AMB Baltics")
-    mg_id  = upsert_channel_group("MG grupė")
+    mg_id = upsert_channel_group("MG grupė")
 
-    existing = { (r["channel_group_id"], r["name"]) for r in list_channels() }
+    existing = {(r["channel_group_id"], r["name"]) for r in list_channels()}
 
     def ensure(gid, name, size):
         if (gid, name) not in existing:
@@ -128,20 +177,23 @@ def seed_channel_groups():
     # MG grupė
     ensure(mg_id, "LNK", "big")
 
-def update_channel_group(group_id: int, name: str):
-    if not name or not name.strip():
-        raise ValueError("name required")
-    with get_db() as db:
-        db.execute("UPDATE channel_groups SET name=? WHERE id=?", (name.strip(), group_id))
-
-def delete_channel_group(group_id: int):
-    # ON DELETE CASCADE will remove its channels
-    with get_db() as db:
-        db.execute("DELETE FROM channel_groups WHERE id=?", (group_id,))
 
 # -------------------------------------------------------------------
 # TRP rates helpers (used by /trp-admin/trp* routes)
 # -------------------------------------------------------------------
+
+def owner_exists(owner_name: str) -> bool:
+    if not owner_name:
+        return False
+    with get_db() as db:
+        row = db.execute("SELECT 1 FROM channel_groups WHERE name=?", (owner_name,)).fetchone()
+        return bool(row)
+
+
+def _ensure_owner_exists(owner_name: str):
+    if not owner_exists(owner_name):
+        raise ValueError("Unknown owner. Create or rename it in Channel Groups Admin.")
+
 
 def _norm_number(x):
     if x is None:
@@ -153,6 +205,7 @@ def _norm_number(x):
     s = s.replace("€", "").replace("%", "").replace(" ", "").replace(",", ".")
     return float(s)
 
+
 def upsert_trp_rate(**k):
     # required fields
     if not k.get("owner") or not k.get("target_group") or not k.get("primary_label"):
@@ -160,10 +213,13 @@ def upsert_trp_rate(**k):
     if k.get("price_per_sec_eur") in (None, ""):
         raise ValueError("price_per_sec_eur is required")
 
+    # enforce owner exists in channel_groups
+    _ensure_owner_exists(k.get("owner"))
+
     # normalize numerics
     for f in [
-        "share_primary","share_secondary",
-        "prime_share_primary","prime_share_secondary",
+        "share_primary", "share_secondary",
+        "prime_share_primary", "prime_share_secondary",
         "price_per_sec_eur"
     ]:
         if f in k:
@@ -191,6 +247,7 @@ def upsert_trp_rate(**k):
                 price_per_sec_eur=excluded.price_per_sec_eur
         """, k)
 
+
 def list_trp_rates(owner=None):
     with get_db() as db:
         if owner:
@@ -204,18 +261,24 @@ def list_trp_rates(owner=None):
             ).fetchall()
     return [dict(r) for r in rows]
 
-def update_trp_rate_by_id(row_id, data: dict):
+
+def update_trp_rate_by_id(row_id: int, data: dict):
     if not data:
         return
+
+    # if owner is being changed, validate it
+    if "owner" in data and data["owner"] is not None:
+        _ensure_owner_exists(data["owner"])
+
     to_update = {}
     for key in [
-        "owner","target_group","primary_label","secondary_label",
-        "share_primary","share_secondary","prime_share_primary","prime_share_secondary",
+        "owner", "target_group", "primary_label", "secondary_label",
+        "share_primary", "share_secondary", "prime_share_primary", "prime_share_secondary",
         "price_per_sec_eur"
     ]:
         if key in data:
             val = data[key]
-            if key in {"share_primary","share_secondary","prime_share_primary","prime_share_secondary","price_per_sec_eur"}:
+            if key in {"share_primary", "share_secondary", "prime_share_primary", "prime_share_secondary", "price_per_sec_eur"}:
                 val = _norm_number(val)
             to_update[key] = val
 
@@ -227,6 +290,7 @@ def update_trp_rate_by_id(row_id, data: dict):
 
     with get_db() as db:
         db.execute(f"UPDATE trp_rates SET {sets} WHERE id=?", args)
+
 
 def delete_trp_rate(row_id: int):
     with get_db() as db:

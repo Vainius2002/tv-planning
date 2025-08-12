@@ -1,0 +1,105 @@
+<!-- templates/campaigns_admin.html -->
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kampanijos ir bangos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900"
+  data-pl-list="{{ url_for('campaigns.pl_list') }}"
+  data-pl-owners-base="{{ url_for('campaigns.pl_owners', pl_id=0) }}"
+  data-pl-targets-base="{{ url_for('campaigns.pl_targets', pl_id=0) }}"
+  data-c-list="{{ url_for('campaigns.campaigns_list') }}"
+  data-c-create="{{ url_for('campaigns.campaigns_create') }}"
+  data-c-update-base="{{ url_for('campaigns.campaigns_update', cid=0) }}"
+  data-c-delete-base="{{ url_for('campaigns.campaigns_delete', cid=0) }}"
+  data-w-list-base="{{ url_for('campaigns.waves_list', cid=0) }}"
+  data-w-create-base="{{ url_for('campaigns.waves_create', cid=0) }}"
+  data-w-update-base="{{ url_for('campaigns.waves_update', wid=0) }}"
+  data-w-delete-base="{{ url_for('campaigns.waves_delete', wid=0) }}"
+  data-i-list-base="{{ url_for('campaigns.wave_items_list', wid=0) }}"
+  data-i-create-base="{{ url_for('campaigns.wave_items_create', wid=0) }}"
+  data-i-update-base="{{ url_for('campaigns.wave_items_update', iid=0) }}"
+  data-i-delete-base="{{ url_for('campaigns.wave_items_delete', iid=0) }}"
+>
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <h1 class="text-xl font-semibold">Kampanijos / Bangos</h1>
+      <nav class="text-sm text-slate-600">
+        <a class="hover:text-slate-900" href="/trp-admin">TRP Admin</a>
+        <span class="mx-2">•</span>
+        <a class="hover:text-slate-900" href="/trp-admin/channel-groups-admin">Kanalų grupės</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8 space-y-8">
+    <!-- Campaigns -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 class="font-semibold mb-4">Kampanijos</h2>
+      <div class="grid md:grid-cols-5 gap-3 items-end">
+        <div class="md:col-span-2">
+          <label class="block text-sm text-slate-600 mb-1">Pavadinimas</label>
+          <input id="cName" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm text-slate-600 mb-1">Kainoraštis</label>
+          <select id="cPL" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm"></select>
+        </div>
+        <div>
+          <label class="block text-sm text-slate-600 mb-1">Laikotarpis</label>
+          <div class="flex gap-2">
+            <input id="cStart" type="date" class="rounded-lg border-slate-300 px-3 py-2 text-sm">
+            <input id="cEnd" type="date" class="rounded-lg border-slate-300 px-3 py-2 text-sm">
+          </div>
+        </div>
+        <div>
+          <button id="cCreate" class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50 w-full">Sukurti</button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto mt-4">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50 text-slate-700 border-b border-slate-200">
+            <tr>
+              <th class="text-left font-medium px-4 py-2">#</th>
+              <th class="text-left font-medium px-4 py-2">Pavadinimas</th>
+              <th class="text-left font-medium px-4 py-2">Kainoraštis</th>
+              <th class="text-left font-medium px-4 py-2">Laikotarpis</th>
+              <th class="text-left font-medium px-4 py-2 w-40">Veiksmai</th>
+            </tr>
+          </thead>
+          <tbody id="cTbody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Waves + Items -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <h2 class="font-semibold mb-4">Bangos</h2>
+      <div id="wavePanel" class="hidden">
+        <div class="flex items-end gap-3 mb-4">
+          <div>
+            <label class="block text-sm text-slate-600 mb-1">Bangos pavadinimas</label>
+            <input id="wName" class="rounded-lg border-slate-300 px-3 py-2 text-sm w-64">
+          </div>
+          <div>
+            <label class="block text-sm text-slate-600 mb-1">Laikotarpis</label>
+            <div class="flex gap-2">
+              <input id="wStart" type="date" class="rounded-lg border-slate-300 px-3 py-2 text-sm">
+              <input id="wEnd" type="date" class="rounded-lg border-slate-300 px-3 py-2 text-sm">
+            </div>
+          </div>
+          <button id="wAdd" class="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Pridėti bangą</button>
+        </div>
+
+        <div id="waves"></div>
+      </div>
+      <p id="noCampaign" class="text-slate-500">Pasirinkite arba sukurkite kampaniją.</p>
+    </section>
+  </main>
+
+  <script defer src="{{ url_for('static', filename='js/campaigns_admin.js') }}?v=1"></script>
+</body>
+</html>

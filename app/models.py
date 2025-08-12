@@ -110,6 +110,16 @@ def init_db():
             status TEXT DEFAULT 'draft',
             FOREIGN KEY(pricing_list_id) REFERENCES pricing_lists(id) ON DELETE RESTRICT
         )""")
+        
+        # TVC (TV Commercials) table
+        db.execute("""
+        CREATE TABLE IF NOT EXISTS tvcs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            campaign_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            duration INTEGER NOT NULL, -- duration in seconds
+            FOREIGN KEY(campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE
+        )""")
         db.execute("""
         CREATE TABLE IF NOT EXISTS waves (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -133,7 +143,9 @@ def init_db():
             prime_share_secondary REAL,
             price_per_sec_eur REAL NOT NULL,
             trps REAL NOT NULL,
-            FOREIGN KEY(wave_id) REFERENCES waves(id) ON DELETE CASCADE
+            tvc_id INTEGER,
+            FOREIGN KEY(wave_id) REFERENCES waves(id) ON DELETE CASCADE,
+            FOREIGN KEY(tvc_id) REFERENCES tvcs(id) ON DELETE SET NULL
         )""")
 
         db.commit()
@@ -152,6 +164,19 @@ def init_db():
         )
         """)
         db.commit()
+
+def migrate_add_tvc_id_to_wave_items():
+    """Add tvc_id column to wave_items table if it doesn't exist"""
+    with get_db() as db:
+        # Check if tvc_id column already exists
+        cursor = db.execute("PRAGMA table_info(wave_items)")
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        if 'tvc_id' not in columns:
+            # Add the tvc_id column
+            db.execute("ALTER TABLE wave_items ADD COLUMN tvc_id INTEGER")
+            db.commit()
+            print("Added tvc_id column to wave_items table")
 
 # ---------------- Channel groups / channels ----------------
 
@@ -516,24 +541,37 @@ def list_wave_items(wave_id: int):
         """, (wave_id,)).fetchall()
         return [dict(r) for r in rows]
 
-def create_wave_item_prefill(wave_id: int, owner: str, target_group: str, trps: float) -> int:
+def create_wave_item_prefill(wave_id: int, owner: str, target_group: str, trps: float, tvc_id: int = None) -> int:
     pl_id = _pricing_list_id_for_wave(wave_id)
     if not pl_id:
         raise ValueError("Pricing list not found for wave")
     rate = get_pricing_item(pl_id, owner, target_group)
     if not rate:
         raise ValueError("Rate not found in pricing list for given owner/target_group")
+    
+    # Validate TVC belongs to this wave's campaign if provided
+    if tvc_id is not None:
+        with get_db() as db:
+            tvc_check = db.execute("""
+            SELECT t.campaign_id, w.campaign_id as wave_campaign_id 
+            FROM tvcs t, waves w 
+            WHERE t.id = ? AND w.id = ?
+            """, (tvc_id, wave_id)).fetchone()
+            
+            if not tvc_check or tvc_check['campaign_id'] != tvc_check['wave_campaign_id']:
+                raise ValueError("TVC doesn't belong to this campaign")
+    
     with get_db() as db:
         db.execute("""
             INSERT INTO wave_items(
                 wave_id, owner, target_group, primary_label, secondary_label,
                 share_primary, share_secondary, prime_share_primary, prime_share_secondary,
-                price_per_sec_eur, trps
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                price_per_sec_eur, trps, tvc_id
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             wave_id, owner, target_group, rate["primary_label"], rate["secondary_label"],
             rate["share_primary"], rate["share_secondary"], rate["prime_share_primary"], rate["prime_share_secondary"],
-            rate["price_per_sec_eur"], _norm_number(trps)
+            rate["price_per_sec_eur"], _norm_number(trps), tvc_id
         ))
         return db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
 
@@ -556,6 +594,60 @@ def update_wave_item(item_id: int, data: dict):
 def delete_wave_item(item_id: int):
     with get_db() as db:
         db.execute("DELETE FROM wave_items WHERE id=?", (item_id,))
+
+# ---------------- TVCs (TV Commercials) ----------------
+
+def create_tvc(campaign_id: int, name: str, duration: int):
+    """Create a new TVC for a campaign"""
+    if not name.strip():
+        raise ValueError("TVC name is required")
+    if duration <= 0:
+        raise ValueError("Duration must be positive")
+    
+    with get_db() as db:
+        cursor = db.execute("""
+        INSERT INTO tvcs (campaign_id, name, duration)
+        VALUES (?, ?, ?)
+        """, (campaign_id, name.strip(), duration))
+        return cursor.lastrowid
+
+def list_campaign_tvcs(campaign_id: int):
+    """Get all TVCs for a campaign"""
+    with get_db() as db:
+        rows = db.execute("""
+        SELECT * FROM tvcs WHERE campaign_id = ? ORDER BY name
+        """, (campaign_id,)).fetchall()
+        return [dict(r) for r in rows]
+
+def update_tvc(tvc_id: int, name: str = None, duration: int = None):
+    """Update TVC name and/or duration"""
+    updates = []
+    values = []
+    
+    if name is not None:
+        if not name.strip():
+            raise ValueError("TVC name cannot be empty")
+        updates.append("name = ?")
+        values.append(name.strip())
+    
+    if duration is not None:
+        if duration <= 0:
+            raise ValueError("Duration must be positive")
+        updates.append("duration = ?")
+        values.append(duration)
+    
+    if not updates:
+        return
+    
+    values.append(tvc_id)
+    
+    with get_db() as db:
+        db.execute(f"UPDATE tvcs SET {', '.join(updates)} WHERE id = ?", values)
+
+def delete_tvc(tvc_id: int):
+    """Delete a TVC"""
+    with get_db() as db:
+        db.execute("DELETE FROM tvcs WHERE id = ?", (tvc_id,))
 
 # ---------------- Discounts ----------------
 

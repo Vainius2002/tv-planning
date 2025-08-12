@@ -82,10 +82,22 @@ def wave_items_create(wid):
     owner = (data.get("owner") or "").strip()
     tg    = (data.get("target_group") or "").strip()
     trps  = data.get("trps")
+    tvc_id = data.get("tvc_id")  # Optional TVC assignment
+    
     if not owner or not tg or trps in (None, ""):
         return jsonify({"status":"error","message":"owner, target_group, trps required"}), 400
+    
+    # Convert empty string to None for tvc_id
+    if tvc_id == "" or tvc_id == "none":
+        tvc_id = None
+    elif tvc_id is not None:
+        try:
+            tvc_id = int(tvc_id)
+        except (ValueError, TypeError):
+            tvc_id = None
+            
     try:
-        iid = models.create_wave_item_prefill(wid, owner, tg, trps)
+        iid = models.create_wave_item_prefill(wid, owner, tg, trps, tvc_id)
         return jsonify({"status":"ok","id":iid}), 201
     except ValueError as e:
         return jsonify({"status":"error","message":str(e)}), 400
@@ -236,3 +248,43 @@ def export_agency_csv(cid):
         )
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+# TVCs
+@bp.route("/campaigns/<int:cid>/tvcs", methods=["GET"])
+def list_tvcs(cid):
+    """List all TVCs for a campaign"""
+    return jsonify(models.list_campaign_tvcs(cid))
+
+@bp.route("/campaigns/<int:cid>/tvcs", methods=["POST"])
+def create_tvc(cid):
+    """Create a new TVC for a campaign"""
+    data = request.get_json(force=True)
+    name = data.get("name", "").strip()
+    duration = data.get("duration", 0)
+    
+    try:
+        tvc_id = models.create_tvc(cid, name, int(duration))
+        return jsonify({"status": "ok", "id": tvc_id}), 201
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+@bp.route("/tvcs/<int:tvc_id>", methods=["PATCH"])
+def update_tvc(tvc_id):
+    """Update a TVC"""
+    data = request.get_json(force=True)
+    name = data.get("name")
+    duration = data.get("duration")
+    
+    try:
+        if duration is not None:
+            duration = int(duration)
+        models.update_tvc(tvc_id, name, duration)
+        return jsonify({"status": "ok"})
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+@bp.route("/tvcs/<int:tvc_id>", methods=["DELETE"])
+def delete_tvc(tvc_id):
+    """Delete a TVC"""
+    models.delete_tvc(tvc_id)
+    return jsonify({"status": "ok"})

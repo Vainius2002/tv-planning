@@ -30,6 +30,11 @@
     const D_DELETE  = document.body.dataset.dDeleteBase;    // /discounts/0
     const W_TOTAL   = document.body.dataset.wTotalBase;     // /waves/0/total
     const C_STATUS  = document.body.dataset.cStatusBase;   // /campaigns/0/status
+    
+    const TVC_LIST   = document.body.dataset.tvcListBase;   // /campaigns/0/tvcs
+    const TVC_CREATE = document.body.dataset.tvcCreateBase; // /campaigns/0/tvcs
+    const TVC_UPDATE = document.body.dataset.tvcUpdateBase; // /tvcs/0
+    const TVC_DELETE = document.body.dataset.tvcDeleteBase; // /tvcs/0
 
     const $ = s => document.querySelector(s);
     const cTbody = $('#cTbody');
@@ -39,10 +44,14 @@
     const wavePanel = $('#wavePanel');
     const wavesDiv  = $('#waves');
     const noCampaign = $('#noCampaign');
+    
+    const tvcName = $('#tvcName'), tvcDuration = $('#tvcDuration');
+    const tvcAdd = $('#tvcAdd'), tvcList = $('#tvcList');
 
     let lists = [];     // pricing lists
     let campaigns = []; // campaigns
     let currentCampaign = null;
+    let tvcs = [];      // TVCs for current campaign
 
     function urlReplace(base, id){ return base.replace(/\/0($|\/)/, `/${id}$1`); }
 
@@ -155,6 +164,135 @@
       await loadCampaigns();
     });
 
+    // -------- TVC Management --------
+    async function loadTVCs(campaignId) {
+      try {
+        tvcs = await fetchJSON(urlReplace(TVC_LIST, campaignId));
+        renderTVCs();
+      } catch (e) {
+        console.error('Error loading TVCs:', e);
+        tvcs = [];
+        renderTVCs();
+      }
+    }
+
+    function renderTVCs() {
+      tvcList.innerHTML = '';
+      tvcs.forEach(tvc => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between bg-white px-3 py-2 rounded border';
+        div.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="font-medium">${tvc.name}</span>
+            <span class="text-sm text-slate-500">${tvc.duration} sek.</span>
+          </div>
+          <div class="flex gap-2">
+            <button class="edit-tvc text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50" data-id="${tvc.id}">Redaguoti</button>
+            <button class="delete-tvc text-xs px-2 py-1 rounded border border-rose-300 text-rose-700 hover:bg-rose-50" data-id="${tvc.id}">Šalinti</button>
+          </div>
+        `;
+        
+        div.querySelector('.edit-tvc').addEventListener('click', () => editTVC(tvc));
+        div.querySelector('.delete-tvc').addEventListener('click', () => deleteTVC(tvc.id));
+        
+        tvcList.appendChild(div);
+      });
+      
+      // Update TVC selections in all wave forms
+      updateAllTVCSelections();
+    }
+
+    function updateAllTVCSelections() {
+      const tvcSelects = wavesDiv.querySelectorAll('.tvc-select');
+      tvcSelects.forEach(select => {
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">Pasirinkti TVC</option>';
+        tvcs.forEach(tvc => {
+          select.innerHTML += `<option value="${tvc.id}">${tvc.name} (${tvc.duration} sek.)</option>`;
+        });
+        // Restore selected value if still exists
+        if (currentValue && tvcs.some(tvc => tvc.id == currentValue)) {
+          select.value = currentValue;
+        }
+      });
+    }
+
+
+    async function createTVC() {
+      const name = tvcName.value.trim();
+      const duration = parseInt(tvcDuration.value) || 0;
+      
+      if (!name) {
+        alert('Įveskite TVC pavadinimą');
+        return;
+      }
+      if (duration <= 0) {
+        alert('Įveskite teisingą trukmę');
+        return;
+      }
+      
+      try {
+        await fetchJSON(urlReplace(TVC_CREATE, currentCampaign.id), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, duration })
+        });
+        
+        tvcName.value = '';
+        tvcDuration.value = '';
+        await loadTVCs(currentCampaign.id);
+        await loadWaves(currentCampaign.id); // Reload waves to update TVC dropdowns
+      } catch (e) {
+        alert('Klaida kuriant TVC: ' + e.message);
+      }
+    }
+
+    function editTVC(tvc) {
+      const newName = prompt('TVC pavadinimas:', tvc.name);
+      const newDuration = prompt('Trukmė (sek.):', tvc.duration);
+      
+      if (newName === null || newDuration === null) return;
+      
+      if (!newName.trim()) {
+        alert('Pavadinimas negali būti tuščias');
+        return;
+      }
+      
+      const duration = parseInt(newDuration) || 0;
+      if (duration <= 0) {
+        alert('Trukmė turi būti teigiama');
+        return;
+      }
+      
+      updateTVC(tvc.id, newName.trim(), duration);
+    }
+
+    async function updateTVC(id, name, duration) {
+      try {
+        await fetchJSON(urlReplace(TVC_UPDATE, id), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, duration })
+        });
+        await loadTVCs(currentCampaign.id);
+        await loadWaves(currentCampaign.id); // Reload waves to update TVC displays
+      } catch (e) {
+        alert('Klaida redaguojant TVC: ' + e.message);
+      }
+    }
+
+    async function deleteTVC(id) {
+      if (!confirm('Šalinti TVC?')) return;
+      
+      try {
+        await fetchJSON(urlReplace(TVC_DELETE, id), { method: 'DELETE' });
+        await loadTVCs(currentCampaign.id);
+        await loadWaves(currentCampaign.id); // Reload waves to update TVC displays
+      } catch (e) {
+        alert('Klaida šalinant TVC: ' + e.message);
+      }
+    }
+
     function renderCurrentCampaign(){
       if(!currentCampaign){
         wavePanel.classList.add('hidden');
@@ -164,6 +302,7 @@
       }
       wavePanel.classList.remove('hidden');
       noCampaign.classList.add('hidden');
+      loadTVCs(currentCampaign.id);  // Load TVCs when campaign opens
       loadWaves(currentCampaign.id);
     }
 
@@ -197,6 +336,12 @@
                 <select class="tg rounded-lg border-slate-300 px-3 py-2 text-sm"></select>
               </div>
               <div>
+                <label class="block text-sm text-slate-600 mb-1">TVC</label>
+                <select class="tvc-select rounded-lg border-slate-300 px-3 py-2 text-sm">
+                  <option value="">Pasirinkti TVC</option>
+                </select>
+              </div>
+              <div>
                 <label class="block text-sm text-slate-600 mb-1">TRP kiekis</label>
                 <input class="trps rounded-lg border-slate-300 px-3 py-2 text-sm w-32" type="number" step="0.01" placeholder="pvz. 120">
               </div>
@@ -227,6 +372,7 @@
                   <tr>
                     <th class="text-left font-medium px-3 py-2">Savininkas</th>
                     <th class="text-left font-medium px-3 py-2">Tikslinė grupė</th>
+                    <th class="text-left font-medium px-3 py-2">TVC</th>
                     <th class="text-left font-medium px-3 py-2">TRP</th>
                     <th class="text-left font-medium px-3 py-2">€/sek</th>
                     <th class="text-left font-medium px-3 py-2 w-40">Veiksmai</th>
@@ -240,6 +386,7 @@
         // Populate owner/targets from pricing list for this campaign
         const ownerSel = section.querySelector('.owner');
         const tgSel    = section.querySelector('.tg');
+        const tvcSel   = section.querySelector('.tvc-select');
         const itemsTbody = section.querySelector('.items');
 
         // load owners
@@ -254,17 +401,28 @@
         if (owners[0]) await loadTargetsForOwner(owners[0]);
         ownerSel.addEventListener('change', () => loadTargetsForOwner(ownerSel.value));
 
+        // load TVCs
+        function loadTVCsIntoSelect(){
+          tvcSel.innerHTML = '<option value="">Pasirinkti TVC</option>';
+          tvcs.forEach(tvc => {
+            tvcSel.innerHTML += `<option value="${tvc.id}">${tvc.name} (${tvc.duration} sek.)</option>`;
+          });
+        }
+        loadTVCsIntoSelect();
+
         // add item
         section.querySelector('.i-add').addEventListener('click', async () => {
           const trps = section.querySelector('.trps').value;
+          const tvcId = tvcSel.value || null;
           if(!ownerSel.value || !tgSel.value || !trps){ alert('Užpildykite savininką, tikslinę grupę ir TRP'); return; }
           const iid = await fetchJSON(urlReplace(I_CREATE, w.id), {
             method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ owner: ownerSel.value, target_group: tgSel.value, trps })
+            body: JSON.stringify({ owner: ownerSel.value, target_group: tgSel.value, trps, tvc_id: tvcId })
           });
           await reloadItems();
           await updateCostDisplay(); // Update costs after adding item
           section.querySelector('.trps').value = '';
+          tvcSel.value = ''; // Reset TVC selection
         });
 
         // delete wave
@@ -348,10 +506,15 @@
           const rows = await fetchJSON(urlReplace(I_LIST, w.id));
           itemsTbody.innerHTML = '';
           rows.forEach(r => {
+            // Find TVC info if tvc_id exists
+            const tvcInfo = r.tvc_id ? tvcs.find(tvc => tvc.id == r.tvc_id) : null;
+            const tvcDisplay = tvcInfo ? `${tvcInfo.name} (${tvcInfo.duration}s)` : '-';
+            
             const tr = document.createElement('tr');
             tr.innerHTML = `
               <td class="px-3 py-2">${r.owner}</td>
               <td class="px-3 py-2">${r.target_group}</td>
+              <td class="px-3 py-2 text-sm text-slate-600">${tvcDisplay}</td>
               <td class="px-3 py-2"><input class="itm-trps w-24 rounded border-slate-300 px-2 py-1" type="number" step="0.01" value="${r.trps ?? ''}"></td>
               <td class="px-3 py-2"><input class="itm-eur w-24 rounded border-slate-300 px-2 py-1" type="number" step="0.01" value="${r.price_per_sec_eur ?? ''}"></td>
               <td class="px-3 py-2">
@@ -386,6 +549,9 @@
         wavesDiv.appendChild(section);
       }
     }
+
+    // TVC add button
+    tvcAdd.addEventListener('click', createTVC);
 
     // add wave
     $('#wAdd').addEventListener('click', async () => {

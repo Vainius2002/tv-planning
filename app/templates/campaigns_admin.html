@@ -30,6 +30,10 @@
   data-d-delete-base="{{ url_for('campaigns.delete_discount', did=0) }}"
   data-w-total-base="{{ url_for('campaigns.get_wave_total', wid=0) }}"
   data-c-status-base="{{ url_for('campaigns.update_campaign_status', cid=0) }}"
+  data-tvc-list-base="{{ url_for('campaigns.list_tvcs', cid=0) }}"
+  data-tvc-create-base="{{ url_for('campaigns.create_tvc', cid=0) }}"
+  data-tvc-update-base="{{ url_for('campaigns.update_tvc', tvc_id=0) }}"
+  data-tvc-delete-base="{{ url_for('campaigns.delete_tvc', tvc_id=0) }}"
 >
   <header class="bg-white border-b border-slate-200">
     <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -88,6 +92,23 @@
     <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
       <h2 class="font-semibold mb-4">Bangos</h2>
       <div id="wavePanel" class="hidden">
+        <!-- TVC Management -->
+        <div class="mb-6 p-4 bg-slate-50 rounded-lg">
+          <h3 class="font-medium text-slate-700 mb-3">TVC valdymas</h3>
+          <div class="flex items-end gap-3 mb-3">
+            <div>
+              <label class="block text-sm text-slate-600 mb-1">TVC pavadinimas</label>
+              <input id="tvcName" class="rounded-lg border-slate-300 px-3 py-2 text-sm w-48" placeholder="pvz. Vasaros akcija">
+            </div>
+            <div>
+              <label class="block text-sm text-slate-600 mb-1">Trukmė (sek.)</label>
+              <input id="tvcDuration" type="number" min="1" max="300" class="rounded-lg border-slate-300 px-3 py-2 text-sm w-24" placeholder="30">
+            </div>
+            <button id="tvcAdd" class="px-3 py-2 text-sm rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">Pridėti TVC</button>
+          </div>
+          <div id="tvcList" class="space-y-2"></div>
+        </div>
+        
         <div class="flex items-end gap-3 mb-4">
           <div>
             <label class="block text-sm text-slate-600 mb-1">Bangos pavadinimas</label>

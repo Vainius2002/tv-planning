@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - TRP Admin{% endblock %}
+
+{% block content %}
+<div>
+  <!-- Welcome Header -->
+  <div class="mb-8">
+    <h1 class="text-4xl font-bold text-gray-900">Sveiki atvykę į TRP Admin</h1>
+    <p class="mt-2 text-lg text-gray-600">Televizijos reklamos planavimo ir valdymo sistema</p>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="mb-8">
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">Greiti veiksmai</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <a href="/trp-admin/campaigns-admin" class="group block p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-brand-300 transition-all">
+        <div class="flex items-center">
+          <div class="p-3 bg-brand-100 rounded-lg">
+            <svg class="w-6 h-6 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+            </svg>
+          </div>
+          <div class="ml-4">
+            <h3 class="text-sm font-medium text-gray-900 group-hover:text-brand-600 transition-colors">Nauja kampanija</h3>
+            <p class="text-sm text-gray-500">Sukurti TV kampaniją</p>
+          </div>
+        </div>
+      </a>
+
+      <a href="/trp-admin/calendar" class="group block p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-brand-300 transition-all">
+        <div class="flex items-center">
+          <div class="p-3 bg-emerald-100 rounded-lg">
+            <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+          </div>
+          <div class="ml-4">
+            <h3 class="text-sm font-medium text-gray-900 group-hover:text-emerald-600 transition-colors">Kalendorius</h3>
+            <p class="text-sm text-gray-500">Peržiūrėti tvarkaraštį</p>
+          </div>
+        </div>
+      </a>
+
+      <a href="/trp-admin/pricing-lists-admin" class="group block p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-brand-300 transition-all">
+        <div class="flex items-center">
+          <div class="p-3 bg-amber-100 rounded-lg">
+            <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+            </svg>
+          </div>
+          <div class="ml-4">
+            <h3 class="text-sm font-medium text-gray-900 group-hover:text-amber-600 transition-colors">Kainoraščiai</h3>
+            <p class="text-sm text-gray-500">Valdyti tarifus</p>
+          </div>
+        </div>
+      </a>
+
+      <a href="/trp-admin/channel-groups-admin" class="group block p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-brand-300 transition-all">
+        <div class="flex items-center">
+          <div class="p-3 bg-purple-100 rounded-lg">
+            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14-4H3m14 8H7m6 4v-6m-2-6l2-2 2 2"></path>
+            </svg>
+          </div>
+          <div class="ml-4">
+            <h3 class="text-sm font-medium text-gray-900 group-hover:text-purple-600 transition-colors">Kanalų grupės</h3>
+            <p class="text-sm text-gray-500">Valdyti kanalus</p>
+          </div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- System Overview -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Recent Activity -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Sistema</h3>
+      <div class="space-y-4">
+        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <div class="flex items-center">
+            <div class="p-2 bg-green-100 rounded-lg mr-3">
+              <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <span class="text-sm font-medium text-gray-900">Sistema veikia</span>
+          </div>
+          <span class="text-xs text-gray-500">Aktyvus</span>
+        </div>
+        
+        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <div class="flex items-center">
+            <div class="p-2 bg-blue-100 rounded-lg mr-3">
+              <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+              </svg>
+            </div>
+            <span class="text-sm font-medium text-gray-900">Duomenų bazė</span>
+          </div>
+          <span class="text-xs text-gray-500">Prisijungta</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Statistika</h3>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="text-center p-4 bg-brand-50 rounded-lg">
+          <div class="text-2xl font-bold text-brand-600" id="campaignCount">-</div>
+          <div class="text-sm text-gray-600">Kampanijos</div>
+        </div>
+        <div class="text-center p-4 bg-emerald-50 rounded-lg">
+          <div class="text-2xl font-bold text-emerald-600" id="channelGroupCount">-</div>
+          <div class="text-sm text-gray-600">Kanalų grupės</div>
+        </div>
+        <div class="text-center p-4 bg-amber-50 rounded-lg">
+          <div class="text-2xl font-bold text-amber-600" id="pricingListCount">-</div>
+          <div class="text-sm text-gray-600">Kainoraščiai</div>
+        </div>
+        <div class="text-center p-4 bg-purple-50 rounded-lg">
+          <div class="text-2xl font-bold text-purple-600" id="activeCampaignCount">-</div>
+          <div class="text-sm text-gray-600">Aktyvios</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Getting Started -->
+  <div class="mt-8 bg-gradient-to-r from-brand-50 to-emerald-50 rounded-xl p-6 border border-brand-200">
+    <div class="flex items-start">
+      <div class="p-3 bg-white rounded-lg mr-4">
+        <svg class="w-6 h-6 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </div>
+      <div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Pradėkite nuo čia</h3>
+        <p class="text-gray-600 mb-4">Jei tai pirmas kartas naudojate sistemą, rekomenduojame:</p>
+        <ol class="list-decimal list-inside space-y-1 text-sm text-gray-600">
+          <li>Sukurkite <strong>kanalų grupes</strong> (pvz. AMB Baltics, MG grupė)</li>
+          <li>Sukurkite <strong>kainoraščius</strong> su įkainiais pagal grupes</li>
+          <li>Sukurkite <strong>kampanijas</strong> ir planuokite bangas</li>
+          <li>Peržiūrėkite <strong>kalendorių</strong> ir stebėkite progresą</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async function() {
+  // Load basic stats
+  try {
+    const [campaigns, channelGroups, pricingLists] = await Promise.all([
+      fetch('/trp-admin/campaigns').then(r => r.json()),
+      fetch('/trp-admin/channel-groups').then(r => r.json()),
+      fetch('/trp-admin/pricing-lists').then(r => r.json())
+    ]);
+    
+    document.getElementById('campaignCount').textContent = campaigns.length || 0;
+    document.getElementById('channelGroupCount').textContent = channelGroups.length || 0;
+    document.getElementById('pricingListCount').textContent = pricingLists.length || 0;
+    
+    // Count active campaigns
+    const activeCampaigns = campaigns.filter(c => c.status === 'active' || c.status === 'confirmed').length;
+    document.getElementById('activeCampaignCount').textContent = activeCampaigns || 0;
+  } catch (e) {
+    console.log('Could not load stats:', e);
+  }
+});
+</script>
+{% endblock %}

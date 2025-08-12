@@ -3,8 +3,13 @@ from flask import request, jsonify, render_template
 from app import models
 import sqlite3
 
-# Admin page at: /trp-admin
+# Dashboard page at: /trp-admin
 @bp.route("/", methods=["GET"])
+def dashboard_page():
+    return render_template("dashboard.html")
+
+# TRP rates admin page at: /trp-admin/rates
+@bp.route("/rates", methods=["GET"])
 def trp_admin_page():
     return render_template("trp_admin.html")
 

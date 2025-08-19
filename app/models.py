@@ -640,23 +640,22 @@ def list_pricing_targets(pl_id: int, owner: str):
 
 # ---------------- Campaigns / Waves ----------------
 
-def create_campaign(name: str, pricing_list_id: int, start_date: str | None, end_date: str | None, 
+def create_campaign(name: str, start_date: str | None, end_date: str | None, 
                    agency: str = "", client: str = "", product: str = "", 
                    country: str = "Lietuva", split_ratio: str = "70:30", status: str = "draft") -> int:
     with get_db() as db:
         db.execute("""
-            INSERT INTO campaigns(name, pricing_list_id, start_date, end_date, 
+            INSERT INTO campaigns(name, start_date, end_date, 
                                 agency, client, product, country, split_ratio, status)
-            VALUES (?,?,?,?,?,?,?,?,?,?)
-        """, (name, pricing_list_id, start_date, end_date, agency, client, product, country, split_ratio, status))
+            VALUES (?,?,?,?,?,?,?,?,?)
+        """, (name, start_date, end_date, agency, client, product, country, split_ratio, status))
         return db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
 
 def list_campaigns():
     with get_db() as db:
         rows = db.execute("""
-            SELECT c.*, p.name AS pricing_list_name
+            SELECT c.*, NULL AS pricing_list_name
             FROM campaigns c
-            JOIN pricing_lists p ON p.id=c.pricing_list_id
             ORDER BY c.id DESC
         """).fetchall()
         return [dict(r) for r in rows]
@@ -759,9 +758,6 @@ def create_wave_item_prefill(wave_id: int, owner: str, target_group: str, trps: 
 
 def create_wave_item_excel(wave_id: int, excel_data: dict) -> int:
     """Create a wave item with Excel-style data structure"""
-    pl_id = _pricing_list_id_for_wave(wave_id)
-    if not pl_id:
-        raise ValueError("Pricing list not found for wave")
         
     # Get pricing info from TRP rates based on channel_group and target_group
     rate = get_trp_rate_item(excel_data["channel_group"], excel_data["target_group"])
@@ -831,38 +827,68 @@ def create_wave_item_excel(wave_id: int, excel_data: dict) -> int:
         return db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
 
 def update_wave_item(item_id: int, data: dict):
-    # allow overriding any snapped values including discounts
-    numeric = {"share_primary","share_secondary","prime_share_primary","prime_share_secondary","price_per_sec_eur","trps","client_discount","agency_discount"}
+    print(f"DEBUG: update_wave_item called with item_id={item_id}, data={data}")
+    # allow overriding any snapped values including discounts and Excel structure fields
+    numeric = {"share_primary","share_secondary","prime_share_primary","prime_share_secondary","price_per_sec_eur","trps","client_discount","agency_discount",
+               "channel_share","pt_zone_share","clip_duration","affinity1","affinity2","affinity3",
+               "duration_index","seasonal_index","trp_purchase_index","advance_purchase_index","position_index"}
     sets, args = [], []
     for k in ["owner","target_group","primary_label","secondary_label",
               "share_primary","share_secondary","prime_share_primary","prime_share_secondary",
-              "price_per_sec_eur","trps","client_discount","agency_discount"]:
+              "price_per_sec_eur","trps","client_discount","agency_discount",
+              "channel_share","pt_zone_share","clip_duration","affinity1","affinity2","affinity3",
+              "duration_index","seasonal_index","trp_purchase_index","advance_purchase_index","position_index"]:
         if k in data:
             v = _norm_number(data[k]) if k in numeric else data[k]
             sets.append(f"{k}=?"); args.append(v)
     
-    # Recalculate net prices if discounts were updated
-    if "client_discount" in data or "agency_discount" in data:
+    # Recalculate prices if discounts or indices were updated
+    need_price_recalc = any(field in data for field in ["client_discount", "agency_discount", "trps", "trp_purchase_index", "advance_purchase_index", "position_index", "duration_index", "seasonal_index"])
+    
+    if need_price_recalc:
         with get_db() as db:
             # Get current item data
             item = db.execute("SELECT * FROM wave_items WHERE id = ?", (item_id,)).fetchone()
             if item:
-                gross_price = item["gross_price_eur"] or 0
-                client_discount = data.get("client_discount", item.get("client_discount", 0))
-                agency_discount = data.get("agency_discount", item.get("agency_discount", 0))
+                # Get updated values or use existing ones (SQLite Row uses [] not .get())
+                trps = data.get("trps", item["trps"] or 0)
+                gross_cpp = item["gross_cpp_eur"] or 0
                 
+                # Get updated indices or use existing ones
+                duration_index = data.get("duration_index", item["duration_index"] or 1.0)
+                seasonal_index = data.get("seasonal_index", item["seasonal_index"] or 1.0)
+                trp_purchase_index = data.get("trp_purchase_index", item["trp_purchase_index"] or 0.95)
+                advance_purchase_index = data.get("advance_purchase_index", item["advance_purchase_index"] or 0.95)
+                position_index = data.get("position_index", item["position_index"] or 1.0)
+                
+                # Recalculate gross price with all indices
+                gross_price = (trps * gross_cpp * duration_index * seasonal_index * 
+                             trp_purchase_index * advance_purchase_index * position_index)
+                
+                # Get discounts
+                client_discount = data.get("client_discount", item["client_discount"] or 0)
+                agency_discount = data.get("agency_discount", item["agency_discount"] or 0)
+                
+                # Calculate net prices
                 net_price = gross_price * (1 - client_discount / 100)
                 net_net_price = net_price * (1 - agency_discount / 100)
                 
+                # Add price updates to sets
+                sets.append("gross_price_eur=?"); args.append(gross_price)
                 sets.append("net_price_eur=?"); args.append(net_price)
                 sets.append("net_net_price_eur=?"); args.append(net_net_price)
     
     if not sets:
+        print(f"DEBUG: No fields to update for item_id={item_id}")
         return
         
     args.append(item_id)
+    sql = f"UPDATE wave_items SET {', '.join(sets)} WHERE id=?"
+    print(f"DEBUG: Executing SQL: {sql} with args: {args}")
+    
     with get_db() as db:
-        db.execute(f"UPDATE wave_items SET {', '.join(sets)} WHERE id=?", args)
+        db.execute(sql, args)
+        print(f"DEBUG: Update completed for item_id={item_id}")
 
 def delete_wave_item(item_id: int):
     with get_db() as db:
@@ -1362,7 +1388,7 @@ def migrate_add_indices_tables():
             # Add some default target groups if none exist
             target_groups = ["W18-49", "W25-54", "M18-49", "M25-54", "ALL18-49"]
         
-        # Duration indices based on exact values from boss's images
+        # Duration indices based on industry standard values
         # These apply to all target groups (same in both images)
         duration_ranges = [
             ((5, 9), 1.35, "5\"-9\""),
@@ -1558,3 +1584,74 @@ def get_indices_for_wave_item(target_group, duration_seconds, start_date):
         'duration_index': duration_index,
         'seasonal_index': seasonal_index
     }
+
+def migrate_remove_pricing_list_requirement():
+    """Remove pricing_list_id requirement from campaigns table"""
+    with get_db() as db:
+        # Check if pricing_list_id column exists and is NOT NULL
+        cursor = db.execute("PRAGMA table_info(campaigns)")
+        columns = {row[1]: row for row in cursor.fetchall()}
+        
+        if 'pricing_list_id' in columns:
+            col_info = columns['pricing_list_id']
+            is_not_null = col_info[3] == 1  # notnull flag
+            
+            if is_not_null:
+                print("Removing NOT NULL constraint from campaigns.pricing_list_id...")
+                
+                # SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+                # First, get all existing data
+                existing_campaigns = db.execute("SELECT * FROM campaigns").fetchall()
+                
+                # Drop the old table (after backing up foreign key constraints)
+                db.execute("PRAGMA foreign_keys=OFF")
+                db.execute("DROP TABLE campaigns")
+                
+                # Recreate campaigns table without NOT NULL on pricing_list_id
+                db.execute("""
+                CREATE TABLE campaigns (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    pricing_list_id INTEGER,  -- Removed NOT NULL
+                    start_date TEXT,
+                    end_date TEXT,
+                    agency TEXT,
+                    client TEXT, 
+                    product TEXT,
+                    country TEXT,
+                    split_ratio TEXT,
+                    status TEXT
+                )
+                """)
+                
+                # Restore data, setting pricing_list_id to NULL where needed
+                for row in existing_campaigns:
+                    values = list(row)
+                    # If pricing_list_id references non-existent pricing list, set to NULL
+                    if len(values) > 2 and values[2]:  # pricing_list_id
+                        try:
+                            check = db.execute("SELECT 1 FROM pricing_lists WHERE id = ?", (values[2],)).fetchone()
+                            if not check:
+                                values[2] = None
+                        except:
+                            values[2] = None
+                    
+                    # Handle cases where row might not have all columns
+                    while len(values) < 11:  # Pad with None for missing columns
+                        values.append(None)
+                    
+                    db.execute("""
+                    INSERT INTO campaigns (id, name, pricing_list_id, start_date, end_date, 
+                                         agency, client, product, country, split_ratio, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, values[:11])
+                
+                db.execute("PRAGMA foreign_keys=ON")
+                db.commit()
+                print("Successfully removed NOT NULL constraint from pricing_list_id")
+            else:
+                print("pricing_list_id already allows NULL values")
+        else:
+            print("pricing_list_id column does not exist")
+        
+        db.commit()

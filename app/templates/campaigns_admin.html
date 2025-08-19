@@ -4,9 +4,6 @@
 
 {% block content %}
 <div
-  data-pl-list="{{ url_for('campaigns.pl_list') }}"
-  data-pl-owners-base="{{ url_for('campaigns.pl_owners', pl_id=0) }}"
-  data-pl-targets-base="{{ url_for('campaigns.pl_targets', pl_id=0) }}"
   data-c-list="{{ url_for('campaigns.campaigns_list') }}"
   data-c-create="{{ url_for('campaigns.campaigns_create') }}"
   data-c-update-base="{{ url_for('campaigns.campaigns_update', cid=0) }}"
@@ -63,10 +60,6 @@
         <div>
           <label class="block text-sm text-slate-600 mb-1">Kampanijos pavadinimas</label>
           <input id="cName" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm" placeholder="pvz. Savaitinės akcijos">
-        </div>
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">Kainoraštis</label>
-          <select id="cPL" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm"></select>
         </div>
         <div>
           <label class="block text-sm text-slate-600 mb-1">Šalis</label>
@@ -130,17 +123,11 @@
               <div id="tvcList" class="space-y-2"></div>
             </div>
             
-            <div class="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-4 gap-4 items-end mb-4">
-              <div class="lg:col-span-2">
-                <label class="block text-sm text-slate-600 mb-1">Bangos pavadinimas</label>
-                <input id="wName" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
-              </div>
-              <div class="lg:col-span-2">
-                <label class="block text-sm text-slate-600 mb-1">Laikotarpis</label>
-                <div class="grid grid-cols-2 gap-2">
-                  <input id="wStart" type="date" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
-                  <input id="wEnd" type="date" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
-                </div>
+            <div class="mb-4">
+              <label class="block text-sm text-slate-600 mb-1">Bangos laikotarpis</label>
+              <div class="grid grid-cols-2 gap-2 max-w-md">
+                <input id="wStart" type="date" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
+                <input id="wEnd" type="date" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
               </div>
             </div>
             <button id="wAdd" class="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium mb-4">Pridėti bangą</button>
@@ -167,5 +154,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script defer src="{{ url_for('static', filename='js/campaigns_admin.js') }}?v=9"></script>
+<script defer src="{{ url_for('static', filename='js/campaigns_admin.js') }}?v=15"></script>
 {% endblock %}

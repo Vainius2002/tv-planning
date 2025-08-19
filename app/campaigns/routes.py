@@ -32,9 +32,8 @@ def campaigns_list():
 def campaigns_create():
     data = request.get_json(force=True)
     name = (data.get("name") or "").strip()
-    pl_id = data.get("pricing_list_id")
-    if not name or not pl_id:
-        return jsonify({"status":"error","message":"name and pricing_list_id required"}), 400
+    if not name:
+        return jsonify({"status":"error","message":"name required"}), 400
     
     # Get additional campaign fields
     agency = (data.get("agency") or "").strip()
@@ -44,7 +43,7 @@ def campaigns_create():
     split_ratio = (data.get("split_ratio") or "70:30").strip()
     
     cid = models.create_campaign(
-        name, pl_id, 
+        name, 
         data.get("start_date"), data.get("end_date"),
         agency, client, product, country, split_ratio
     )
@@ -129,9 +128,17 @@ def wave_items_create(wid):
 
 @bp.route("/wave-items/<int:iid>", methods=["PATCH"])
 def wave_items_update(iid):
-    data = request.get_json(force=True)
-    models.update_wave_item(iid, data)
-    return jsonify({"status":"ok"})
+    try:
+        data = request.get_json(force=True)
+        print(f"DEBUG: wave_items_update route called with iid={iid}, data={data}")
+        models.update_wave_item(iid, data)
+        print(f"DEBUG: update_wave_item completed successfully")
+        return jsonify({"status":"ok"})
+    except Exception as e:
+        print(f"ERROR in wave_items_update: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status":"error", "message": str(e)}), 500
 
 @bp.route("/wave-items/<int:iid>", methods=["DELETE"])
 def wave_items_delete(iid):

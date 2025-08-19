@@ -3,10 +3,7 @@
   'use strict';
 
   window.addEventListener('DOMContentLoaded', () => {
-    const dataDiv = document.querySelector('[data-pl-list]');
-    const PL_LIST   = dataDiv.dataset.plList;
-    const PL_OWNERS = dataDiv.dataset.plOwnersBase;   // ends with /0
-    const PL_TARGETS= dataDiv.dataset.plTargetsBase;  // ends with /0
+    const dataDiv = document.querySelector('[data-c-list]');
 
     const C_LIST    = dataDiv.dataset.cList;
     const C_CREATE  = dataDiv.dataset.cCreate;
@@ -41,7 +38,7 @@
 
     const $ = s => document.querySelector(s);
     const cTbody = $('#cTbody');
-    const cName = $('#cName'), cPL = $('#cPL'), cStart = $('#cStart'), cEnd = $('#cEnd');
+    const cName = $('#cName'), cStart = $('#cStart'), cEnd = $('#cEnd');
     const cAgency = $('#cAgency'), cClient = $('#cClient'), cProduct = $('#cProduct');
     const cCountry = $('#cCountry'), cSplitRatio = $('#cSplitRatio');
     const cCreate = $('#cCreate');
@@ -110,16 +107,6 @@
       return channel ? channel.name : null;
     }
 
-    // -------- load pricing lists into select --------
-    async function loadPricingLists(){
-      lists = await fetchJSON(PL_LIST);
-      cPL.innerHTML = '';
-      lists.forEach(l => {
-        const opt = document.createElement('option');
-        opt.value = l.id; opt.textContent = l.name;
-        cPL.appendChild(opt);
-      });
-    }
 
     // -------- campaigns table --------
     function filterCampaign(campaignId) {
@@ -240,7 +227,6 @@
 
     cCreate.addEventListener('click', async () => {
       const name = cName.value.trim();
-      const pricing_list_id = +cPL.value;
       const start_date = cStart.value || null;
       const end_date   = cEnd.value || null;
       const agency = cAgency.value.trim();
@@ -249,12 +235,12 @@
       const country = cCountry.value.trim() || 'Lietuva';
       const split_ratio = cSplitRatio.value.trim() || '70:30';
       
-      if(!name || !pricing_list_id){ alert('Įveskite pavadinimą ir parinkite kainoraštį'); return; }
+      if(!name){ alert('Įveskite kampanijos pavadinimą'); return; }
       
       const response = await fetchJSON(C_CREATE, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ 
-          name, pricing_list_id, start_date, end_date,
+          name, start_date, end_date,
           agency, client, product, country, split_ratio
         })
       });
@@ -511,7 +497,7 @@
           if (wave.start_date && wave.end_date) {
             html += `<div class="flex items-center gap-2 mb-1">
                       <div class="w-3 h-3 rounded ${waveColors[index % waveColors.length]}"></div>
-                      <span>${wave.name || 'Banga ' + (index + 1)}: ${wave.start_date} - ${wave.end_date}</span>
+                      <span>Banga ${index + 1}: ${wave.start_date} - ${wave.end_date}</span>
                      </div>`;
           }
         });
@@ -526,7 +512,7 @@
       html += '<div class="text-xs text-slate-500 mb-2">💡 Sistema automatiškai naudoja bangų datas arba galite pažymėti dieną rankomis</div>';
       html += '<div class="mb-2">';
       html += '<input id="trpValue" type="number" step="0.01" placeholder="Įveskite TRP" class="w-20 px-2 py-1 text-xs border rounded mr-2">';
-      html += '<button onclick="distributeTRP()" class="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Paskirstyti</button>';
+      html += '<button id="btnDistributeTRP" class="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Paskirstyti</button>';
       html += '</div>';
       html += '<div id="selectedDates" class="text-xs text-slate-600 mb-2"></div>';
       html += '<div id="dailyWeight" class="text-xs font-medium text-emerald-700"></div>';
@@ -542,6 +528,12 @@
       html += '</div>';
       
       calendarDiv.innerHTML = html;
+      
+      // Add event listener for TRP distribution button after calendar is rendered
+      const btnDistribute = document.querySelector('#btnDistributeTRP');
+      if (btnDistribute) {
+        btnDistribute.addEventListener('click', distributeTRP);
+      }
     }
 
     // -------- TRP Distribution functions --------
@@ -580,7 +572,7 @@
       }
     }
     
-    window.distributeTRP = function() {
+    function distributeTRP() {
       const trpInput = document.querySelector('#trpValue');
       const dailyWeightDiv = document.querySelector('#dailyWeight');
       
@@ -665,7 +657,7 @@
         try {
         section.innerHTML = `
           <div class="px-4 py-3 bg-slate-50 flex items-center justify-between">
-            <div class="font-medium">${w.name || '(be pavadinimo)'} <span class="text-slate-500 ml-2">${(w.start_date||'')} ${w.end_date?('– '+w.end_date):''}</span></div>
+            <div class="font-medium">Banga <span class="text-slate-500 ml-2">${(w.start_date||'')} ${w.end_date?('– '+w.end_date):''}</span></div>
             <div class="flex gap-2">
               <button class="w-del px-3 py-1.5 text-xs rounded-lg border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100">Šalinti bangą</button>
             </div>
@@ -1102,14 +1094,14 @@
               <td class="px-2 py-1 text-xs">${(r.pt_zone_share * 100).toFixed(1)}%</td>
               <td class="px-2 py-1 text-xs">${r.clip_duration || 10}</td>
               <td class="px-2 py-1 text-xs">${grpPlanned.toFixed(2)}</td>
-              <td class="px-2 py-1"><input class="w-16 text-xs border rounded px-1 py-0.5" type="number" step="0.01" value="${r.trps || ''}"></td>
-              <td class="px-2 py-1"><input class="w-12 text-xs border rounded px-1 py-0.5" type="number" step="0.1" value="${r.affinity1 || ''}"></td>
+              <td class="px-2 py-1"><input class="itm-trps w-16 text-xs border rounded px-1 py-0.5 bg-purple-50" type="number" step="0.01" value="${r.trps || ''}" placeholder="TRP"></td>
+              <td class="px-2 py-1"><input class="itm-affinity1 w-12 text-xs border rounded px-1 py-0.5 bg-purple-50" type="number" step="0.1" value="${r.affinity1 || ''}" placeholder="Affinity"></td>
               <td class="px-2 py-1 text-xs">€${grossCpp.toFixed(2)}</td>
               <td class="px-2 py-1 text-xs bg-yellow-50">${(r.duration_index || 1.25).toFixed(2)}</td>
               <td class="px-2 py-1 text-xs bg-yellow-50">${(r.seasonal_index || 0.9).toFixed(2)}</td>
-              <td class="px-2 py-1 text-xs bg-yellow-50">${(r.trp_purchase_index || 0.95).toFixed(2)}</td>
-              <td class="px-2 py-1 text-xs bg-yellow-50">${(r.advance_purchase_index || 0.95).toFixed(2)}</td>
-              <td class="px-2 py-1 text-xs bg-yellow-50">${(r.position_index || 1.0).toFixed(2)}</td>
+              <td class="px-2 py-1"><input class="itm-trp-purchase w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.trp_purchase_index || 0.95).toFixed(2)}" title="TRP pirkimo indeksas (default: 0.95)"></td>
+              <td class="px-2 py-1"><input class="itm-advance-purchase w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.advance_purchase_index || 0.95).toFixed(2)}" title="Išankstinio pirkimo indeksas (default: 0.95)"></td>
+              <td class="px-2 py-1"><input class="itm-position w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.position_index || 1.0).toFixed(2)}" title="Pozicijos indeksas (default: 1.0)"></td>
               <td class="px-2 py-1 text-xs">€${grossPrice.toFixed(2)}</td>
               <td class="px-2 py-1 text-xs">${r.client_discount || 0}%</td>
               <td class="px-2 py-1 text-xs">€${netPrice.toFixed(2)}</td>
@@ -1123,19 +1115,42 @@
               </td>
             `;
             tr.querySelector('.itm-save').addEventListener('click', async () => {
-              const trps = tr.querySelector('.itm-trps').value;
-              const pps  = tr.querySelector('.itm-eur').value;
-              
-              await fetchJSON(urlReplace(I_UPDATE, r.id), {
-                method:'PATCH', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ 
-                  trps, 
-                  price_per_sec_eur: pps
-                })
-              });
-              await updateCostDisplay(); // Update costs after saving item  
-              await loadWaves(currentCampaign.id); // Reload to show updated calculations
-              alert('Wave item išsaugotas');
+              try {
+                // Get only editable values
+                const trps = parseFloat(tr.querySelector('.itm-trps').value) || 0;
+                const affinity1 = parseFloat(tr.querySelector('.itm-affinity1').value) || null;
+                const trpPurchaseIndex = parseFloat(tr.querySelector('.itm-trp-purchase').value) || 0.95;
+                const advancePurchaseIndex = parseFloat(tr.querySelector('.itm-advance-purchase').value) || 0.95;
+                const positionIndex = parseFloat(tr.querySelector('.itm-position').value) || 1.0;
+                
+                console.log('Saving wave item:', r.id, {
+                  trps: trps,
+                  affinity1: affinity1,
+                  trp_purchase_index: trpPurchaseIndex,
+                  advance_purchase_index: advancePurchaseIndex,
+                  position_index: positionIndex
+                });
+                
+                const response = await fetchJSON(urlReplace(I_UPDATE, r.id), {
+                  method:'PATCH', headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify({ 
+                    trps: trps,
+                    affinity1: affinity1,
+                    trp_purchase_index: trpPurchaseIndex,
+                    advance_purchase_index: advancePurchaseIndex,
+                    position_index: positionIndex
+                  })
+                });
+                
+                console.log('Save response:', response);
+                
+                await updateCostDisplay(); // Update costs after saving item  
+                await loadWaves(currentCampaign.id); // Reload to show updated calculations
+                alert('Wave item išsaugotas');
+              } catch (error) {
+                console.error('Error saving wave item:', error);
+                alert('Klaida išsaugant: ' + error.message);
+              }
             });
             tr.querySelector('.itm-del').addEventListener('click', async () => {
               if(!confirm('Šalinti eilutę?')) return;
@@ -1172,7 +1187,7 @@
           // Create fallback simple wave display
           const fallbackSection = document.createElement('div');
           fallbackSection.className = "mb-4 p-4 border rounded bg-red-50";
-          fallbackSection.innerHTML = `<div class="text-red-700">Klaida generuojant bangą: ${w.name} (${error.message})</div>`;
+          fallbackSection.innerHTML = `<div class="text-red-700">Klaida generuojant bangą: ${error.message}</div>`;
           wavesDiv.appendChild(fallbackSection);
         }
       }
@@ -1187,20 +1202,24 @@
     // add wave
     $('#wAdd').addEventListener('click', async () => {
       if(!currentCampaign){ alert('Pirma pasirinkite kampaniją'); return; }
-      const name  = $('#wName').value.trim();
       const start = $('#wStart').value || null;
       const end   = $('#wEnd').value || null;
+      
+      if (!start || !end) {
+        alert('Prašome pasirinkti bangos pradžios ir pabaigos datas');
+        return;
+      }
+      
       await fetchJSON(urlReplace(W_CREATE, currentCampaign.id), {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ name, start_date:start, end_date:end })
+        body: JSON.stringify({ name: '', start_date:start, end_date:end })
       });
-      $('#wName').value = ''; $('#wStart').value = ''; $('#wEnd').value = '';
+      $('#wStart').value = ''; $('#wEnd').value = '';
       await loadWaves(currentCampaign.id);
     });
 
     // initial boot
     (async () => {
-      await loadPricingLists();
       await loadCampaigns();
     })();
   });

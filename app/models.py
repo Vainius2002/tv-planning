@@ -178,6 +178,87 @@ def migrate_add_tvc_id_to_wave_items():
             db.commit()
             print("Added tvc_id column to wave_items table")
 
+def migrate_add_campaign_fields():
+    """Add missing fields to campaigns table"""
+    with get_db() as db:
+        cursor = db.execute("PRAGMA table_info(campaigns)")
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        new_columns = [
+            ("agency", "TEXT"),
+            ("client", "TEXT"),
+            ("product", "TEXT"),
+            ("country", "TEXT DEFAULT 'Lietuva'"),
+            ("split_ratio", "TEXT DEFAULT '70:30'")
+        ]
+        
+        for col_name, col_type in new_columns:
+            if col_name not in columns:
+                db.execute(f"ALTER TABLE campaigns ADD COLUMN {col_name} {col_type}")
+                print(f"Added {col_name} column to campaigns table")
+        
+        db.commit()
+
+def migrate_add_wave_item_fields():
+    """Add all missing fields from Excel to wave_items table"""
+    with get_db() as db:
+        cursor = db.execute("PRAGMA table_info(wave_items)")
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        new_columns = [
+            ("channel_id", "INTEGER"),
+            ("channel_share", "REAL DEFAULT 0.75"),
+            ("pt_zone_share", "REAL DEFAULT 0.55"),
+            ("clip_duration", "INTEGER DEFAULT 10"),
+            ("grp_planned", "REAL"),
+            ("affinity1", "REAL"),
+            ("affinity2", "REAL"),
+            ("affinity3", "REAL"),
+            ("gross_cpp_eur", "REAL"),
+            ("duration_index", "REAL DEFAULT 1.0"),
+            ("seasonal_index", "REAL DEFAULT 1.0"),
+            ("trp_purchase_index", "REAL DEFAULT 0.95"),
+            ("advance_purchase_index", "REAL DEFAULT 0.95"),
+            ("position_index", "REAL DEFAULT 1.0"),
+            ("gross_price_eur", "REAL"),
+            ("client_discount", "REAL DEFAULT 0"),
+            ("net_price_eur", "REAL"),
+            ("agency_discount", "REAL DEFAULT 0"),
+            ("net_net_price_eur", "REAL"),
+            ("tg_size_thousands", "REAL DEFAULT 0"),
+            ("tg_share_percent", "REAL DEFAULT 0"),
+            ("tg_sample_size", "INTEGER DEFAULT 0"),
+            ("daily_trp_distribution", "TEXT")  # JSON string for daily TRP values
+        ]
+        
+        for col_name, col_type in new_columns:
+            if col_name not in columns:
+                db.execute(f"ALTER TABLE wave_items ADD COLUMN {col_name} {col_type}")
+                print(f"Added {col_name} column to wave_items table")
+        
+        db.commit()
+
+def migrate_add_pricing_indices():
+    """Add duration and seasonal indices to pricing_list_items"""
+    with get_db() as db:
+        cursor = db.execute("PRAGMA table_info(pricing_list_items)")
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        new_columns = [
+            ("duration_index", "REAL DEFAULT 1.0"),
+            ("seasonal_index", "REAL DEFAULT 1.0"),
+            ("tg_size_thousands", "REAL DEFAULT 0"),  # TG dydis tūkstančiais
+            ("tg_share_percent", "REAL DEFAULT 0"),   # TG dalis procentais 
+            ("tg_sample_size", "INTEGER DEFAULT 0")   # TG imties dydis
+        ]
+        
+        for col_name, col_type in new_columns:
+            if col_name not in columns:
+                db.execute(f"ALTER TABLE pricing_list_items ADD COLUMN {col_name} {col_type}")
+                print(f"Added {col_name} column to pricing_list_items table")
+        
+        db.commit()
+
 # ---------------- Channel groups / channels ----------------
 
 def upsert_channel_group(name: str) -> int:
@@ -219,6 +300,26 @@ def list_channels(channel_group_id: int | None = None):
                 ORDER BY g.name, (size='big') DESC, c.name
             """).fetchall()
         return [dict(r) for r in rows]
+
+def list_all_channels():
+    """Get all channels from all groups for campaign forms"""
+    return list_channels()
+
+def get_trp_rate_item(owner: str, target_group: str):
+    """Get TRP rate item for specific owner and target group"""
+    with get_db() as db:
+        row = db.execute("""
+            SELECT * FROM trp_rates 
+            WHERE owner = ? AND target_group = ?
+        """, (owner, target_group)).fetchone()
+        if row:
+            rate = dict(row)
+            # Add default TG data since TRP rates don't have these fields
+            rate["tg_size_thousands"] = 100.0  # Default TG size
+            rate["tg_share_percent"] = 15.0    # Default TG share
+            rate["tg_sample_size"] = 500       # Default sample size
+            return rate
+        return None
 
 def update_channel(channel_id: int, *, name: str | None = None, size: str | None = None):
     sets, args = [], []
@@ -335,10 +436,88 @@ def delete_trp_rate(row_id: int):
 
 # ---------------- Pricing lists (rate cards) ----------------
 
-def create_pricing_list(name: str) -> int:
+def create_pricing_list(name: str, auto_import: bool = True) -> int:
+    """Create a new pricing list and optionally import TRP rates"""
     with get_db() as db:
         db.execute("INSERT INTO pricing_lists(name) VALUES (?)", (name,))
-        return db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+        list_id = db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+        
+        if auto_import:
+            # Automatically import all TRP rates to the new pricing list
+            # Get all TRP rates
+            trp_rates = db.execute("SELECT * FROM trp_rates").fetchall()
+            
+            # Get channel groups mapping (name to ID)
+            channel_groups = db.execute("SELECT id, name FROM channel_groups").fetchall()
+            group_map = {g["name"]: g["id"] for g in channel_groups}
+            
+            for rate in trp_rates:
+                # Convert owner name to group ID
+                owner_id = group_map.get(rate["owner"], rate["owner"])
+                
+                # Import each TRP rate as pricing list item
+                db.execute("""
+                    INSERT OR REPLACE INTO pricing_list_items (
+                        pricing_list_id, owner, target_group, 
+                        primary_label, secondary_label,
+                        share_primary, share_secondary, 
+                        prime_share_primary, prime_share_secondary,
+                        price_per_sec_eur
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    list_id,
+                    str(owner_id),  # Store as string for compatibility
+                    rate["target_group"],
+                    rate["primary_label"],
+                    rate["secondary_label"],
+                    rate["share_primary"],
+                    rate["share_secondary"],
+                    rate["prime_share_primary"],
+                    rate["prime_share_secondary"],
+                    rate["price_per_sec_eur"]
+                ))
+        
+        return list_id
+
+def import_trp_rates_to_pricing_list(pricing_list_id: int):
+    """Import all TRP rates into a pricing list"""
+    with get_db() as db:
+        # Get all TRP rates
+        trp_rates = db.execute("SELECT * FROM trp_rates").fetchall()
+        
+        # Get channel groups mapping (name to ID)
+        channel_groups = db.execute("SELECT id, name FROM channel_groups").fetchall()
+        group_map = {g["name"]: g["id"] for g in channel_groups}
+        
+        for rate in trp_rates:
+            # Convert owner name to group ID
+            owner_id = group_map.get(rate["owner"], rate["owner"])
+            
+            # Import each TRP rate as pricing list item
+            db.execute("""
+                INSERT OR REPLACE INTO pricing_list_items (
+                    pricing_list_id, owner, target_group, 
+                    primary_label, secondary_label,
+                    share_primary, share_secondary, 
+                    prime_share_primary, prime_share_secondary,
+                    price_per_sec_eur
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                pricing_list_id,
+                str(owner_id),  # Store as string for compatibility
+                rate["target_group"],
+                rate["primary_label"],
+                rate["secondary_label"],
+                rate["share_primary"],
+                rate["share_secondary"],
+                rate["prime_share_primary"],
+                rate["prime_share_secondary"],
+                rate["price_per_sec_eur"]
+            ))
+
+def migrate_trp_rates_to_pricing_list(name: str) -> int:
+    """Create a new pricing list and migrate all TRP rates to it"""
+    return create_pricing_list(name, auto_import=True)
 
 def list_pricing_lists():
     with get_db() as db:
@@ -461,12 +640,15 @@ def list_pricing_targets(pl_id: int, owner: str):
 
 # ---------------- Campaigns / Waves ----------------
 
-def create_campaign(name: str, pricing_list_id: int, start_date: str | None, end_date: str | None, status: str = "draft") -> int:
+def create_campaign(name: str, pricing_list_id: int, start_date: str | None, end_date: str | None, 
+                   agency: str = "", client: str = "", product: str = "", 
+                   country: str = "Lietuva", split_ratio: str = "70:30", status: str = "draft") -> int:
     with get_db() as db:
         db.execute("""
-            INSERT INTO campaigns(name, pricing_list_id, start_date, end_date, status)
-            VALUES (?,?,?,?,?)
-        """, (name, pricing_list_id, start_date, end_date, status))
+            INSERT INTO campaigns(name, pricing_list_id, start_date, end_date, 
+                                agency, client, product, country, split_ratio, status)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+        """, (name, pricing_list_id, start_date, end_date, agency, client, product, country, split_ratio, status))
         return db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
 
 def list_campaigns():
@@ -575,18 +757,109 @@ def create_wave_item_prefill(wave_id: int, owner: str, target_group: str, trps: 
         ))
         return db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
 
+def create_wave_item_excel(wave_id: int, excel_data: dict) -> int:
+    """Create a wave item with Excel-style data structure"""
+    pl_id = _pricing_list_id_for_wave(wave_id)
+    if not pl_id:
+        raise ValueError("Pricing list not found for wave")
+        
+    # Get pricing info from TRP rates based on channel_group and target_group
+    rate = get_trp_rate_item(excel_data["channel_group"], excel_data["target_group"])
+    
+    # Calculate derived values
+    grp_planned = excel_data["trps"] * excel_data["channel_share"] * excel_data["pt_zone_share"]
+    gross_cpp_eur = rate["price_per_sec_eur"] if rate else 15.0  # Default CPP
+    
+    # Get indices from database if available, otherwise use form values
+    with get_db() as db:
+        # Get wave start date for seasonal index
+        wave = db.execute("SELECT start_date FROM waves WHERE id = ?", (wave_id,)).fetchone()
+        wave_start_date = wave["start_date"] if wave else None
+    
+    # Get indices from database using target group
+    db_indices = get_indices_for_wave_item(excel_data["target_group"], excel_data["clip_duration"], wave_start_date)
+    
+    # Use database indices if available, otherwise fall back to form values
+    duration_index = db_indices.get("duration_index", excel_data.get("duration_index", 1.25))
+    seasonal_index = db_indices.get("seasonal_index", excel_data.get("seasonal_index", 0.9))
+    
+    # Calculate gross price with all indices
+    gross_price_eur = (excel_data["trps"] * gross_cpp_eur * excel_data["clip_duration"] * 
+                      duration_index * seasonal_index * 
+                      excel_data["trp_purchase_index"] * excel_data["advance_purchase_index"] * 
+                      excel_data["position_index"])
+    
+    # Calculate net prices
+    net_price_eur = gross_price_eur * (1 - excel_data["client_discount"] / 100)
+    net_net_price_eur = net_price_eur * (1 - excel_data["agency_discount"] / 100)
+    
+    with get_db() as db:
+        db.execute("""
+            INSERT INTO wave_items(
+                wave_id, target_group, trps, channel_id, channel_share, pt_zone_share, clip_duration, tvc_id,
+                grp_planned, affinity1, affinity2, affinity3, gross_cpp_eur, duration_index,
+                seasonal_index, trp_purchase_index, advance_purchase_index, position_index,
+                gross_price_eur, client_discount, net_price_eur, agency_discount, net_net_price_eur,
+                tg_size_thousands, tg_share_percent, tg_sample_size,
+                owner, primary_label, secondary_label, share_primary, share_secondary,
+                prime_share_primary, prime_share_secondary, price_per_sec_eur
+            )
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (
+            wave_id, excel_data["target_group"], _norm_number(excel_data["trps"]), None,  # channel_id set to None since we use channel_group
+            excel_data["channel_share"], excel_data["pt_zone_share"], excel_data["clip_duration"], 
+            excel_data.get("tvc_id"),  # TVC ID from form
+            grp_planned, excel_data.get("affinity1"), excel_data.get("affinity2"), excel_data.get("affinity3"),
+            gross_cpp_eur, duration_index, seasonal_index,
+            excel_data["trp_purchase_index"], excel_data["advance_purchase_index"], excel_data["position_index"],
+            gross_price_eur, excel_data["client_discount"], net_price_eur, 
+            excel_data["agency_discount"], net_net_price_eur,
+            # TG data from TRP rates
+            rate.get("tg_size_thousands", 0) if rate else 0,
+            rate.get("tg_share_percent", 0) if rate else 0, 
+            rate.get("tg_sample_size", 0) if rate else 0,
+            # Use channel_group as owner
+            excel_data["channel_group"], 
+            rate["primary_label"] if rate else "N/A",
+            rate["secondary_label"] if rate else None,
+            rate["share_primary"] if rate else 0,
+            rate["share_secondary"] if rate else 0,
+            rate["prime_share_primary"] if rate else 0,
+            rate["prime_share_secondary"] if rate else 0,
+            rate["price_per_sec_eur"] if rate else gross_cpp_eur
+        ))
+        return db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+
 def update_wave_item(item_id: int, data: dict):
-    # allow overriding any snapped values
-    numeric = {"share_primary","share_secondary","prime_share_primary","prime_share_secondary","price_per_sec_eur","trps"}
+    # allow overriding any snapped values including discounts
+    numeric = {"share_primary","share_secondary","prime_share_primary","prime_share_secondary","price_per_sec_eur","trps","client_discount","agency_discount"}
     sets, args = [], []
     for k in ["owner","target_group","primary_label","secondary_label",
               "share_primary","share_secondary","prime_share_primary","prime_share_secondary",
-              "price_per_sec_eur","trps"]:
+              "price_per_sec_eur","trps","client_discount","agency_discount"]:
         if k in data:
             v = _norm_number(data[k]) if k in numeric else data[k]
             sets.append(f"{k}=?"); args.append(v)
+    
+    # Recalculate net prices if discounts were updated
+    if "client_discount" in data or "agency_discount" in data:
+        with get_db() as db:
+            # Get current item data
+            item = db.execute("SELECT * FROM wave_items WHERE id = ?", (item_id,)).fetchone()
+            if item:
+                gross_price = item["gross_price_eur"] or 0
+                client_discount = data.get("client_discount", item.get("client_discount", 0))
+                agency_discount = data.get("agency_discount", item.get("agency_discount", 0))
+                
+                net_price = gross_price * (1 - client_discount / 100)
+                net_net_price = net_price * (1 - agency_discount / 100)
+                
+                sets.append("net_price_eur=?"); args.append(net_price)
+                sets.append("net_net_price_eur=?"); args.append(net_net_price)
+    
     if not sets:
         return
+        
     args.append(item_id)
     with get_db() as db:
         db.execute(f"UPDATE wave_items SET {', '.join(sets)} WHERE id=?", args)
@@ -594,6 +867,44 @@ def update_wave_item(item_id: int, data: dict):
 def delete_wave_item(item_id: int):
     with get_db() as db:
         db.execute("DELETE FROM wave_items WHERE id=?", (item_id,))
+
+def recalculate_wave_item_prices_with_discounts(wave_id: int):
+    """Recalculate all wave item prices using wave-level discounts"""
+    with get_db() as db:
+        # Get wave-level discounts
+        discounts = db.execute("""
+            SELECT discount_type, discount_percentage 
+            FROM discounts 
+            WHERE wave_id = ?
+        """, (wave_id,)).fetchall()
+        
+        client_discount = 0
+        agency_discount = 0
+        
+        for discount in discounts:
+            if discount["discount_type"] == "client":
+                client_discount = discount["discount_percentage"]
+            elif discount["discount_type"] == "agency":
+                agency_discount = discount["discount_percentage"]
+        
+        # Get all wave items for this wave
+        items = db.execute("SELECT * FROM wave_items WHERE wave_id = ?", (wave_id,)).fetchall()
+        
+        for item in items:
+            # Recalculate prices with wave-level discounts
+            gross_price = item["gross_price_eur"] or 0
+            net_price = gross_price * (1 - client_discount / 100)
+            net_net_price = net_price * (1 - agency_discount / 100)
+            
+            # Update the item with new calculated prices and discounts
+            db.execute("""
+                UPDATE wave_items 
+                SET client_discount = ?, agency_discount = ?, 
+                    net_price_eur = ?, net_net_price_eur = ?
+                WHERE id = ?
+            """, (client_discount, agency_discount, net_price, net_net_price, item["id"]))
+        
+        db.commit()
 
 # ---------------- TVCs (TV Commercials) ----------------
 
@@ -1004,3 +1315,246 @@ def generate_agency_csv_order(campaign_id: int):
     output.seek(0)
     
     return output
+
+# ---------- INDICES MANAGEMENT ----------
+
+def migrate_add_indices_tables():
+    """Create tables for duration and seasonal indices management"""
+    with get_db() as db:
+        # Duration indices table (based on clip duration and target group)
+        db.execute("""
+        CREATE TABLE IF NOT EXISTS duration_indices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target_group TEXT NOT NULL,
+            duration_seconds INTEGER NOT NULL,
+            index_value REAL NOT NULL DEFAULT 1.0,
+            description TEXT,
+            UNIQUE(target_group, duration_seconds)
+        )""")
+        
+        # Seasonal indices table (based on months and target group)
+        db.execute("""
+        CREATE TABLE IF NOT EXISTS seasonal_indices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target_group TEXT NOT NULL,
+            month INTEGER NOT NULL CHECK(month >= 1 AND month <= 12),
+            index_value REAL NOT NULL DEFAULT 1.0,
+            description TEXT,
+            UNIQUE(target_group, month)
+        )""")
+        
+        # Position indices table (based on ad position and target group)
+        db.execute("""
+        CREATE TABLE IF NOT EXISTS position_indices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target_group TEXT NOT NULL,
+            position_type TEXT NOT NULL,
+            index_value REAL NOT NULL DEFAULT 1.0,
+            description TEXT,
+            UNIQUE(target_group, position_type)
+        )""")
+        
+        # Get all available target groups from TRP rates
+        trp_rates = db.execute("SELECT DISTINCT target_group FROM trp_rates").fetchall()
+        target_groups = [rate["target_group"] for rate in trp_rates]
+        
+        if not target_groups:
+            # Add some default target groups if none exist
+            target_groups = ["W18-49", "W25-54", "M18-49", "M25-54", "ALL18-49"]
+        
+        # Duration indices based on exact values from boss's images
+        # These apply to all target groups (same in both images)
+        duration_ranges = [
+            ((5, 9), 1.35, "5\"-9\""),
+            ((10, 14), 1.25, "10\"-14\""), 
+            ((15, 19), 1.2, "15\"-19\""),
+            ((20, 24), 1.15, "20\"-24\""),
+            ((25, 29), 1.1, "25\"-29\""),
+            ((30, 44), 1.0, "30\"-44\""),
+            ((45, 999), 1.0, "≥45\"")
+        ]
+        
+        # Create duration indices for each TG (same values for all)
+        for tg in target_groups:
+            for (min_dur, max_dur), index_val, desc in duration_ranges:
+                # Create entries for each second in the range
+                for duration in range(min_dur, min(max_dur + 1, 301)):  # Cap at 300 seconds
+                    db.execute("""
+                        INSERT OR IGNORE INTO duration_indices (target_group, duration_seconds, index_value, description)
+                        VALUES (?, ?, ?, ?)
+                    """, (tg, duration, index_val, f"{desc} ({tg})"))
+        
+        # Seasonal indices - different patterns based on target group type
+        # Pattern 1: A25-55, A25-65, A55+, W25-55, W25-65, M25-65 (from image 1)
+        seasonal_pattern_1 = [
+            (1, 0.9, "Sausis"), (2, 0.95, "Vasaris"), (3, 1.5, "Kovas"),
+            (4, 1.55, "Balandis"), (5, 1.6, "Gegužė"), (6, 1.55, "Birželis"),
+            (7, 1.1, "Liepa"), (8, 1.1, "Rugpjūtis"), (9, 1.65, "Rugsėjis"),
+            (10, 1.65, "Spalis"), (11, 1.65, "Lapkritis"), (12, 1.5, "Gruodis")
+        ]
+        
+        # Pattern 2: Visi, Moterys (from image 2) 
+        seasonal_pattern_2 = [
+            (1, 0.9, "Sausis"), (2, 1.0, "Vasaris"), (3, 1.4, "Kovas"),
+            (4, 1.45, "Balandis"), (5, 1.45, "Gegužė"), (6, 1.4, "Birželis"),
+            (7, 0.95, "Liepa"), (8, 1.0, "Rugpjūtis"), (9, 1.60, "Rugsėjis"),
+            (10, 1.65, "Spalis"), (11, 1.65, "Lapkritis"), (12, 1.5, "Gruodis")
+        ]
+        
+        # Assign patterns based on target group characteristics
+        for tg in target_groups:
+            # Use pattern 2 for broad demographics (Visi, Moterys, ALL)
+            if any(keyword in tg.upper() for keyword in ['ALL', 'VISI', 'MOTER', 'WOMEN']):
+                pattern = seasonal_pattern_2
+            else:
+                # Use pattern 1 for specific age/gender groups
+                pattern = seasonal_pattern_1
+            
+            for month, index_val, desc in pattern:
+                db.execute("""
+                    INSERT OR IGNORE INTO seasonal_indices (target_group, month, index_value, description)
+                    VALUES (?, ?, ?, ?)
+                """, (tg, month, index_val, f"{desc} ({tg})"))
+        
+        # Position indices - different values based on target group type
+        # Position values from images (image 1 vs image 2)
+        position_pattern_1 = [
+            ("first", 1.45, "Pirma pozicija"),
+            ("second", 1.3, "Antra pozicija"), 
+            ("last", 1.3, "Paskutinė"),
+            ("other", 1.2, "Kita spec.")
+        ]
+        
+        position_pattern_2 = [
+            ("first", 1.5, "Pirma pozicija"),
+            ("second", 1.4, "Antra pozicija"),
+            ("last", 1.4, "Paskutinė"), 
+            ("other", 1.3, "Kita spec.")
+        ]
+        
+        # Assign position patterns based on target group characteristics
+        for tg in target_groups:
+            # Use pattern 2 for broad demographics (Visi, Moterys, ALL)
+            if any(keyword in tg.upper() for keyword in ['ALL', 'VISI', 'MOTER', 'WOMEN']):
+                pattern = position_pattern_2
+            else:
+                # Use pattern 1 for specific age/gender groups
+                pattern = position_pattern_1
+            
+            for pos_type, index_val, desc in pattern:
+                db.execute("""
+                    INSERT OR IGNORE INTO position_indices (target_group, position_type, index_value, description)
+                    VALUES (?, ?, ?, ?)
+                """, (tg, pos_type, index_val, f"{desc} ({tg})"))
+        
+        db.commit()
+
+def list_duration_indices():
+    """Get all duration indices grouped by target group"""
+    with get_db() as db:
+        return [dict(row) for row in db.execute(
+            "SELECT * FROM duration_indices ORDER BY target_group, duration_seconds"
+        ).fetchall()]
+
+def list_seasonal_indices():
+    """Get all seasonal indices grouped by target group"""
+    with get_db() as db:
+        return [dict(row) for row in db.execute(
+            "SELECT * FROM seasonal_indices ORDER BY target_group, month"
+        ).fetchall()]
+
+def list_position_indices():
+    """Get all position indices grouped by target group"""
+    with get_db() as db:
+        return [dict(row) for row in db.execute(
+            "SELECT * FROM position_indices ORDER BY target_group, position_type"
+        ).fetchall()]
+
+def get_duration_index(target_group, duration_seconds):
+    """Get duration index for specific target group and duration"""
+    with get_db() as db:
+        row = db.execute(
+            "SELECT index_value FROM duration_indices WHERE target_group = ? AND duration_seconds = ?",
+            (target_group, duration_seconds)
+        ).fetchone()
+        return float(row["index_value"]) if row else 1.0
+
+def get_seasonal_index(target_group, month):
+    """Get seasonal index for specific target group and month (1-12)"""
+    with get_db() as db:
+        row = db.execute(
+            "SELECT index_value FROM seasonal_indices WHERE target_group = ? AND month = ?",
+            (target_group, month)
+        ).fetchone()
+        return float(row["index_value"]) if row else 1.0
+
+def get_position_index(target_group, position_type):
+    """Get position index for specific target group and position type"""
+    with get_db() as db:
+        row = db.execute(
+            "SELECT index_value FROM position_indices WHERE target_group = ? AND position_type = ?",
+            (target_group, position_type)
+        ).fetchone()
+        return float(row["index_value"]) if row else 1.0
+
+def update_duration_index(target_group, duration_seconds, index_value, description=None):
+    """Update or create duration index"""
+    with get_db() as db:
+        db.execute("""
+            INSERT OR REPLACE INTO duration_indices (target_group, duration_seconds, index_value, description)
+            VALUES (?, ?, ?, ?)
+        """, (target_group, duration_seconds, index_value, description))
+        db.commit()
+
+def update_seasonal_index(target_group, month, index_value, description=None):
+    """Update seasonal index for specific target group and month"""
+    with get_db() as db:
+        db.execute("""
+            INSERT OR REPLACE INTO seasonal_indices (target_group, month, index_value, description)
+            VALUES (?, ?, ?, ?)
+        """, (target_group, month, index_value, description))
+        db.commit()
+
+def delete_duration_index(target_group, duration_seconds):
+    """Delete duration index"""
+    with get_db() as db:
+        db.execute("DELETE FROM duration_indices WHERE target_group = ? AND duration_seconds = ?", 
+                   (target_group, duration_seconds))
+        db.commit()
+
+def get_target_groups_list():
+    """Get all available target groups"""
+    with get_db() as db:
+        duration_tgs = db.execute("SELECT DISTINCT target_group FROM duration_indices").fetchall()
+        seasonal_tgs = db.execute("SELECT DISTINCT target_group FROM seasonal_indices").fetchall()
+        trp_tgs = db.execute("SELECT DISTINCT target_group FROM trp_rates").fetchall()
+        
+        # Combine all unique target groups
+        all_tgs = set()
+        for row in duration_tgs:
+            all_tgs.add(row["target_group"])
+        for row in seasonal_tgs:
+            all_tgs.add(row["target_group"])
+        for row in trp_tgs:
+            all_tgs.add(row["target_group"])
+            
+        return sorted(list(all_tgs))
+
+def get_indices_for_wave_item(target_group, duration_seconds, start_date):
+    """Get appropriate duration and seasonal indices for wave item"""
+    duration_index = get_duration_index(target_group, duration_seconds)
+    
+    # Extract month from start_date (assuming YYYY-MM-DD format)
+    seasonal_index = 1.0
+    if start_date:
+        try:
+            from datetime import datetime
+            date_obj = datetime.strptime(start_date, '%Y-%m-%d')
+            seasonal_index = get_seasonal_index(target_group, date_obj.month)
+        except:
+            pass
+    
+    return {
+        'duration_index': duration_index,
+        'seasonal_index': seasonal_index
+    }

@@ -6,6 +6,7 @@ def create_app():
     
     models.init_db()
     models.migrate_add_tvc_id_to_wave_items()  # Add tvc_id column to wave_items
+    models.migrate_add_indices_tables()  # Add indices management tables
 
     # Import blueprints from each package
     from app.about import bp as about_bp
@@ -14,6 +15,7 @@ def create_app():
     from app.pricing_lists import bp as pricing_lists_bp
     from app.campaigns import bp as campaigns_bp
     from app.calendar import bp as calendar_bp
+    from app.indices import bp as indices_bp
 
     # Register blueprints
     app.register_blueprint(about_bp, url_prefix="/about")
@@ -22,6 +24,7 @@ def create_app():
     app.register_blueprint(pricing_lists_bp, url_prefix="/tv-planner")
     app.register_blueprint(campaigns_bp, url_prefix="/tv-planner")
     app.register_blueprint(calendar_bp, url_prefix="/tv-planner")
+    app.register_blueprint(indices_bp, url_prefix="/tv-planner")
     
     
 

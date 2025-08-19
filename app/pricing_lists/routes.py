@@ -43,6 +43,15 @@ def pl_duplicate(list_id):
     except sqlite3.IntegrityError:
         return jsonify({"status":"error","message":"name must be unique"}), 409
 
+@bp.route("/pricing-lists/<int:list_id>/reimport", methods=["POST"])
+def pl_reimport(list_id):
+    """Re-import all TRP rates to existing pricing list"""
+    try:
+        models.import_trp_rates_to_pricing_list(list_id)
+        return jsonify({"status":"ok"})
+    except Exception as e:
+        return jsonify({"status":"error","message":str(e)}), 500
+
 # Items
 @bp.route("/pricing-lists/<int:list_id>/items", methods=["GET"])
 def pli_list(list_id):

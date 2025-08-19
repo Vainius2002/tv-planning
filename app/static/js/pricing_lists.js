@@ -210,6 +210,18 @@
       }
     });
 
+    $('#plReimport').addEventListener('click', async () => {
+      if (!currentListId) return;
+      if (!confirm('Atnaujinti visus įrašus iš TRP įkainių? Visi rankinis pakeitimai bus prarasti.')) return;
+      try {
+        await fetchJSON(`/tv-planner/pricing-lists/${currentListId}/reimport`, { method: 'POST' });
+        await loadItems(currentListId);
+        alert('Kainoraštis atnaujintas iš TRP įkainių');
+      } catch (e) {
+        alert('Klaida: ' + e.message);
+      }
+    });
+    
     $('#plDelete').addEventListener('click', async () => {
       if (!currentListId) return;
       if (!confirm('Šalinti sąrašą ir visus jo įrašus?')) return;

@@ -1,4 +1,4 @@
-#!/home/vainiusl/py_projects/blueprint/venv/bin/python3
+#!/home/vainiusl/py_projects/tv-planner/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

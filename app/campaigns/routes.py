@@ -35,7 +35,19 @@ def campaigns_create():
     pl_id = data.get("pricing_list_id")
     if not name or not pl_id:
         return jsonify({"status":"error","message":"name and pricing_list_id required"}), 400
-    cid = models.create_campaign(name, pl_id, data.get("start_date"), data.get("end_date"))
+    
+    # Get additional campaign fields
+    agency = (data.get("agency") or "").strip()
+    client = (data.get("client") or "").strip()
+    product = (data.get("product") or "").strip()
+    country = (data.get("country") or "Lietuva").strip()
+    split_ratio = (data.get("split_ratio") or "70:30").strip()
+    
+    cid = models.create_campaign(
+        name, pl_id, 
+        data.get("start_date"), data.get("end_date"),
+        agency, client, product, country, split_ratio
+    )
     return jsonify({"status":"ok","id":cid}), 201
 
 @bp.route("/campaigns-api/<int:cid>", methods=["PATCH"])
@@ -79,25 +91,38 @@ def wave_items_list(wid):
 @bp.route("/waves/<int:wid>/items", methods=["POST"])
 def wave_items_create(wid):
     data = request.get_json(force=True)
-    owner = (data.get("owner") or "").strip()
-    tg    = (data.get("target_group") or "").strip()
-    trps  = data.get("trps")
-    tvc_id = data.get("tvc_id")  # Optional TVC assignment
     
-    if not owner or not tg or trps in (None, ""):
-        return jsonify({"status":"error","message":"owner, target_group, trps required"}), 400
+    # Get required fields
+    channel_group = data.get("channel_group")
+    target_group = (data.get("target_group") or "").strip()
+    trps = data.get("trps")
     
-    # Convert empty string to None for tvc_id
-    if tvc_id == "" or tvc_id == "none":
-        tvc_id = None
-    elif tvc_id is not None:
-        try:
-            tvc_id = int(tvc_id)
-        except (ValueError, TypeError):
-            tvc_id = None
-            
+    if not channel_group or not target_group or trps in (None, ""):
+        return jsonify({"status":"error","message":"channel_group, target_group, trps required"}), 400
+    
+    # Get all Excel fields with defaults
+    excel_data = {
+        "channel_group": channel_group,
+        "target_group": target_group,
+        "trps": float(trps),
+        "channel_share": float(data.get("channel_share", 0.75)),
+        "pt_zone_share": float(data.get("pt_zone_share", 0.55)),
+        "clip_duration": int(data.get("clip_duration", 10)),
+        "tvc_id": data.get("tvc_id"),  # TVC ID from database
+        "affinity1": data.get("affinity1"),
+        "affinity2": data.get("affinity2"),
+        "affinity3": data.get("affinity3"),
+        "duration_index": float(data.get("duration_index", 1.25)),
+        "seasonal_index": float(data.get("seasonal_index", 0.9)),
+        "trp_purchase_index": float(data.get("trp_purchase_index", 0.95)),
+        "advance_purchase_index": float(data.get("advance_purchase_index", 0.95)),
+        "position_index": float(data.get("position_index", 1.0)),
+        "client_discount": float(data.get("client_discount", 0)),
+        "agency_discount": float(data.get("agency_discount", 0))
+    }
+    
     try:
-        iid = models.create_wave_item_prefill(wid, owner, tg, trps, tvc_id)
+        iid = models.create_wave_item_excel(wid, excel_data)
         return jsonify({"status":"ok","id":iid}), 201
     except ValueError as e:
         return jsonify({"status":"error","message":str(e)}), 400
@@ -184,6 +209,15 @@ def delete_discount(did):
 def get_wave_total(wid):
     """Get wave total with discounts applied"""
     return jsonify(models.calculate_wave_total_with_discounts(wid))
+
+@bp.route("/waves/<int:wid>/recalculate-discounts", methods=["POST"])
+def recalculate_wave_discounts(wid):
+    """Recalculate wave item prices with wave-level discounts"""
+    try:
+        models.recalculate_wave_item_prices_with_discounts(wid)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # Campaign Status
 @bp.route("/campaigns/<int:cid>/status", methods=["PATCH"])
@@ -288,3 +322,28 @@ def delete_tvc(tvc_id):
     """Delete a TVC"""
     models.delete_tvc(tvc_id)
     return jsonify({"status": "ok"})
+
+# Indices for auto-population
+@bp.route("/waves/<int:wid>/indices", methods=["GET"])
+def get_wave_indices(wid):
+    """Get duration and seasonal indices for wave item creation"""
+    target_group = request.args.get("target_group")
+    duration_seconds = request.args.get("duration_seconds", type=int)
+    
+    if not target_group or duration_seconds is None:
+        return jsonify({"status": "error", "message": "target_group and duration_seconds required"}), 400
+    
+    # Get wave start date for seasonal index
+    with models.get_db() as db:
+        wave = db.execute("SELECT start_date FROM waves WHERE id = ?", (wid,)).fetchone()
+        start_date = wave["start_date"] if wave else None
+    
+    try:
+        indices = models.get_indices_for_wave_item(target_group, duration_seconds, start_date)
+        return jsonify({
+            "status": "ok",
+            "duration_index": indices["duration_index"],
+            "seasonal_index": indices["seasonal_index"]
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500

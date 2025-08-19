@@ -70,6 +70,14 @@ def ch_create(gid):
 
 
 # ---------------------------
+# API: All Channels (for campaign wave forms)
+# ---------------------------
+@bp.route("/channels-api", methods=["GET"])
+def all_channels():
+    """Get all channels from all groups"""
+    return jsonify(models.list_all_channels())
+
+# ---------------------------
 # API: Single Channel (update/delete)
 # ---------------------------
 @bp.route("/channels/<int:cid>", methods=["PATCH"])

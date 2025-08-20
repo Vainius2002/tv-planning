@@ -767,13 +767,14 @@ def create_wave_item_excel(wave_id: int, excel_data: dict) -> int:
     gross_cpp_eur = rate["price_per_sec_eur"] if rate else 15.0  # Default CPP
     
     # Get indices from database if available, otherwise use form values
+    # Get wave dates for seasonal index calculation
     with get_db() as db:
-        # Get wave start date for seasonal index
-        wave = db.execute("SELECT start_date FROM waves WHERE id = ?", (wave_id,)).fetchone()
-        wave_start_date = wave["start_date"] if wave else None
+        wave_data = db.execute("SELECT start_date, end_date FROM waves WHERE id = ?", (wave_id,)).fetchone()
+        wave_start_date = wave_data["start_date"] if wave_data else None
+        wave_end_date = wave_data["end_date"] if wave_data else None
     
-    # Get indices from database using target group
-    db_indices = get_indices_for_wave_item(excel_data["target_group"], excel_data["clip_duration"], wave_start_date)
+    # Get indices from database using target group and wave date range
+    db_indices = get_indices_for_wave_item(excel_data["target_group"], excel_data["clip_duration"], wave_start_date, wave_end_date)
     
     # Use database indices if available, otherwise fall back to form values
     duration_index = db_indices.get("duration_index", excel_data.get("duration_index", 1.25))
@@ -1566,24 +1567,86 @@ def get_target_groups_list():
             
         return sorted(list(all_tgs))
 
-def get_indices_for_wave_item(target_group, duration_seconds, start_date):
+def get_indices_for_wave_item(target_group, duration_seconds, start_date, end_date=None):
     """Get appropriate duration and seasonal indices for wave item"""
     duration_index = get_duration_index(target_group, duration_seconds)
     
-    # Extract month from start_date (assuming YYYY-MM-DD format)
+    # Calculate seasonal index based on wave date range
     seasonal_index = 1.0
     if start_date:
         try:
             from datetime import datetime
-            date_obj = datetime.strptime(start_date, '%Y-%m-%d')
-            seasonal_index = get_seasonal_index(target_group, date_obj.month)
-        except:
-            pass
+            start_obj = datetime.strptime(start_date, '%Y-%m-%d')
+            
+            # If end_date is provided and spans multiple months, calculate average
+            if end_date:
+                try:
+                    end_obj = datetime.strptime(end_date, '%Y-%m-%d')
+                    seasonal_index = calculate_average_seasonal_index(target_group, start_obj, end_obj)
+                    print(f"DEBUG: Multi-month wave {start_date} to {end_date}, average seasonal_index={seasonal_index}")
+                except Exception as e:
+                    print(f"DEBUG: Error parsing end_date {end_date}, using start_date only: {e}")
+                    seasonal_index = get_seasonal_index(target_group, start_obj.month)
+            else:
+                # Single month or no end date provided
+                seasonal_index = get_seasonal_index(target_group, start_obj.month)
+                print(f"DEBUG: Single month wave {start_date}, seasonal_index={seasonal_index}")
+                
+        except Exception as e:
+            print(f"DEBUG: Error parsing start_date {start_date}: {e}")
+    else:
+        print(f"DEBUG: No start_date provided for target_group={target_group}")
     
     return {
         'duration_index': duration_index,
         'seasonal_index': seasonal_index
     }
+
+def calculate_average_seasonal_index(target_group, start_date, end_date):
+    """Calculate average seasonal index for a date range spanning multiple months"""
+    from datetime import datetime, timedelta
+    from calendar import monthrange
+    
+    if start_date.year != end_date.year or start_date.month == end_date.month:
+        # Same month or different years, use simple approach
+        return get_seasonal_index(target_group, start_date.month)
+    
+    total_weighted_index = 0
+    total_days = 0
+    
+    current_date = start_date
+    while current_date <= end_date:
+        # Calculate days in current month for this wave
+        if current_date.month == start_date.month:
+            # First month: from start_date to end of month
+            _, days_in_month = monthrange(current_date.year, current_date.month)
+            days_in_current_month = days_in_month - current_date.day + 1
+        elif current_date.month == end_date.month:
+            # Last month: from beginning of month to end_date
+            days_in_current_month = end_date.day
+        else:
+            # Full middle months
+            _, days_in_current_month = monthrange(current_date.year, current_date.month)
+        
+        # Get seasonal index for this month
+        month_index = get_seasonal_index(target_group, current_date.month)
+        
+        # Add to weighted total
+        total_weighted_index += month_index * days_in_current_month
+        total_days += days_in_current_month
+        
+        print(f"DEBUG: Month {current_date.month}, days={days_in_current_month}, index={month_index}")
+        
+        # Move to next month
+        if current_date.month == 12:
+            current_date = current_date.replace(year=current_date.year + 1, month=1, day=1)
+        else:
+            current_date = current_date.replace(month=current_date.month + 1, day=1)
+    
+    average_index = total_weighted_index / total_days if total_days > 0 else 1.0
+    print(f"DEBUG: Average seasonal index calculation: total_weighted={total_weighted_index}, total_days={total_days}, average={average_index}")
+    
+    return average_index
 
 def migrate_remove_pricing_list_requirement():
     """Remove pricing_list_id requirement from campaigns table"""

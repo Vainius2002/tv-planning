@@ -340,13 +340,14 @@ def get_wave_indices(wid):
     if not target_group or duration_seconds is None:
         return jsonify({"status": "error", "message": "target_group and duration_seconds required"}), 400
     
-    # Get wave start date for seasonal index
+    # Get wave start and end dates for seasonal index calculation
     with models.get_db() as db:
-        wave = db.execute("SELECT start_date FROM waves WHERE id = ?", (wid,)).fetchone()
+        wave = db.execute("SELECT start_date, end_date FROM waves WHERE id = ?", (wid,)).fetchone()
         start_date = wave["start_date"] if wave else None
+        end_date = wave["end_date"] if wave else None
     
     try:
-        indices = models.get_indices_for_wave_item(target_group, duration_seconds, start_date)
+        indices = models.get_indices_for_wave_item(target_group, duration_seconds, start_date, end_date)
         return jsonify({
             "status": "ok",
             "duration_index": indices["duration_index"],

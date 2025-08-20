@@ -874,12 +874,15 @@
         
         // Function to update auto indices based on TG and TVC selection
         async function updateAutoIndices(waveId, section) {
-          const tgValue = section.querySelector('.tg').value;
+          const tgValue = section.querySelector('.tg')?.value;
           const tvcSelect = section.querySelector('.tvc');
           const durationInput = section.querySelector('.duration-index');
           const seasonalInput = section.querySelector('.seasonal-index');
           
-          if (!tgValue || !tvcSelect.value || !W_INDICES) return;
+          if (!tgValue || !tvcSelect?.value || !durationInput || !seasonalInput) {
+            console.log('updateAutoIndices: Missing elements', {tgValue, tvcSelect: !!tvcSelect, durationInput: !!durationInput, seasonalInput: !!seasonalInput});
+            return;
+          }
           
           try {
             // Get selected TVC duration
@@ -957,11 +960,74 @@
           }
         }
         
+        // Update duration and seasonal indices from database (old format)
+        async function updateIndicesFromDatabaseOld(targetGroup, duration, waveId, section) {
+          if (!targetGroup || !duration || !waveId) return;
+          
+          const durationInput = section.querySelector('.duration-index');
+          const seasonalInput = section.querySelector('.seasonal-index');
+          
+          if (!durationInput || !seasonalInput) return;
+          
+          try {
+            const url = `/tv-planner/waves/${waveId}/indices?target_group=${encodeURIComponent(targetGroup)}&duration_seconds=${duration}`;
+            console.log('DEBUG Indices: Requesting', {url, targetGroup, duration, waveId});
+            
+            const response = await fetchJSON(url);
+            console.log('DEBUG Indices: Response', {response, targetGroup});
+            
+            if (response.status === 'ok') {
+              durationInput.value = response.duration_index.toFixed(2);
+              seasonalInput.value = response.seasonal_index.toFixed(2);
+              
+              console.log('DEBUG Indices: Updated values', {
+                duration_index: response.duration_index,
+                seasonal_index: response.seasonal_index,
+                targetGroup,
+                waveId
+              });
+              
+              // Update visual indicators
+              durationInput.style.backgroundColor = response.duration_index !== 1.0 ? '#dcfce7' : '#f1f5f9';
+              seasonalInput.style.backgroundColor = response.seasonal_index !== 1.0 ? '#dcfce7' : '#f1f5f9';
+            }
+          } catch (error) {
+            console.error('Error updating indices from database:', error);
+          }
+        }
+
+        // Update duration and seasonal indices from database (new format)
+        async function updateIndicesFromDatabase(targetGroup, duration) {
+          if (!targetGroup || !duration || !window.currentWave) return;
+          
+          const durationInput = section.querySelector('.duration-index');
+          const seasonalInput = section.querySelector('.seasonal-index');
+          
+          if (!durationInput || !seasonalInput) return;
+          
+          try {
+            const url = `/tv-planner/waves/${window.currentWave.id}/indices?target_group=${encodeURIComponent(targetGroup)}&duration_seconds=${duration}`;
+            const response = await fetchJSON(url);
+            
+            if (response.status === 'ok') {
+              durationInput.value = response.duration_index.toFixed(2);
+              seasonalInput.value = response.seasonal_index.toFixed(2);
+              
+              // Update visual indicators
+              durationInput.style.backgroundColor = response.duration_index !== 1.0 ? '#dcfce7' : '#f1f5f9';
+              seasonalInput.style.backgroundColor = response.seasonal_index !== 1.0 ? '#dcfce7' : '#f1f5f9';
+            }
+          } catch (error) {
+            console.error('Error updating indices from database:', error);
+          }
+        }
+        
         channelSel.addEventListener('change', () => loadTargetGroups(channelSel.value));
         
-        // Update shares when target group changes
+        // Update shares and indices when target group changes
         tgSel.addEventListener('change', () => {
           updateSharesFromTRP(channelSel.value, tgSel.value);
+          updateIndicesFromDatabase(tgSel.value, clipDurationInput.value);
         });
         
         // Update clip duration when TVC changes
@@ -970,13 +1036,30 @@
         
         tvcSelect.addEventListener('change', () => {
           const tvcId = tvcSelect.value;
+          const targetGroup = tgSel.value;
+          
           if (tvcId) {
             const selectedTVC = tvcs.find(tvc => tvc.id == tvcId);
             if (selectedTVC) {
               clipDurationInput.value = selectedTVC.duration;
+              // Update indices when duration changes
+              if (targetGroup) {
+                updateIndicesFromDatabaseOld(targetGroup, selectedTVC.duration, w.id, section);
+              }
             }
           } else {
             clipDurationInput.value = 10; // Default duration
+            if (targetGroup) {
+              updateIndicesFromDatabaseOld(targetGroup, 10, w.id, section);
+            }
+          }
+        });
+        
+        // Update indices when clip duration is manually changed
+        clipDurationInput.addEventListener('change', () => {
+          const targetGroup = tgSel.value;
+          if (targetGroup) {
+            updateIndicesFromDatabaseOld(targetGroup, clipDurationInput.value, w.id, section);
           }
         });
 
@@ -1219,13 +1302,35 @@
         
         if (tgSelectForIndices) {
           tgSelectForIndices.addEventListener('change', () => {
-            updateAutoIndices(w.id, section);
+            // Use the new indices update system
+            const clipDuration = section.querySelector('.clip-duration')?.value || 30;
+            updateIndicesFromDatabaseOld(tgSelectForIndices.value, clipDuration, w.id, section);
           });
         }
         
         if (tvcSelectForIndices) {
           tvcSelectForIndices.addEventListener('change', () => {
-            updateAutoIndices(w.id, section);
+            try {
+              const selectedTVC = JSON.parse(tvcSelectForIndices.value);
+              const duration = selectedTVC.duration || 30;
+              const targetGroup = section.querySelector('.tg')?.value;
+              if (targetGroup) {
+                updateIndicesFromDatabaseOld(targetGroup, duration, w.id, section);
+              }
+            } catch (e) {
+              console.error('Error parsing TVC selection:', e);
+            }
+          });
+        }
+        
+        // Add listener for manual clip duration changes (old system)
+        const clipDurationForIndices = section.querySelector('.clip-duration');
+        if (clipDurationForIndices) {
+          clipDurationForIndices.addEventListener('change', () => {
+            const targetGroup = section.querySelector('.tg')?.value;
+            if (targetGroup) {
+              updateIndicesFromDatabaseOld(targetGroup, clipDurationForIndices.value, w.id, section);
+            }
           });
         }
         

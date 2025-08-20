@@ -410,9 +410,27 @@
       const calendarDiv = document.querySelector('#campaignCalendar');
       if (!calendarDiv || !currentCampaign) return;
       
-      // Generate calendar based on campaign dates
-      const startDate = currentCampaign.start_date ? new Date(currentCampaign.start_date) : new Date();
-      const endDate = currentCampaign.end_date ? new Date(currentCampaign.end_date) : new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days default
+      // Generate calendar based on campaign dates, but extend to include all waves
+      let startDate = currentCampaign.start_date ? new Date(currentCampaign.start_date) : new Date();
+      let endDate = currentCampaign.end_date ? new Date(currentCampaign.end_date) : new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days default
+      
+      // Check if any waves extend beyond campaign dates
+      if (currentWaves && currentWaves.length > 0) {
+        currentWaves.forEach(wave => {
+          if (wave.start_date) {
+            const waveStart = new Date(wave.start_date);
+            if (waveStart < startDate) {
+              startDate = new Date(waveStart);
+            }
+          }
+          if (wave.end_date) {
+            const waveEnd = new Date(wave.end_date);
+            if (waveEnd > endDate) {
+              endDate = new Date(waveEnd);
+            }
+          }
+        });
+      }
       
       let html = '<div class="calendar-grid">';
       
@@ -442,9 +460,8 @@
         const isToday = currentDate.toDateString() === new Date().toDateString();
         const dateStr = currentDate.toISOString().split('T')[0];
         
-        // Check if date is in any wave period
-        let waveIndex = -1;
-        let isInWave = false;
+        // Check which waves include this date (allow multiple waves)
+        let wavesForDate = [];
         if (currentWaves) {
           for (let i = 0; i < currentWaves.length; i++) {
             const wave = currentWaves[i];
@@ -452,28 +469,55 @@
               const waveStart = new Date(wave.start_date);
               const waveEnd = new Date(wave.end_date);
               if (currentDate >= waveStart && currentDate <= waveEnd) {
-                isInWave = true;
-                waveIndex = i;
-                break;
+                wavesForDate.push({
+                  index: i,
+                  name: wave.name || `Banga ${i + 1}`
+                });
               }
             }
           }
         }
         
-        let cellClass = 'p-2 text-center text-xs rounded ';
-        if (isInWave) {
-          cellClass += `${waveColors[waveIndex % waveColors.length]} hover:opacity-80 cursor-pointer `;
+        let cellClass = 'p-2 text-center text-xs rounded relative overflow-hidden ';
+        let cellContent = '';
+        
+        if (wavesForDate.length > 0) {
+          // Multiple waves - show stripes or use first wave color with indicator
+          if (wavesForDate.length === 1) {
+            cellClass += `${waveColors[wavesForDate[0].index % waveColors.length]} hover:opacity-80 cursor-pointer `;
+          } else {
+            // Use gradient for multiple waves
+            const colors = wavesForDate.map(w => {
+              const colorClass = waveColors[w.index % waveColors.length];
+              // Extract color from bg-{color}-100 pattern
+              const colorName = colorClass.match(/bg-(\w+)-100/)[1];
+              return colorName;
+            });
+            
+            // Use first wave's color as base
+            cellClass += `${waveColors[wavesForDate[0].index % waveColors.length]} hover:opacity-80 cursor-pointer `;
+            
+            // Add indicator for multiple waves
+            cellContent = `<div class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full" title="${wavesForDate.length} bangos"></div>`;
+          }
         } else if (isInRange) {
           cellClass += 'bg-blue-50 hover:bg-blue-100 cursor-pointer ';
         } else {
           cellClass += 'bg-gray-50 text-gray-400 ';
         }
+        
         if (isToday) {
           cellClass += 'ring-2 ring-blue-500 ';
         }
         
-        html += `<div class="${cellClass}" data-date="${dateStr}" title="${isInWave ? currentWaves[waveIndex].name : ''}" onclick="toggleDateSelection('${dateStr}')">
+        // Create tooltip with all wave names
+        const tooltip = wavesForDate.length > 0 
+          ? wavesForDate.map(w => w.name).join(', ') 
+          : '';
+        
+        html += `<div class="${cellClass}" data-date="${dateStr}" title="${tooltip}" onclick="toggleDateSelection('${dateStr}')">
                    ${currentDate.getDate()}
+                   ${cellContent}
                  </div>`;
         
         currentDate.setDate(currentDate.getDate() + 1);
@@ -501,6 +545,9 @@
                      </div>`;
           }
         });
+        html += '<div class="mt-2 text-xs text-slate-500 italic">';
+        html += '⚠️ Bangos gali persidengti. Persidengiančios dienos pažymėtos raudonu tašku.';
+        html += '</div>';
         html += '</div>';
         html += '</div>';
       }

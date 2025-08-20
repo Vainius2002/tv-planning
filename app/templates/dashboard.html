@@ -42,16 +42,16 @@
         </div>
       </a>
 
-      <a href="/tv-planner/pricing" class="group block p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-brand-300 transition-all">
+      <a href="/tv-planner/indices" class="group block p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-brand-300 transition-all">
         <div class="flex items-center">
           <div class="p-3 bg-amber-100 rounded-lg">
             <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
             </svg>
           </div>
           <div class="ml-4">
-            <h3 class="text-sm font-medium text-gray-900 group-hover:text-amber-600 transition-colors">Kainoraščiai</h3>
-            <p class="text-sm text-gray-500">Valdyti tarifus</p>
+            <h3 class="text-sm font-medium text-gray-900 group-hover:text-amber-600 transition-colors">Indeksai</h3>
+            <p class="text-sm text-gray-500">Valdyti koeficientus</p>
           </div>
         </div>
       </a>
@@ -117,12 +117,12 @@
           <div class="text-sm text-gray-600">Kanalų grupės</div>
         </div>
         <div class="text-center p-4 bg-amber-50 rounded-lg">
-          <div class="text-2xl font-bold text-amber-600" id="pricingListCount">-</div>
-          <div class="text-sm text-gray-600">Kainoraščiai</div>
+          <div class="text-2xl font-bold text-amber-600" id="thisMonthCampaigns">-</div>
+          <div class="text-sm text-gray-600">Šio mėnesio kampanijos</div>
         </div>
         <div class="text-center p-4 bg-purple-50 rounded-lg">
-          <div class="text-2xl font-bold text-purple-600" id="activeCampaignCount">-</div>
-          <div class="text-sm text-gray-600">Aktyvios</div>
+          <div class="text-2xl font-bold text-purple-600" id="completedCampaigns">-</div>
+          <div class="text-sm text-gray-600">Užbaigtos kampanijos</div>
         </div>
       </div>
     </div>
@@ -141,7 +141,7 @@
         <p class="text-gray-600 mb-4">Jei tai pirmas kartas naudojate sistemą, rekomenduojame:</p>
         <ol class="list-decimal list-inside space-y-1 text-sm text-gray-600">
           <li>Sukurkite <strong>kanalų grupes</strong> (pvz. AMB Baltics, MG grupė)</li>
-          <li>Sukurkite <strong>kainoraščius</strong> su įkainiais pagal grupes</li>
+          <li>Nustatykite <strong>TRP tarifus</strong> ir <strong>indeksus</strong> pagal grupes</li>
           <li>Sukurkite <strong>kampanijas</strong> ir planuokite bangas</li>
           <li>Peržiūrėkite <strong>kalendorių</strong> ir stebėkite progresą</li>
         </ol>
@@ -156,21 +156,107 @@
 document.addEventListener('DOMContentLoaded', async function() {
   // Load basic stats
   try {
-    const [campaigns, channelGroups, pricingLists] = await Promise.all([
-      fetch('/tv-planner/campaigns-api').then(r => r.json()),
-      fetch('/tv-planner/channel-groups').then(r => r.json()),
-      fetch('/tv-planner/pricing-lists').then(r => r.json())
-    ]);
+    // Load campaigns
+    try {
+      const campaigns = await fetch('/tv-planner/campaigns-api').then(r => r.json());
+      const campaignCountEl = document.getElementById('campaignCount');
+      if (campaignCountEl) campaignCountEl.textContent = campaigns.length || 0;
+    } catch (e) {
+      console.log('Could not load campaigns:', e);
+      const campaignCountEl = document.getElementById('campaignCount');
+      if (campaignCountEl) campaignCountEl.textContent = '0';
+    }
     
-    document.getElementById('campaignCount').textContent = campaigns.length || 0;
-    document.getElementById('channelGroupCount').textContent = channelGroups.length || 0;
-    document.getElementById('pricingListCount').textContent = pricingLists.length || 0;
+    // Load channel groups
+    try {
+      const channelGroups = await fetch('/tv-planner/channel-groups').then(r => r.json());
+      const channelGroupCountEl = document.getElementById('channelGroupCount');
+      if (channelGroupCountEl) channelGroupCountEl.textContent = channelGroups.length || 0;
+    } catch (e) {
+      console.log('Could not load channel groups:', e);
+      const channelGroupCountEl = document.getElementById('channelGroupCount');
+      if (channelGroupCountEl) channelGroupCountEl.textContent = '0';
+    }
     
-    // Count active campaigns
-    const activeCampaigns = campaigns.filter(c => c.status === 'active' || c.status === 'confirmed').length;
-    document.getElementById('activeCampaignCount').textContent = activeCampaigns || 0;
+    // Calculate additional useful stats
+    try {
+      console.log('Loading extended stats...');
+      const campaigns = await fetch('/tv-planner/campaigns-api').then(r => r.json());
+      console.log('Campaigns loaded:', campaigns.length);
+      
+      // Count completed campaigns (by end date)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Set to start of day
+      
+      const completedCampaigns = campaigns.filter(c => {
+        if (c.end_date) {
+          const endDate = new Date(c.end_date);
+          return endDate < today; // Campaign ended before today
+        }
+        return false; // No end date = not completed
+      }).length;
+      console.log('Completed campaigns (by date):', completedCampaigns);
+      
+      const completedEl = document.getElementById('completedCampaigns');
+      if (completedEl) completedEl.textContent = completedCampaigns;
+      
+      // Get current month campaigns
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+      console.log('Current month/year:', currentMonth, currentYear);
+      
+      const thisMonthCampaigns = campaigns.filter(campaign => {
+        // Campaign is active this month if:
+        // 1. It starts this month, OR
+        // 2. It started before this month and ends this month or later
+        
+        if (!campaign.start_date) return false;
+        
+        const startDate = new Date(campaign.start_date);
+        const startMonth = startDate.getMonth() + 1;
+        const startYear = startDate.getFullYear();
+        
+        // Campaign starts this month
+        if (startMonth === currentMonth && startYear === currentYear) {
+          return true;
+        }
+        
+        // Campaign started earlier but might still be running this month
+        if (campaign.end_date) {
+          const endDate = new Date(campaign.end_date);
+          const endMonth = endDate.getMonth() + 1;
+          const endYear = endDate.getFullYear();
+          
+          // Campaign spans into or through this month
+          const campaignStartsEarlier = (startYear < currentYear) || (startYear === currentYear && startMonth < currentMonth);
+          const campaignEndsLater = (endYear > currentYear) || (endYear === currentYear && endMonth >= currentMonth);
+          
+          return campaignStartsEarlier && campaignEndsLater;
+        }
+        
+        return false;
+      }).length;
+      
+      console.log('This month campaigns:', thisMonthCampaigns);
+      const thisMonthEl = document.getElementById('thisMonthCampaigns');
+      if (thisMonthEl) thisMonthEl.textContent = thisMonthCampaigns;
+      
+    } catch (e) {
+      console.error('Extended stats error:', e);
+      const completedEl = document.getElementById('completedCampaigns');
+      const thisMonthEl = document.getElementById('thisMonthCampaigns');
+      if (completedEl) completedEl.textContent = '0';
+      if (thisMonthEl) thisMonthEl.textContent = '0';
+    }
+    
   } catch (e) {
-    console.log('Could not load stats:', e);
+    console.log('General stats loading error:', e);
+    // Safely set all to 0 if general error
+    const els = ['campaignCount', 'channelGroupCount', 'thisMonthCampaigns', 'completedCampaigns'];
+    els.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '0';
+    });
   }
 });
 </script>

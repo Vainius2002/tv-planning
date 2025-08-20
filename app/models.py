@@ -759,12 +759,14 @@ def create_wave_item_prefill(wave_id: int, owner: str, target_group: str, trps: 
 def create_wave_item_excel(wave_id: int, excel_data: dict) -> int:
     """Create a wave item with Excel-style data structure"""
         
-    # Get pricing info from TRP rates based on channel_group and target_group
+    # Get pricing info from TRP rates based on channel_group (which is the owner) and target_group
     rate = get_trp_rate_item(excel_data["channel_group"], excel_data["target_group"])
     
     # Calculate derived values
+    # GRP Planned = TRP × Channel Share × PT Zone Share (matches Excel structure)
     grp_planned = excel_data["trps"] * excel_data["channel_share"] * excel_data["pt_zone_share"]
-    gross_cpp_eur = rate["price_per_sec_eur"] if rate else 15.0  # Default CPP
+    # CPP = price per second × clip duration
+    gross_cpp_eur = (rate["price_per_sec_eur"] * excel_data["clip_duration"]) if rate else (1.0 * excel_data["clip_duration"])
     
     # Get indices from database if available, otherwise use form values
     # Get wave dates for seasonal index calculation
@@ -780,8 +782,8 @@ def create_wave_item_excel(wave_id: int, excel_data: dict) -> int:
     duration_index = db_indices.get("duration_index", excel_data.get("duration_index", 1.25))
     seasonal_index = db_indices.get("seasonal_index", excel_data.get("seasonal_index", 0.9))
     
-    # Calculate gross price with all indices
-    gross_price_eur = (excel_data["trps"] * gross_cpp_eur * excel_data["clip_duration"] * 
+    # Calculate gross price with all indices (CPP already includes clip duration)
+    gross_price_eur = (excel_data["trps"] * gross_cpp_eur * 
                       duration_index * seasonal_index * 
                       excel_data["trp_purchase_index"] * excel_data["advance_purchase_index"] * 
                       excel_data["position_index"])
@@ -811,10 +813,10 @@ def create_wave_item_excel(wave_id: int, excel_data: dict) -> int:
             excel_data["trp_purchase_index"], excel_data["advance_purchase_index"], excel_data["position_index"],
             gross_price_eur, excel_data["client_discount"], net_price_eur, 
             excel_data["agency_discount"], net_net_price_eur,
-            # TG data from TRP rates
-            rate.get("tg_size_thousands", 0) if rate else 0,
-            rate.get("tg_share_percent", 0) if rate else 0, 
-            rate.get("tg_sample_size", 0) if rate else 0,
+            # TG data from Excel/form, fallback to TRP rates, then defaults
+            excel_data.get("tg_size_thousands") or (rate.get("tg_size_thousands", 0) if rate else 0),
+            excel_data.get("tg_share_percent") or (rate.get("tg_share_percent", 0) if rate else 0), 
+            excel_data.get("tg_sample_size") or (rate.get("tg_sample_size", 0) if rate else 0),
             # Use channel_group as owner
             excel_data["channel_group"], 
             rate["primary_label"] if rate else "N/A",

@@ -87,7 +87,7 @@
       const advancePurchaseIndex = parseFloat(item.advance_purchase_index) || 0.95;
       const positionIndex = parseFloat(item.position_index) || 1.0;
       
-      return trps * cpp * duration * durationIndex * seasonalIndex * trpPurchaseIndex * advancePurchaseIndex * positionIndex;
+      return trps * cpp * durationIndex * seasonalIndex * trpPurchaseIndex * advancePurchaseIndex * positionIndex;
     }
 
     function calculateNetPrice(grossPrice, clientDiscount) {

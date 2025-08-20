@@ -117,7 +117,11 @@ def wave_items_create(wid):
         "advance_purchase_index": float(data.get("advance_purchase_index", 0.95)),
         "position_index": float(data.get("position_index", 1.0)),
         "client_discount": float(data.get("client_discount", 0)),
-        "agency_discount": float(data.get("agency_discount", 0))
+        "agency_discount": float(data.get("agency_discount", 0)),
+        # TG demographic data from Excel/form
+        "tg_size_thousands": float(data.get("tg_size_thousands", 0)),
+        "tg_share_percent": float(data.get("tg_share_percent", 0)),
+        "tg_sample_size": int(data.get("tg_sample_size", 0))
     }
     
     try:

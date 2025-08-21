@@ -267,7 +267,13 @@
 
     function updateAllTVCSelections() {
       const tvcSelects = wavesDiv.querySelectorAll('.tvc-select');
-      tvcSelects.forEach(select => {
+      const waveFormSelect = document.querySelector('#wTVC'); // Wave creation form select
+      
+      // Update both wave form and wave item selects
+      const allSelects = [...tvcSelects];
+      if (waveFormSelect) allSelects.push(waveFormSelect);
+      
+      allSelects.forEach(select => {
         const currentValue = select.value;
         select.innerHTML = '<option value="">Pasirinkti TVC</option>';
         tvcs.forEach(tvc => {
@@ -383,6 +389,22 @@
         ${currentCampaign.client || ''} ${currentCampaign.product ? '- ' + currentCampaign.product : ''} | 
         ${currentCampaign.start_date || 'Nėra datos'} - ${currentCampaign.end_date || 'Nėra datos'}
       `;
+      
+      // Set date limits for wave creation based on campaign dates
+      const wStart = document.querySelector('#wStart');
+      const wEnd = document.querySelector('#wEnd');
+      if (wStart && currentCampaign.start_date) {
+        wStart.min = currentCampaign.start_date;
+      }
+      if (wEnd && currentCampaign.end_date) {
+        wEnd.max = currentCampaign.end_date;
+      }
+      if (wStart && currentCampaign.end_date) {
+        wStart.max = currentCampaign.end_date;
+      }
+      if (wEnd && currentCampaign.start_date) {
+        wEnd.min = currentCampaign.start_date;
+      }
       
       loadTVCs(currentCampaign.id);  // Load TVCs when campaign opens
       loadWaves(currentCampaign.id); // loadWaves will call renderCampaignCalendar
@@ -504,7 +526,7 @@
         const dateStr = tempDate.toISOString().split('T')[0];
         const isWeekend = tempDate.getDay() === 0 || tempDate.getDay() === 6;
         html += `<td class="px-1 py-1 border-r border-slate-200 ${isWeekend ? 'bg-amber-100' : 'bg-amber-50'}">`;
-        html += `<input type="number" step="0.01" class="trp-input w-full text-xs px-1 py-0.5 border-0 bg-transparent text-center font-medium" data-date="${dateStr}" placeholder="0" />`;
+        html += `<input type="number" step="0.01" class="trp-input w-full text-xs px-1 py-0.5 border-0 bg-transparent text-center font-medium text-slate-700" data-date="${dateStr}" placeholder="0" />`;
         html += '</td>';
         tempDate.setDate(tempDate.getDate() + 1);
       }
@@ -654,7 +676,7 @@
             <div class="bg-white rounded-lg border p-4 mb-4">
               <h4 class="font-medium text-slate-700 mb-3">Pridėti naują eilutę (Excel struktūra)</h4>
               
-              <!-- Basic fields row 1 -->
+              <!-- Essential fields only -->
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
                 <div>
                   <label class="block text-xs text-slate-600 mb-1">Kanalų grupė</label>
@@ -667,39 +689,24 @@
                   <select class="tg rounded border-slate-300 px-2 py-1 text-sm w-full"></select>
                 </div>
                 <div>
-                  <label class="block text-xs text-slate-600 mb-1">Pagrindinio kanalo dalis (%)</label>
-                  <input class="channel-share rounded border-slate-300 px-2 py-1 text-sm w-full" type="number" step="0.1" value="75" placeholder="75">
-                </div>
-                <div>
-                  <label class="block text-xs text-slate-600 mb-1">PT zonos dalis (%)</label>
-                  <input class="pt-zone-share rounded border-slate-300 px-2 py-1 text-sm w-full" type="number" step="0.1" value="55" placeholder="55">
-                </div>
-              </div>
-              
-              <!-- Basic fields row 2 -->
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-                <div>
                   <label class="block text-xs text-slate-600 mb-1">TVC (iš duomenų bazės)</label>
                   <select class="tvc-select rounded border-slate-300 px-2 py-1 text-sm w-full">
                     <option value="">Pasirinkti TVC</option>
                   </select>
                 </div>
                 <div>
-                  <label class="block text-xs text-slate-600 mb-1">Klipo trukmė (sek.) - automatiškai</label>
-                  <input class="clip-duration rounded border-slate-300 px-2 py-1 text-sm w-full bg-gray-100" type="number" value="10" readonly>
-                </div>
-                <div>
                   <label class="block text-xs text-slate-600 mb-1">TRP perkami</label>
                   <input class="trps rounded border-slate-300 px-2 py-1 text-sm w-full" type="number" step="0.01" placeholder="35.14">
                 </div>
-                <div>
-                  <label class="block text-xs text-slate-600 mb-1">Affinity 1</label>
-                  <input class="affinity1 rounded border-slate-300 px-2 py-1 text-sm w-full" type="number" step="0.1" placeholder="88.2">
-                </div>
-                <div>
-                  <label class="block text-xs text-slate-600 mb-1">Affinity 2</label>
-                  <input class="affinity2 rounded border-slate-300 px-2 py-1 text-sm w-full" type="number" step="0.1">
-                </div>
+              </div>
+              
+              <!-- Hidden advanced fields (default values) -->
+              <div style="display: none;">
+                <input class="channel-share" type="number" value="75">
+                <input class="pt-zone-share" type="number" value="55">
+                <input class="clip-duration" type="number" value="10">
+                <input class="affinity1" type="number" value="">
+                <input class="affinity2" type="number" value="">
               </div>
               
               <!-- Advanced fields (collapsible) -->
@@ -941,10 +948,11 @@
         // Update shares and indices when target group changes
         tgSel.addEventListener('change', () => {
           updateSharesFromTRP(channelSel.value, tgSel.value);
-          updateIndicesFromDatabase(tgSel.value, clipDurationInput.value);
+          const clipDurationInput = section.querySelector('.clip-duration');
+          updateIndicesFromDatabase(tgSel.value, clipDurationInput ? clipDurationInput.value : 10);
         });
         
-        // Update clip duration when TVC changes
+        // Update clip duration when TVC changes (hidden field)
         const tvcSelect = section.querySelector('.tvc-select');
         const clipDurationInput = section.querySelector('.clip-duration');
         
@@ -990,18 +998,23 @@
             return; 
           }
           
-          // Collect all form data
+          // Collect all form data (visible and hidden with defaults)
           const tvcId = section.querySelector('.tvc-select').value;
+          const selectedTVC = tvcs.find(tvc => tvc.id == tvcId);
+          const clipDuration = selectedTVC ? selectedTVC.duration : 10;
+          
           const formData = {
             channel_group: channelGroupName,
             target_group: targetGroup,
             trps: parseFloat(trps),
-            channel_share: (parseFloat(section.querySelector('.channel-share').value) || 75) / 100, // Convert % to decimal
-            pt_zone_share: (parseFloat(section.querySelector('.pt-zone-share').value) || 55) / 100, // Convert % to decimal
-            clip_duration: parseInt(section.querySelector('.clip-duration').value) || 10,
+            // Hidden fields with default values
+            channel_share: 0.75, // 75% default
+            pt_zone_share: 0.55, // 55% default
+            clip_duration: clipDuration,
             tvc_id: tvcId ? parseInt(tvcId) : null,
-            affinity1: parseFloat(section.querySelector('.affinity1').value) || null,
-            affinity2: parseFloat(section.querySelector('.affinity2').value) || null,
+            affinity1: null, // Will be editable in resulting table
+            affinity2: null,
+            // Advanced parameters with defaults
             duration_index: parseFloat(section.querySelector('.duration-index').value) || 1.25,
             seasonal_index: parseFloat(section.querySelector('.seasonal-index').value) || 0.9,
             trp_purchase_index: parseFloat(section.querySelector('.trp-purchase-index').value) || 0.95,
@@ -1018,11 +1031,9 @@
             });
             await reloadItems();
             
-            // Clear form
+            // Clear form (only visible fields)
             section.querySelector('.trps').value = '';
-            section.querySelector('.affinity1').value = '';
-            section.querySelector('.affinity2').value = '';
-            // Keep default values for other fields
+            // affinity1 and affinity2 are now hidden - no need to clear
           } catch (error) {
             alert('Klaida pridedant eilutę: ' + error.message);
           }
@@ -1217,24 +1228,103 @@
         renderCurrentCampaign();
       });
     }
+    
+    // Add date validation to wave creation form
+    const wStart = document.querySelector('#wStart');
+    const wEnd = document.querySelector('#wEnd');
+    
+    if (wStart) {
+      wStart.addEventListener('change', () => {
+        if (wEnd && wStart.value) {
+          wEnd.min = wStart.value; // End date cannot be before start date
+        }
+      });
+    }
+    
+    if (wEnd) {
+      wEnd.addEventListener('change', () => {
+        if (wStart && wEnd.value) {
+          wStart.max = wEnd.value; // Start date cannot be after end date
+        }
+      });
+    }
 
-    // add wave
+    // add wave with initial item
     $('#wAdd').addEventListener('click', async () => {
       if(!currentCampaign){ alert('Pirma pasirinkite kampaniją'); return; }
+      
       const start = $('#wStart').value || null;
       const end   = $('#wEnd').value || null;
+      const targetGroup = $('#wTG').value;
+      const trps = $('#wTRP').value;
+      const tvcId = $('#wTVC').value;
       
       if (!start || !end) {
         alert('Prašome pasirinkti bangos pradžios ir pabaigos datas');
         return;
       }
       
-      await fetchJSON(urlReplace(W_CREATE, currentCampaign.id), {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ name: '', start_date:start, end_date:end })
-      });
-      $('#wStart').value = ''; $('#wEnd').value = '';
-      await loadWaves(currentCampaign.id);
+      // Validate dates are within campaign period
+      if (currentCampaign.start_date && start < currentCampaign.start_date) {
+        alert(`Bangos pradžia negali būti anksčiau nei kampanijos pradžia (${currentCampaign.start_date})`);
+        return;
+      }
+      if (currentCampaign.end_date && end > currentCampaign.end_date) {
+        alert(`Bangos pabaiga negali būti vėliau nei kampanijos pabaiga (${currentCampaign.end_date})`);
+        return;
+      }
+      
+      // Additional validation: start date cannot be after end date
+      if (start > end) {
+        alert('Bangos pradžios data negali būti vėlesnė nei pabaigos data');
+        return;
+      }
+      
+      if (!targetGroup || !trps || !tvcId) {
+        alert('Prašome užpildyti TG, TRP ir TVC laukus');
+        return;
+      }
+      
+      try {
+        // Create wave first
+        const waveResponse = await fetchJSON(urlReplace(W_CREATE, currentCampaign.id), {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ name: '', start_date:start, end_date:end })
+        });
+        
+        // Create initial wave item if wave creation successful
+        if (waveResponse && waveResponse.id) {
+          const selectedTVC = tvcs.find(tvc => tvc.id == tvcId);
+          await fetchJSON(urlReplace(I_CREATE, waveResponse.id), {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              channel_group: 'LNK',  // Default channel group
+              target_group: targetGroup,
+              trps: parseFloat(trps),
+              channel_share: 0.75,   // Default 75%
+              pt_zone_share: 0.55,   // Default 55%
+              clip_duration: selectedTVC ? selectedTVC.duration : 30,
+              tvc_id: parseInt(tvcId),
+              duration_index: 1.25,  // Default
+              seasonal_index: 0.9,   // Default
+              trp_purchase_index: 0.95,
+              advance_purchase_index: 0.95,
+              position_index: 1.0,
+              client_discount: 0,
+              agency_discount: 0
+            })
+          });
+        }
+        
+        // Clear form
+        $('#wStart').value = ''; $('#wEnd').value = '';
+        $('#wTG').value = ''; $('#wTRP').value = '';
+        $('#wTVC').value = '';
+        
+        await loadWaves(currentCampaign.id);
+      } catch (error) {
+        alert('Klaida kuriant bangą: ' + error.message);
+      }
     });
 
     // initial boot

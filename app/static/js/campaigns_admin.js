@@ -67,11 +67,15 @@
 
     // -------- Excel calculation functions --------
     function calculateGRP(item) {
-      // GRP = TRP * channel_share * pt_zone_share
+      // GRP = TRP * 100 / affinity1
       const trps = parseFloat(item.trps) || 0;
-      const channelShare = parseFloat(item.channel_share) || 0.75;
-      const ptZoneShare = parseFloat(item.pt_zone_share) || 0.55;
-      return trps * channelShare * ptZoneShare;
+      const affinity1 = parseFloat(item.affinity1);
+      
+      if (!affinity1 || affinity1 === 0) {
+        return 0; // Cannot calculate GRP without valid affinity1
+      }
+      
+      return trps * 100 / affinity1;
     }
 
     function calculateGrossPrice(item, grossCpp) {

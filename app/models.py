@@ -762,8 +762,12 @@ def create_wave_item_excel(wave_id: int, excel_data: dict) -> int:
     rate = get_trp_rate_item(excel_data["channel_group"], excel_data["target_group"])
     
     # Calculate derived values
-    # GRP Planned = TRP × Channel Share × PT Zone Share (matches Excel structure)
-    grp_planned = excel_data["trps"] * excel_data["channel_share"] * excel_data["pt_zone_share"]
+    # GRP Planned = TRP × 100 / affinity1 (correct Excel formula)
+    affinity1 = excel_data.get("affinity1")
+    if affinity1 and affinity1 != 0:
+        grp_planned = excel_data["trps"] * 100 / affinity1
+    else:
+        grp_planned = 0  # Cannot calculate without valid affinity1
     # CPP = price per second × clip duration
     gross_cpp_eur = (rate["price_per_sec_eur"] * excel_data["clip_duration"]) if rate else (1.0 * excel_data["clip_duration"])
     
@@ -844,10 +848,11 @@ def update_wave_item(item_id: int, data: dict):
             v = _norm_number(data[k]) if k in numeric else data[k]
             sets.append(f"{k}=?"); args.append(v)
     
-    # Recalculate prices if discounts or indices were updated
+    # Recalculate prices and GRP if relevant fields were updated
     need_price_recalc = any(field in data for field in ["client_discount", "agency_discount", "trps", "trp_purchase_index", "advance_purchase_index", "position_index", "duration_index", "seasonal_index"])
+    need_grp_recalc = any(field in data for field in ["trps", "affinity1"])
     
-    if need_price_recalc:
+    if need_price_recalc or need_grp_recalc:
         with get_db() as db:
             # Get current item data
             item = db.execute("SELECT * FROM wave_items WHERE id = ?", (item_id,)).fetchone()
@@ -874,6 +879,18 @@ def update_wave_item(item_id: int, data: dict):
                 # Calculate net prices
                 net_price = gross_price * (1 - client_discount / 100)
                 net_net_price = net_price * (1 - agency_discount / 100)
+                
+                # Recalculate GRP if needed
+                if need_grp_recalc:
+                    updated_trps = data.get("trps", item["trps"] or 0)
+                    updated_affinity1 = data.get("affinity1", item["affinity1"])
+                    
+                    if updated_affinity1 and updated_affinity1 != 0:
+                        grp_planned = updated_trps * 100 / updated_affinity1
+                    else:
+                        grp_planned = 0
+                    
+                    sets.append("grp_planned=?"); args.append(grp_planned)
                 
                 # Add price updates to sets
                 sets.append("gross_price_eur=?"); args.append(gross_price)

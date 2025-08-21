@@ -385,11 +385,11 @@
       `;
       
       loadTVCs(currentCampaign.id);  // Load TVCs when campaign opens
-      loadWaves(currentCampaign.id);
-      renderCampaignCalendar(); // Render calendar when campaign opens
+      loadWaves(currentCampaign.id); // loadWaves will call renderCampaignCalendar
     }
     
     function renderCampaignCalendar() {
+      console.log('renderCampaignCalendar called');
       const calendarDiv = document.querySelector('#campaignCalendar');
       if (!calendarDiv || !currentCampaign) return;
       
@@ -415,245 +415,204 @@
         });
       }
       
-      let html = '<div class="calendar-grid">';
+      // Create horizontal table like Excel
+      let html = '<table class="min-w-full">';
+      html += '<thead>';
       
-      // Generate weeks header
-      html += '<div class="grid grid-cols-7 gap-1 text-xs font-medium text-slate-600 mb-2">';
-      const weekDays = ['Pr', 'An', 'Tr', 'Ke', 'Pe', 'Še', 'Sk'];
-      weekDays.forEach(day => {
-        html += `<div class="text-center">${day}</div>`;
+      // Month row
+      html += '<tr class="border-b border-slate-200">';
+      const months = [];
+      const monthDays = {};
+      let tempDate = new Date(startDate);
+      
+      while (tempDate <= endDate) {
+        const monthKey = `${tempDate.getFullYear()}-${tempDate.getMonth()}`;
+        const monthName = tempDate.toLocaleDateString('lt-LT', { month: 'long', year: 'numeric' });
+        if (!monthDays[monthKey]) {
+          monthDays[monthKey] = { name: monthName, days: 0 };
+          months.push(monthKey);
+        }
+        monthDays[monthKey].days++;
+        tempDate.setDate(tempDate.getDate() + 1);
+      }
+      
+      months.forEach(monthKey => {
+        html += `<th colspan="${monthDays[monthKey].days}" class="px-2 py-1 text-xs font-medium text-slate-700 bg-slate-50 border-r border-slate-200">${monthDays[monthKey].name}</th>`;
       });
-      html += '</div>';
+      html += '</tr>';
       
-      // Generate calendar days
-      html += '<div class="grid grid-cols-7 gap-1">';
-      
-      // Start from Monday of the first week
-      const firstDay = new Date(startDate);
-      const dayOfWeek = firstDay.getDay();
-      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-      firstDay.setDate(firstDay.getDate() + mondayOffset);
-      
-      // Generate calendar cells
-      const currentDate = new Date(firstDay);
-      const waveColors = ['bg-green-100', 'bg-purple-100', 'bg-yellow-100', 'bg-pink-100', 'bg-indigo-100'];
-      
-      while (currentDate <= endDate || currentDate.getDay() !== 1) {
-        const isInRange = currentDate >= startDate && currentDate <= endDate;
-        const isToday = currentDate.toDateString() === new Date().toDateString();
-        const dateStr = currentDate.toISOString().split('T')[0];
-        
-        // Check which waves include this date (allow multiple waves)
-        let wavesForDate = [];
-        if (currentWaves) {
-          for (let i = 0; i < currentWaves.length; i++) {
-            const wave = currentWaves[i];
-            if (wave.start_date && wave.end_date) {
-              const waveStart = new Date(wave.start_date);
-              const waveEnd = new Date(wave.end_date);
-              if (currentDate >= waveStart && currentDate <= waveEnd) {
-                wavesForDate.push({
-                  index: i,
-                  name: wave.name || `Banga ${i + 1}`
-                });
-              }
-            }
-          }
-        }
-        
-        let cellClass = 'p-2 text-center text-xs rounded relative overflow-hidden ';
-        let cellContent = '';
-        
-        if (wavesForDate.length > 0) {
-          // Multiple waves - show stripes or use first wave color with indicator
-          if (wavesForDate.length === 1) {
-            cellClass += `${waveColors[wavesForDate[0].index % waveColors.length]} hover:opacity-80 cursor-pointer `;
-          } else {
-            // Use gradient for multiple waves
-            const colors = wavesForDate.map(w => {
-              const colorClass = waveColors[w.index % waveColors.length];
-              // Extract color from bg-{color}-100 pattern
-              const colorName = colorClass.match(/bg-(\w+)-100/)[1];
-              return colorName;
-            });
-            
-            // Use first wave's color as base
-            cellClass += `${waveColors[wavesForDate[0].index % waveColors.length]} hover:opacity-80 cursor-pointer `;
-            
-            // Add indicator for multiple waves
-            cellContent = `<div class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full" title="${wavesForDate.length} bangos"></div>`;
-          }
-        } else if (isInRange) {
-          cellClass += 'bg-blue-50 hover:bg-blue-100 cursor-pointer ';
-        } else {
-          cellClass += 'bg-gray-50 text-gray-400 ';
-        }
-        
-        if (isToday) {
-          cellClass += 'ring-2 ring-blue-500 ';
-        }
-        
-        // Create tooltip with all wave names
-        const tooltip = wavesForDate.length > 0 
-          ? wavesForDate.map(w => w.name).join(', ') 
-          : '';
-        
-        html += `<div class="${cellClass}" data-date="${dateStr}" title="${tooltip}" onclick="toggleDateSelection('${dateStr}')">
-                   ${currentDate.getDate()}
-                   ${cellContent}
-                 </div>`;
-        
-        currentDate.setDate(currentDate.getDate() + 1);
-        
-        // Break if we've completed a full week after the end date
-        if (currentDate > endDate && currentDate.getDay() === 1) {
-          break;
-        }
+      // Day numbers row
+      html += '<tr class="border-b border-slate-300">';
+      tempDate = new Date(startDate);
+      while (tempDate <= endDate) {
+        const dayNum = tempDate.getDate();
+        const isWeekend = tempDate.getDay() === 0 || tempDate.getDay() === 6;
+        html += `<th class="px-1 py-1 text-xs font-medium ${isWeekend ? 'bg-gray-100 text-gray-500' : 'bg-white text-slate-700'} border-r border-slate-200 min-w-[40px]">${dayNum}</th>`;
+        tempDate.setDate(tempDate.getDate() + 1);
       }
+      html += '</tr>';
       
-      html += '</div>';
-      html += '</div>';
+      // Week days row  
+      html += '<tr class="border-b border-slate-200">';
+      tempDate = new Date(startDate);
+      const weekDayNames = ['S', 'P', 'A', 'T', 'K', 'Pn', 'Š'];
+      while (tempDate <= endDate) {
+        const weekDay = weekDayNames[tempDate.getDay()];
+        const isWeekend = tempDate.getDay() === 0 || tempDate.getDay() === 6;
+        html += `<td class="px-1 py-1 text-xs text-center ${isWeekend ? 'bg-gray-100 text-gray-500' : 'bg-white text-slate-600'} border-r border-slate-200">${weekDay}</td>`;
+        tempDate.setDate(tempDate.getDate() + 1);
+      }
+      html += '</tr>';
+      html += '</thead>';
+      html += '<tbody>';
       
-      // Add wave legend if there are waves
+      // Wave rows
       if (currentWaves && currentWaves.length > 0) {
-        html += '<div class="mt-4 pt-4 border-t border-slate-200">';
-        html += '<div class="text-xs text-slate-600">';
-        html += '<div class="font-medium mb-2">Bangos:</div>';
-        const waveColors = ['bg-green-100', 'bg-purple-100', 'bg-yellow-100', 'bg-pink-100', 'bg-indigo-100'];
-        currentWaves.forEach((wave, index) => {
+        currentWaves.forEach((wave, waveIndex) => {
           if (wave.start_date && wave.end_date) {
-            html += `<div class="flex items-center gap-2 mb-1">
-                      <div class="w-3 h-3 rounded ${waveColors[index % waveColors.length]}"></div>
-                      <span>Banga ${index + 1}: ${wave.start_date} - ${wave.end_date}</span>
-                     </div>`;
-          }
-        });
-        html += '<div class="mt-2 text-xs text-slate-500 italic">';
-        html += '⚠️ Bangos gali persidengti. Persidengiančios dienos pažymėtos raudonu tašku.';
-        html += '</div>';
-        html += '</div>';
-        html += '</div>';
-      }
-      
-      // Add TRP distribution controls
-      html += '<div class="mt-4 pt-4 border-t border-slate-200">';
-      html += '<div class="text-xs">';
-      html += '<div class="font-medium mb-2">TRP paskirstymas:</div>';
-      html += '<div class="text-xs text-slate-500 mb-2">💡 Sistema automatiškai naudoja bangų datas arba galite pažymėti dieną rankomis</div>';
-      html += '<div class="mb-2">';
-      html += '<input id="trpValue" type="number" step="0.01" placeholder="Įveskite TRP" class="w-20 px-2 py-1 text-xs border rounded mr-2">';
-      html += '<button id="btnDistributeTRP" class="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Paskirstyti</button>';
-      html += '</div>';
-      html += '<div id="selectedDates" class="text-xs text-slate-600 mb-2"></div>';
-      html += '<div id="dailyWeight" class="text-xs font-medium text-emerald-700"></div>';
-      html += '</div>';
-      
-      // Add campaign info
-      html += '<div class="mt-2 pt-2 border-t border-slate-200">';
-      html += '<div class="text-xs text-slate-600">';
-      html += `<div class="mb-1"><strong>Kampanija:</strong> ${currentCampaign.name}</div>`;
-      html += `<div class="mb-1"><strong>Pradžia:</strong> ${currentCampaign.start_date || 'Nenustatyta'}</div>`;
-      html += `<div><strong>Pabaiga:</strong> ${currentCampaign.end_date || 'Nenustatyta'}</div>`;
-      html += '</div>';
-      html += '</div>';
-      
-      calendarDiv.innerHTML = html;
-      
-      // Add event listener for TRP distribution button after calendar is rendered
-      const btnDistribute = document.querySelector('#btnDistributeTRP');
-      if (btnDistribute) {
-        btnDistribute.addEventListener('click', distributeTRP);
-      }
-    }
-
-    // -------- TRP Distribution functions --------
-    let selectedDates = new Set();
-    
-    function toggleDateSelection(dateStr) {
-      if (selectedDates.has(dateStr)) {
-        selectedDates.delete(dateStr);
-      } else {
-        selectedDates.add(dateStr);
-      }
-      
-      // Update visual selection
-      const calendarDiv = document.querySelector('#campaignCalendar');
-      const dateCell = calendarDiv.querySelector(`[data-date="${dateStr}"]`);
-      if (dateCell) {
-        if (selectedDates.has(dateStr)) {
-          dateCell.classList.add('bg-yellow-200', 'border-2', 'border-yellow-400');
-        } else {
-          dateCell.classList.remove('bg-yellow-200', 'border-2', 'border-yellow-400');
-        }
-      }
-      
-      updateSelectedDatesDisplay();
-    }
-    
-    function updateSelectedDatesDisplay() {
-      const selectedDatesDiv = document.querySelector('#selectedDates');
-      if (selectedDatesDiv) {
-        if (selectedDates.size > 0) {
-          const sortedDates = Array.from(selectedDates).sort();
-          selectedDatesDiv.innerHTML = `Pasirinktos dienos (${selectedDates.size}): ${sortedDates.join(', ')}`;
-        } else {
-          selectedDatesDiv.innerHTML = 'Nepasirinkta nei vienos dienos';
-        }
-      }
-    }
-    
-    function distributeTRP() {
-      const trpInput = document.querySelector('#trpValue');
-      const dailyWeightDiv = document.querySelector('#dailyWeight');
-      
-      if (!trpInput || !dailyWeightDiv) return;
-      
-      const totalTRP = parseFloat(trpInput.value);
-      if (!totalTRP || totalTRP <= 0) {
-        alert('Įveskite teisingą TRP reikšmę');
-        return;
-      }
-      
-      // Auto-select wave dates if no manual selection
-      if (selectedDates.size === 0 && currentWaves.length > 0) {
-        // Auto-populate with all wave dates
-        currentWaves.forEach(wave => {
-          if (wave.start_date && wave.end_date) {
+            html += '<tr class="border-b border-slate-200 hover:bg-slate-50">';
+            tempDate = new Date(startDate);
             const waveStart = new Date(wave.start_date);
             const waveEnd = new Date(wave.end_date);
             
-            // Add all dates in wave range
-            const currentDate = new Date(waveStart);
-            while (currentDate <= waveEnd) {
-              const dateStr = currentDate.toISOString().split('T')[0];
-              selectedDates.add(dateStr);
-              currentDate.setDate(currentDate.getDate() + 1);
+            while (tempDate <= endDate) {
+              const isInWave = tempDate >= waveStart && tempDate <= waveEnd;
+              const dateStr = tempDate.toISOString().split('T')[0];
+              const isWeekend = tempDate.getDay() === 0 || tempDate.getDay() === 6;
+              
+              if (isInWave) {
+                html += `<td class="px-1 py-2 text-center border-r border-slate-200 ${isWeekend ? 'bg-green-100' : 'bg-green-200'} cursor-pointer hover:bg-green-300" data-wave="${waveIndex}" data-date="${dateStr}">`;
+                html += `<span class="text-xs font-medium">B${waveIndex + 1}</span>`;
+              } else {
+                html += `<td class="px-1 py-2 border-r border-slate-200 ${isWeekend ? 'bg-gray-50' : ''}"`;
+                html += '';
+              }
+              html += '</td>';
+              tempDate.setDate(tempDate.getDate() + 1);
             }
+            html += '</tr>';
           }
         });
-        
-        // Update display
-        updateSelectedDatesDisplay();
-        
-        // Refresh calendar to show selection
-        renderCampaignCalendar();
       }
       
-      if (selectedDates.size === 0) {
-        alert('Nėra bangų datų arba pasirinkite bent vieną dieną kalendoriuje');
-        return;
+      // TRP distribution row
+      html += '<tr class="border-t-2 border-slate-400 bg-amber-50">';
+      tempDate = new Date(startDate);
+      const dailyTRPs = {}; // Store TRP values per date
+      
+      while (tempDate <= endDate) {
+        const dateStr = tempDate.toISOString().split('T')[0];
+        const isWeekend = tempDate.getDay() === 0 || tempDate.getDay() === 6;
+        html += `<td class="px-1 py-1 border-r border-slate-200 ${isWeekend ? 'bg-amber-100' : 'bg-amber-50'}">`;
+        html += `<input type="number" step="0.01" class="trp-input w-full text-xs px-1 py-0.5 border-0 bg-transparent text-center font-medium" data-date="${dateStr}" placeholder="0" />`;
+        html += '</td>';
+        tempDate.setDate(tempDate.getDate() + 1);
       }
+      html += '</tr>';
       
-      const dailyWeight = totalTRP / selectedDates.size;
-      dailyWeightDiv.innerHTML = `Daily svoris: ${dailyWeight.toFixed(2)} TRP per dieną (${totalTRP} TRP ÷ ${selectedDates.size} dienos)`;
+      // Total TRP row
+      html += '<tr class="border-t border-slate-300 bg-slate-100 font-medium">';
+      html += `<td colspan="${Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1}" class="px-2 py-2 text-xs text-right">`;
+      html += 'Viso TRP: <span id="totalTRP" class="font-bold text-slate-700">0.00</span>';
+      html += '</td>';
+      html += '</tr>';
       
-      // Here you could save this distribution to the database
-      console.log('TRP Distribution:', {
-        totalTRP: totalTRP,
-        selectedDates: Array.from(selectedDates),
-        dailyWeight: dailyWeight
+      html += '</tbody>';
+      html += '</table>';
+      
+      calendarDiv.innerHTML = html;
+      
+      // Add event listeners first
+      const trpInputs = calendarDiv.querySelectorAll('.trp-input');
+      trpInputs.forEach(input => {
+        input.addEventListener('input', () => {
+          updateTotalTRP();
+          saveTRPDistribution(); // Saugojam iškart kai keičiasi
+        });
+        input.addEventListener('blur', saveTRPDistribution); // Ir kai palieka lauką
       });
-    };
+      
+      // Then load existing TRP data
+      loadTRPDistribution().then(() => {
+        updateTotalTRP(); // Calculate initial total after loading data
+      });
+    }
+
+    // -------- TRP Distribution functions --------
+    async function loadTRPDistribution() {
+      if (!currentCampaign) return;
+      
+      try {
+        // For now, use localStorage to store TRP data
+        // In future, this should load from database
+        const storageKey = `trp_distribution_${currentCampaign.id}`;
+        const storedData = localStorage.getItem(storageKey);
+        
+        console.log('Loading TRP for campaign', currentCampaign.id, 'with key:', storageKey);
+        console.log('Found data:', storedData);
+        
+        if (storedData) {
+          const trpData = JSON.parse(storedData);
+          
+          // Fill in the input fields - use specific selector for TRP inputs
+          Object.keys(trpData).forEach(date => {
+            const input = document.querySelector(`.trp-input[data-date="${date}"]`);
+            if (input) {
+              input.value = trpData[date] > 0 ? trpData[date].toFixed(2) : '';
+              console.log('Set input for', date, 'to', trpData[date]);
+            } else {
+              console.log('TRP Input not found for date:', date);
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error loading TRP distribution:', error);
+      }
+    }
+    
+    function updateTotalTRP() {
+      const trpInputs = document.querySelectorAll('.trp-input');
+      let total = 0;
+      
+      trpInputs.forEach(input => {
+        const value = parseFloat(input.value) || 0;
+        total += value;
+      });
+      
+      const totalSpan = document.querySelector('#totalTRP');
+      if (totalSpan) {
+        totalSpan.textContent = total.toFixed(2);
+      }
+    }
+    
+    async function saveTRPDistribution() {
+      if (!currentCampaign) return;
+      
+      try {
+        updateTotalTRP();
+        
+        const trpData = {};
+        const trpInputs = document.querySelectorAll('.trp-input');
+        console.log('Found TRP inputs:', trpInputs.length);
+        
+        trpInputs.forEach(input => {
+          const date = input.dataset.date;
+          const value = parseFloat(input.value) || 0;
+          console.log(`Processing input for ${date}: value="${input.value}", parsed=${value}`);
+          trpData[date] = value; // Saugok visus, net ir 0
+        });
+        
+        // For now, save to localStorage
+        // In future, this should save to database via API
+        const storageKey = `trp_distribution_${currentCampaign.id}`;
+        localStorage.setItem(storageKey, JSON.stringify(trpData));
+        
+        console.log('TRP Distribution saved for campaign', currentCampaign.id, ':', trpData);
+        console.log('Storage key:', storageKey);
+      } catch (error) {
+        console.error('Error saving TRP distribution:', error);
+      }
+    }
 
     function openCampaign(c){
       currentCampaign = c;
@@ -673,11 +632,9 @@
       // If no waves, show message
       if (!waves || waves.length === 0) {
         wavesDiv.innerHTML = '<div class="text-center text-gray-500 py-8">Nėra sukurtų bangų. Sukurkite bangą naudodami formą viršuje.</div>';
-        renderCampaignCalendar();
-        return;
       }
       
-      // Update calendar with wave information
+      // Update calendar with wave information (called once for all cases)
       renderCampaignCalendar();
       
       for(const w of waves){

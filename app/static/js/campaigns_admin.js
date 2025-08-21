@@ -54,7 +54,6 @@
     let campaigns = []; // campaigns
     let currentCampaign = null;
     let tvcs = [];      // TVCs for current campaign
-    let filteredCampaignId = null; // ID of campaign to show exclusively
     let channels = [];  // Store channel groups for lookup
 
     function urlReplace(base, id){ return base.replace(/\/0($|\/)/, `/${id}$1`); }
@@ -109,39 +108,11 @@
 
 
     // -------- campaigns table --------
-    function filterCampaign(campaignId) {
-      filteredCampaignId = campaignId;
-      renderCampaigns();
-    }
-    
-    function clearFilter() {
-      filteredCampaignId = null;
-      renderCampaigns();
-    }
     
     function renderCampaigns(){
       cTbody.innerHTML = '';
       
-      // Filter campaigns if needed
-      const campaignsToShow = filteredCampaignId 
-        ? campaigns.filter(c => c.id === filteredCampaignId)
-        : campaigns;
-      
-      // Add a clear filter button if filter is active
-      if(filteredCampaignId && campaignsToShow.length > 0) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td colspan="6" class="px-4 py-2 bg-yellow-50">
-            <div class="flex items-center justify-between">
-              <span class="text-sm text-yellow-700">Rodoma tik pasirinkta kampanija</span>
-              <button class="clear-filter px-3 py-1 text-xs rounded-lg border border-yellow-300 bg-yellow-100 text-yellow-700 hover:bg-yellow-200">Rodyti visas kampanijas</button>
-            </div>
-          </td>`;
-        tr.querySelector('.clear-filter').addEventListener('click', clearFilter);
-        cTbody.appendChild(tr);
-      }
-      
-      campaignsToShow.forEach(c => {
+      campaigns.forEach(c => {
         const tr = document.createElement('tr');
         const statusColors = {
           'draft': 'bg-slate-100 text-slate-700',
@@ -194,10 +165,6 @@
           if(currentCampaign && currentCampaign.id === c.id){
             currentCampaign = null;
             renderCurrentCampaign();
-          }
-          // Clear filter if we deleted the filtered campaign
-          if(filteredCampaignId === c.id) {
-            clearFilter();
           }
         });
         tr.querySelector('.status-select').addEventListener('change', async (e) => {
@@ -256,8 +223,6 @@
         const newCampaign = campaigns.find(c => c.id === response.id);
         if(newCampaign) {
           openCampaign(newCampaign);
-          // Filter to show only this campaign
-          filterCampaign(response.id);
         }
       }
     });
@@ -392,14 +357,33 @@
     }
 
     function renderCurrentCampaign(){
+      const campaignsSection = document.querySelector('#campaignsSection');
+      const wavesSection = document.querySelector('#wavesSection');
+      const campaignInfo = document.querySelector('#campaignInfo');
+      
       if(!currentCampaign){
+        // Show campaigns list, hide waves
+        campaignsSection.classList.remove('hidden');
+        wavesSection.classList.add('hidden');
         wavePanel.classList.add('hidden');
         noCampaign.classList.remove('hidden');
         wavesDiv.innerHTML = '';
         return;
       }
+      
+      // Hide campaigns list, show waves section
+      campaignsSection.classList.add('hidden');
+      wavesSection.classList.remove('hidden');
       wavePanel.classList.remove('hidden');
       noCampaign.classList.add('hidden');
+      
+      // Show campaign info
+      campaignInfo.innerHTML = `
+        <strong>${currentCampaign.name}</strong> | 
+        ${currentCampaign.client || ''} ${currentCampaign.product ? '- ' + currentCampaign.product : ''} | 
+        ${currentCampaign.start_date || 'Nėra datos'} - ${currentCampaign.end_date || 'Nėra datos'}
+      `;
+      
       loadTVCs(currentCampaign.id);  // Load TVCs when campaign opens
       loadWaves(currentCampaign.id);
       renderCampaignCalendar(); // Render calendar when campaign opens
@@ -1267,6 +1251,15 @@
 
     // TVC add button
     tvcAdd.addEventListener('click', createTVC);
+    
+    // Back to campaigns button
+    const backBtn = document.querySelector('#backToCampaigns');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        currentCampaign = null;
+        renderCurrentCampaign();
+      });
+    }
 
     // add wave
     $('#wAdd').addEventListener('click', async () => {

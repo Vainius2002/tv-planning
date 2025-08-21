@@ -40,7 +40,7 @@
 
   <div class="space-y-8">
     <!-- Campaigns -->
-    <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <section id="campaignsSection" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <h2 class="text-xl font-semibold text-gray-900 mb-4">Nauja kampanija</h2>
       
       <!-- Campaign basic info (like Excel header) -->
@@ -95,8 +95,14 @@
     </section>
 
     <!-- Waves + Items with Calendar -->
-    <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h2 class="text-xl font-semibold text-gray-900 mb-4">Bangos</h2>
+    <section id="wavesSection" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hidden">
+      <div class="mb-4 flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-semibold text-gray-900">Bangos</h2>
+          <div id="campaignInfo" class="mt-1 text-sm text-gray-600"></div>
+        </div>
+        <button id="backToCampaigns" class="px-4 py-2 text-sm rounded-lg border border-slate-300 bg-white hover:bg-slate-50">← Grįžti į kampanijas</button>
+      </div>
       <div id="wavePanel" class="hidden">
         <!-- Split Layout Container -->
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">

@@ -188,8 +188,7 @@ def migrate_add_campaign_fields():
             ("agency", "TEXT"),
             ("client", "TEXT"),
             ("product", "TEXT"),
-            ("country", "TEXT DEFAULT 'Lietuva'"),
-            ("split_ratio", "TEXT DEFAULT '70:30'")
+            ("country", "TEXT DEFAULT 'Lietuva'")
         ]
         
         for col_name, col_type in new_columns:
@@ -642,13 +641,13 @@ def list_pricing_targets(pl_id: int, owner: str):
 
 def create_campaign(name: str, start_date: str | None, end_date: str | None, 
                    agency: str = "", client: str = "", product: str = "", 
-                   country: str = "Lietuva", split_ratio: str = "70:30", status: str = "draft") -> int:
+                   country: str = "Lietuva", status: str = "draft") -> int:
     with get_db() as db:
         db.execute("""
             INSERT INTO campaigns(name, start_date, end_date, 
-                                agency, client, product, country, split_ratio, status)
-            VALUES (?,?,?,?,?,?,?,?,?)
-        """, (name, start_date, end_date, agency, client, product, country, split_ratio, status))
+                                agency, client, product, country, status)
+            VALUES (?,?,?,?,?,?,?,?)
+        """, (name, start_date, end_date, agency, client, product, country, status))
         return db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
 
 def list_campaigns():
@@ -1684,7 +1683,6 @@ def migrate_remove_pricing_list_requirement():
                     client TEXT, 
                     product TEXT,
                     country TEXT,
-                    split_ratio TEXT,
                     status TEXT
                 )
                 """)
@@ -1707,9 +1705,9 @@ def migrate_remove_pricing_list_requirement():
                     
                     db.execute("""
                     INSERT INTO campaigns (id, name, pricing_list_id, start_date, end_date, 
-                                         agency, client, product, country, split_ratio, status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, values[:11])
+                                         agency, client, product, country, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, values[:10])
                 
                 db.execute("PRAGMA foreign_keys=ON")
                 db.commit()

@@ -40,12 +40,11 @@ def campaigns_create():
     client = (data.get("client") or "").strip()
     product = (data.get("product") or "").strip()
     country = (data.get("country") or "Lietuva").strip()
-    split_ratio = (data.get("split_ratio") or "70:30").strip()
     
     cid = models.create_campaign(
         name, 
         data.get("start_date"), data.get("end_date"),
-        agency, client, product, country, split_ratio
+        agency, client, product, country
     )
     return jsonify({"status":"ok","id":cid}), 201
 

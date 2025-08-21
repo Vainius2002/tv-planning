@@ -40,7 +40,7 @@
     const cTbody = $('#cTbody');
     const cName = $('#cName'), cStart = $('#cStart'), cEnd = $('#cEnd');
     const cAgency = $('#cAgency'), cClient = $('#cClient'), cProduct = $('#cProduct');
-    const cCountry = $('#cCountry'), cSplitRatio = $('#cSplitRatio');
+    const cCountry = $('#cCountry');
     const cCreate = $('#cCreate');
 
     const wavePanel = $('#wavePanel');
@@ -233,7 +233,6 @@
       const client = cClient.value.trim();
       const product = cProduct.value.trim();
       const country = cCountry.value.trim() || 'Lietuva';
-      const split_ratio = cSplitRatio.value.trim() || '70:30';
       
       if(!name){ alert('Įveskite kampanijos pavadinimą'); return; }
       
@@ -241,14 +240,14 @@
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ 
           name, start_date, end_date,
-          agency, client, product, country, split_ratio
+          agency, client, product, country
         })
       });
       
       // Clear form (except agency which is fixed)
       cName.value=''; cStart.value=''; cEnd.value='';
       cClient.value=''; cProduct.value='';
-      cCountry.value='Lietuva'; cSplitRatio.value='70:30';
+      cCountry.value='Lietuva';
       
       await loadCampaigns();
       

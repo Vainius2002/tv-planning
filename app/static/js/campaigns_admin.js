@@ -703,7 +703,7 @@
         try {
         section.innerHTML = `
           <div class="px-4 py-3 bg-slate-50 flex items-center justify-between">
-            <div class="font-medium">Banga <span class="text-slate-500 ml-2">${(w.start_date||'')} ${w.end_date?('– '+w.end_date):''}</span></div>
+            <div class="font-medium">Banga ${waves.indexOf(w) + 1} <span class="text-slate-500 ml-2">${(w.start_date||'')} ${w.end_date?('– '+w.end_date):''}</span></div>
             <div class="flex gap-2">
               <button class="w-del px-3 py-1.5 text-xs rounded-lg border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100">Šalinti bangą</button>
             </div>
@@ -785,36 +785,10 @@
                     <label class="block text-xs text-slate-600 mb-1">Pozicijos koef.</label>
                     <input class="position-index rounded border-slate-300 px-2 py-1 text-xs w-full" type="number" step="0.01" value="1.0">
                   </div>
-                  <div>
-                    <label class="block text-xs text-slate-600 mb-1">Kliento nuolaida (% - iš apatinės sekcijos)</label>
-                    <div class="px-2 py-1 text-xs bg-gray-100 rounded border">Valdoma apacioje</div>
-                  </div>
-                  <div>
-                    <label class="block text-xs text-slate-600 mb-1">Agentūros nuolaida (% - iš apatinės sekcijos)</label>
-                    <div class="px-2 py-1 text-xs bg-gray-100 rounded border">Valdoma apacioje</div>
-                  </div>
                 </div>
               </details>
               
               <button class="i-add px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium">Pridėti Excel eilutę</button>
-            </div>
-            <!-- Discounts Section -->
-            <div class="mb-4 p-3 bg-slate-50 rounded-lg">
-              <h4 class="text-sm font-medium text-slate-700 mb-2">Nuolaidos</h4>
-              <div class="grid md:grid-cols-3 gap-3 items-end">
-                <div>
-                  <label class="block text-xs text-slate-600 mb-1">Kliento nuolaida (%)</label>
-                  <input class="client-discount w-full rounded border-slate-300 px-2 py-1 text-sm" type="number" step="0.1" min="0" max="100" placeholder="0">
-                </div>
-                <div>
-                  <label class="block text-xs text-slate-600 mb-1">Agentūros nuolaida (%)</label>
-                  <input class="agency-discount w-full rounded border-slate-300 px-2 py-1 text-sm" type="number" step="0.1" min="0" max="100" placeholder="0">
-                </div>
-                <div class="flex gap-2">
-                  <button class="save-discounts px-3 py-1 text-xs rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">Išsaugoti nuolaidas</button>
-                </div>
-              </div>
-              <div class="wave-costs mt-2 text-xs text-slate-600"></div>
             </div>
             
             <div class="overflow-x-auto">
@@ -1092,8 +1066,8 @@
             trp_purchase_index: parseFloat(section.querySelector('.trp-purchase-index').value) || 0.95,
             advance_purchase_index: parseFloat(section.querySelector('.advance-purchase-index').value) || 0.95,
             position_index: parseFloat(section.querySelector('.position-index').value) || 1.0,
-            client_discount: 0, // Will be set via discount management section below
-            agency_discount: 0  // Will be set via discount management section below
+            client_discount: 0, // Default 0, will be edited in the table
+            agency_discount: 0  // Default 0, will be edited in the table
           };
           
           try {
@@ -1102,7 +1076,6 @@
               body: JSON.stringify(formData)
             });
             await reloadItems();
-            await updateCostDisplay();
             
             // Clear form
             section.querySelector('.trps').value = '';
@@ -1121,81 +1094,6 @@
           await loadWaves(currentCampaign.id);
         });
 
-        // discount management
-        const clientDiscountInput = section.querySelector('.client-discount');
-        const agencyDiscountInput = section.querySelector('.agency-discount');
-        const saveDiscountsBtn = section.querySelector('.save-discounts');
-        const waveCostsDiv = section.querySelector('.wave-costs');
-
-        async function loadDiscounts() {
-          try {
-            const discounts = await fetchJSON(urlReplace(WD_LIST, w.id));
-            discounts.forEach(d => {
-              if (d.discount_type === 'client') {
-                clientDiscountInput.value = d.discount_percentage;
-              } else if (d.discount_type === 'agency') {
-                agencyDiscountInput.value = d.discount_percentage;
-              }
-            });
-            await updateCostDisplay();
-          } catch (e) {
-            console.error('Error loading discounts:', e);
-          }
-        }
-
-        async function updateCostDisplay() {
-          try {
-            const costs = await fetchJSON(urlReplace(W_TOTAL, w.id));
-            waveCostsDiv.innerHTML = `
-              <div>Bazinė kaina: €${costs.base_cost.toFixed(2)}</div>
-              <div>Kaina klientui: €${costs.client_cost.toFixed(2)} ${costs.client_discount_percent > 0 ? `(-${costs.client_discount_percent}%)` : ''}</div>
-              <div>Kaina agentūrai: €${costs.agency_cost.toFixed(2)} ${costs.agency_discount_percent > 0 ? `(-${costs.agency_discount_percent}%)` : ''}</div>
-            `;
-          } catch (e) {
-            console.error('Error updating cost display:', e);
-          }
-        }
-
-        saveDiscountsBtn.addEventListener('click', async () => {
-          try {
-            const clientDiscount = parseFloat(clientDiscountInput.value || 0);
-            const agencyDiscount = parseFloat(agencyDiscountInput.value || 0);
-
-            // Delete existing discounts for this wave
-            const existingDiscounts = await fetchJSON(urlReplace(WD_LIST, w.id));
-            for (const discount of existingDiscounts) {
-              await fetchJSON(urlReplace(D_DELETE, discount.id), { method: 'DELETE' });
-            }
-
-            // Create new discounts if values are provided
-            if (clientDiscount > 0) {
-              await fetchJSON(urlReplace(WD_CREATE, w.id), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ discount_type: 'client', discount_percentage: clientDiscount })
-              });
-            }
-
-            if (agencyDiscount > 0) {
-              await fetchJSON(urlReplace(WD_CREATE, w.id), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ discount_type: 'agency', discount_percentage: agencyDiscount })
-              });
-            }
-
-            await updateCostDisplay();
-            
-            // Recalculate wave item prices with new discounts
-            await fetchJSON(urlReplace(W_RECALC, w.id), { method: 'POST' });
-            
-            // Reload waves to update wave items calculations with new discounts
-            await loadWaves(currentCampaign.id);
-            alert('Nuolaidos išsaugotos ir perskaičiuotos');
-          } catch (e) {
-            alert('Klaida išsaugant nuolaidas: ' + e.message);
-          }
-        });
 
         async function reloadItems(){
           const rows = await fetchJSON(urlReplace(I_LIST, w.id));
@@ -1232,10 +1130,10 @@
               <td class="px-2 py-1"><input class="itm-advance-purchase w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.advance_purchase_index || 0.95).toFixed(2)}" title="Išankstinio pirkimo indeksas (default: 0.95)"></td>
               <td class="px-2 py-1"><input class="itm-position w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.position_index || 1.0).toFixed(2)}" title="Pozicijos indeksas (default: 1.0)"></td>
               <td class="px-2 py-1 text-xs">€${grossPrice.toFixed(2)}</td>
-              <td class="px-2 py-1 text-xs">${r.client_discount || 0}%</td>
-              <td class="px-2 py-1 text-xs">€${netPrice.toFixed(2)}</td>
-              <td class="px-2 py-1 text-xs">${r.agency_discount || 0}%</td>
-              <td class="px-2 py-1 text-xs">${netNetPrice.toFixed(2)}</td>
+              <td class="px-2 py-1"><input class="itm-client-discount w-12 text-xs border rounded px-1 py-0.5 bg-blue-50" type="number" step="0.1" min="0" max="100" value="${r.client_discount || 0}" title="Kliento nuolaida (%)"></td>
+              <td class="px-2 py-1 text-xs net-price">€${netPrice.toFixed(2)}</td>
+              <td class="px-2 py-1"><input class="itm-agency-discount w-12 text-xs border rounded px-1 py-0.5 bg-blue-50" type="number" step="0.1" min="0" max="100" value="${r.agency_discount || 0}" title="Agentūros nuolaida (%)"></td>
+              <td class="px-2 py-1 text-xs net-net-price">€${netNetPrice.toFixed(2)}</td>
               <td class="px-2 py-1">
                 <div class="flex gap-1">
                   <button class="itm-save px-2 py-0.5 text-xs rounded border border-emerald-300 bg-emerald-50 text-emerald-700">Saugoti</button>
@@ -1243,6 +1141,23 @@
                 </div>
               </td>
             `;
+            // Add real-time price recalculation when discounts change
+            const recalculatePrices = () => {
+              const clientDiscount = parseFloat(tr.querySelector('.itm-client-discount').value) || 0;
+              const agencyDiscount = parseFloat(tr.querySelector('.itm-agency-discount').value) || 0;
+              const newNetPrice = calculateNetPrice(grossPrice, clientDiscount);
+              const newNetNetPrice = calculateNetNetPrice(newNetPrice, agencyDiscount);
+              
+              // Update the displayed prices using classes
+              const netPriceCell = tr.querySelector('.net-price');
+              const netNetPriceCell = tr.querySelector('.net-net-price');
+              if (netPriceCell) netPriceCell.innerHTML = `€${newNetPrice.toFixed(2)}`;
+              if (netNetPriceCell) netNetPriceCell.innerHTML = `€${newNetNetPrice.toFixed(2)}`;
+            };
+            
+            tr.querySelector('.itm-client-discount').addEventListener('input', recalculatePrices);
+            tr.querySelector('.itm-agency-discount').addEventListener('input', recalculatePrices);
+            
             tr.querySelector('.itm-save').addEventListener('click', async () => {
               try {
                 // Get only editable values
@@ -1251,13 +1166,17 @@
                 const trpPurchaseIndex = parseFloat(tr.querySelector('.itm-trp-purchase').value) || 0.95;
                 const advancePurchaseIndex = parseFloat(tr.querySelector('.itm-advance-purchase').value) || 0.95;
                 const positionIndex = parseFloat(tr.querySelector('.itm-position').value) || 1.0;
+                const clientDiscount = parseFloat(tr.querySelector('.itm-client-discount').value) || 0;
+                const agencyDiscount = parseFloat(tr.querySelector('.itm-agency-discount').value) || 0;
                 
                 console.log('Saving wave item:', r.id, {
                   trps: trps,
                   affinity1: affinity1,
                   trp_purchase_index: trpPurchaseIndex,
                   advance_purchase_index: advancePurchaseIndex,
-                  position_index: positionIndex
+                  position_index: positionIndex,
+                  client_discount: clientDiscount,
+                  agency_discount: agencyDiscount
                 });
                 
                 const response = await fetchJSON(urlReplace(I_UPDATE, r.id), {
@@ -1267,13 +1186,14 @@
                     affinity1: affinity1,
                     trp_purchase_index: trpPurchaseIndex,
                     advance_purchase_index: advancePurchaseIndex,
-                    position_index: positionIndex
+                    position_index: positionIndex,
+                    client_discount: clientDiscount,
+                    agency_discount: agencyDiscount
                   })
                 });
                 
                 console.log('Save response:', response);
                 
-                await updateCostDisplay(); // Update costs after saving item  
                 await loadWaves(currentCampaign.id); // Reload to show updated calculations
                 alert('Wave item išsaugotas');
               } catch (error) {
@@ -1285,14 +1205,12 @@
               if(!confirm('Šalinti eilutę?')) return;
               await fetchJSON(urlReplace(I_DELETE, r.id), { method:'DELETE' });
               tr.remove();
-              await updateCostDisplay(); // Update costs after deleting item
             });
             itemsTbody.appendChild(tr);
           });
         }
 
         await reloadItems();
-        await loadDiscounts(); // Load existing discounts when wave loads
         wavesDiv.appendChild(section);
         
         // Now add event listeners for auto-indices (after section is in DOM)

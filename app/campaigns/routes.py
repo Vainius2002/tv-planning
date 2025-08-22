@@ -229,28 +229,6 @@ def recalculate_wave_discounts(wid):
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# TRP Calendar Distribution
-@bp.route("/campaigns/<int:cid>/trp-distribution", methods=["POST"])
-def save_trp_distribution_api(cid):
-    """Save TRP distribution for a campaign"""
-    data = request.get_json(force=True)
-    trp_data = data.get("trp_data", {})
-    
-    try:
-        models.save_trp_distribution(cid, trp_data)
-        return jsonify({"status": "ok"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@bp.route("/campaigns/<int:cid>/trp-distribution", methods=["GET"])
-def load_trp_distribution_api(cid):
-    """Load TRP distribution for a campaign"""
-    try:
-        trp_data = models.load_trp_distribution(cid)
-        return jsonify({"status": "ok", "data": trp_data})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
 # Campaign Status
 @bp.route("/campaigns/<int:cid>/status", methods=["PATCH"])
 def update_campaign_status(cid):
@@ -290,28 +268,6 @@ def export_client_excel(cid):
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# TRP Calendar Distribution
-@bp.route("/campaigns/<int:cid>/trp-distribution", methods=["POST"])
-def save_trp_distribution_api(cid):
-    """Save TRP distribution for a campaign"""
-    data = request.get_json(force=True)
-    trp_data = data.get("trp_data", {})
-    
-    try:
-        models.save_trp_distribution(cid, trp_data)
-        return jsonify({"status": "ok"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@bp.route("/campaigns/<int:cid>/trp-distribution", methods=["GET"])
-def load_trp_distribution_api(cid):
-    """Load TRP distribution for a campaign"""
-    try:
-        trp_data = models.load_trp_distribution(cid)
-        return jsonify({"status": "ok", "data": trp_data})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
 @bp.route("/campaigns/<int:cid>/export/agency-csv", methods=["GET"])
 def export_agency_csv(cid):
     """Export agency CSV order file"""
@@ -334,28 +290,6 @@ def export_agency_csv(cid):
             download_name=filename,
             mimetype='text/csv; charset=utf-8'
         )
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-# TRP Calendar Distribution
-@bp.route("/campaigns/<int:cid>/trp-distribution", methods=["POST"])
-def save_trp_distribution_api(cid):
-    """Save TRP distribution for a campaign"""
-    data = request.get_json(force=True)
-    trp_data = data.get("trp_data", {})
-    
-    try:
-        models.save_trp_distribution(cid, trp_data)
-        return jsonify({"status": "ok"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@bp.route("/campaigns/<int:cid>/trp-distribution", methods=["GET"])
-def load_trp_distribution_api(cid):
-    """Load TRP distribution for a campaign"""
-    try:
-        trp_data = models.load_trp_distribution(cid)
-        return jsonify({"status": "ok", "data": trp_data})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 

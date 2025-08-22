@@ -1133,9 +1133,13 @@ def get_campaign_report_data(campaign_id: int):
         for wave in waves:
             wave_dict = dict(wave)
             
-            # Get wave items
+            # Get wave items with TVC info
             items = db.execute("""
-            SELECT * FROM wave_items WHERE wave_id = ? ORDER BY owner, target_group
+            SELECT wi.*, t.name as tvc_name, t.duration as tvc_duration
+            FROM wave_items wi
+            LEFT JOIN tvcs t ON wi.tvc_id = t.id
+            WHERE wi.wave_id = ? 
+            ORDER BY wi.owner, wi.target_group
             """, (wave['id'],)).fetchall()
             wave_dict['items'] = [dict(item) for item in items]
             
@@ -1160,7 +1164,7 @@ def save_trp_distribution(campaign_id: int, trp_data: dict):
     with get_db() as db:
         for date_str, trp_value in trp_data.items():
             db.execute("""
-                INSERT INTO trp_calendar (campaign_id, date, trp_value, updated_at)
+                INSERT INTO trp_distribution (campaign_id, date, trp_value, updated_at)
                 VALUES (?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(campaign_id, date) DO UPDATE SET
                     trp_value = excluded.trp_value,
@@ -1171,7 +1175,7 @@ def load_trp_distribution(campaign_id: int):
     """Load TRP distribution for a campaign"""
     with get_db() as db:
         rows = db.execute("""
-            SELECT date, trp_value FROM trp_calendar 
+            SELECT date, trp_value FROM trp_distribution 
             WHERE campaign_id = ? AND trp_value > 0
             ORDER BY date
         """, (campaign_id,)).fetchall()
@@ -1181,7 +1185,7 @@ def load_trp_distribution(campaign_id: int):
 def delete_trp_distribution(campaign_id: int):
     """Delete all TRP distribution data for a campaign"""
     with get_db() as db:
-        db.execute("DELETE FROM trp_calendar WHERE campaign_id = ?", (campaign_id,))
+        db.execute("DELETE FROM trp_distribution WHERE campaign_id = ?", (campaign_id,))
 
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -1198,44 +1202,79 @@ def generate_client_excel_report(campaign_id: int):
     campaign = data['campaign']
     waves = data['waves']
     
+    # Load TRP calendar data
+    trp_data = load_trp_distribution(campaign_id)
+    
     # Create workbook
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = f"Campaign_{campaign['name']}_Client"
+    ws.title = "TV Planas"
     
-    # Styles
-    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-    header_font = Font(color="FFFFFF", bold=True)
-    wave_fill = PatternFill(start_color="D9E2F3", end_color="D9E2F3", fill_type="solid")
-    wave_font = Font(bold=True)
-    border = Border(left=Side(style='thin'), right=Side(style='thin'), 
-                   top=Side(style='thin'), bottom=Side(style='thin'))
+    # Professional styles
+    header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")  # Dark blue
+    header_font = Font(color="FFFFFF", bold=True, size=11)
+    wave_fill = PatternFill(start_color="E7F3FF", end_color="E7F3FF", fill_type="solid")  # Light blue
+    wave_font = Font(bold=True, color="1F4E79", size=10)
+    total_fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")  # Light yellow for totals
+    border = Border(left=Side(style='thin', color='D0D0D0'), right=Side(style='thin', color='D0D0D0'), 
+                   top=Side(style='thin', color='D0D0D0'), bottom=Side(style='thin', color='D0D0D0'))
+    thick_border = Border(left=Side(style='medium'), right=Side(style='medium'), 
+                         top=Side(style='medium'), bottom=Side(style='medium'))
     
     current_row = 1
     
     # Campaign header
-    ws.merge_cells(f'A{current_row}:H{current_row}')
+    ws.merge_cells(f'A{current_row}:Y{current_row}')
     cell = ws[f'A{current_row}']
-    cell.value = f"TV PLANAS - {campaign['name']}"
-    cell.font = Font(size=16, bold=True)
+    cell.value = f"TV KOMUNIKACIJOS PLANAS"
+    cell.font = Font(size=18, bold=True, color="1F4E79")
     cell.alignment = Alignment(horizontal='center')
-    current_row += 2
-    
-    # Campaign details
-    ws[f'A{current_row}'] = "Laikotarpis:"
-    ws[f'B{current_row}'] = f"{campaign.get('start_date', '')} - {campaign.get('end_date', '')}"
+    cell.fill = PatternFill(start_color="F8F9FA", end_color="F8F9FA", fill_type="solid")
     current_row += 1
     
-    ws[f'A{current_row}'] = "Kainoraštis:"
-    ws[f'B{current_row}'] = campaign.get('pricing_list_name', '')
-    current_row += 1
+    # Campaign name
+    ws.merge_cells(f'A{current_row}:Y{current_row}')
+    cell = ws[f'A{current_row}']
+    cell.value = f"KAMPANIJA: {campaign['name'].upper()}"
+    cell.font = Font(size=14, bold=True, color="1F4E79")
+    cell.alignment = Alignment(horizontal='center')
+    current_row += 3
     
-    ws[f'A{current_row}'] = "Statusas:"
-    ws[f'B{current_row}'] = campaign.get('status', 'draft').replace('_', ' ').title()
-    current_row += 2
+    # Campaign info section
+    info_font = Font(bold=True, size=10, color="1F4E79")
+    value_font = Font(size=10)
+    
+    # Create a bordered info section
+    info_cells = [
+        ("Kampanijos laikotarpis:", f"{campaign.get('start_date', '')} - {campaign.get('end_date', '')}"),
+        ("Klientas:", campaign.get('client', '')),
+        ("Agentūra:", campaign.get('agency', '')),
+        ("Produktas:", campaign.get('product', '')),
+        ("Kainoraštis:", campaign.get('pricing_list_name', '')),
+        ("Statusas:", campaign.get('status', 'draft').replace('_', ' ').title())
+    ]
+    
+    for label, value in info_cells:
+        ws[f'A{current_row}'] = label
+        ws[f'A{current_row}'].font = info_font
+        ws[f'B{current_row}'] = value
+        ws[f'B{current_row}'].font = value_font
+        current_row += 1
+    
+    # Calculate where to start main table (after calendar if it exists)
+    if trp_data:
+        current_row = 50  # Leave space for calendar above
+    else:
+        current_row += 1
     
     # Table headers
-    headers = ['Banga', 'Laikotarpis', 'Savininkas', 'Tikslinė grupė', 'Kanalas', 'TRP', '€/sek', 'Viso €']
+    headers = [
+        'Banga', 'Laikotarpis', 'Kanalų grupė', 'Perkama tikslinė grupė', 'TVC', 'Trukmė', 
+        'TG dydis (*000)', 'TG dalis (%)', 'TG imtis', 'Kanalo dalis (%)', 'PT zonos dalis (%)', 
+        'TRP perkama', 'Affinity1', 'GRP planuojamas', 'Gross CPP', 'Trukmės koeficientas', 'Sezoninis koeficientas', 
+        'TRP pirkimo koeficientas', 'Išankstinis koeficientas', 'Pozicijos indeksas', 'Gross kaina', 'Kliento nuolaida %', 'Net kaina', 
+        'Agentūros nuolaida %', 'Net net kaina'
+    ]
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=current_row, column=col)
         cell.value = header
@@ -1248,26 +1287,81 @@ def generate_client_excel_report(campaign_id: int):
     
     # Data rows
     total_cost = 0
+    row_count = 0
+    light_fill = PatternFill(start_color="F9F9F9", end_color="F9F9F9", fill_type="solid")  # Zebra striping
+    
     for wave in waves:
         wave_start_row = current_row
         
         for item in wave['items']:
             item_cost = item['trps'] * item['price_per_sec_eur']
             
+            # Calculate values
+            tg_size = item.get('tg_size_thousands', 0)
+            tg_share = item.get('tg_share_percent', 0)
+            tg_sample = item.get('tg_sample_size', 0)
+            channel_share = item.get('channel_share', 0.75)
+            if channel_share < 1:  # If it's a decimal (0.75), convert to percentage
+                channel_share = channel_share * 100
+            pt_zone_share = item.get('pt_zone_share', 0.55)
+            if pt_zone_share < 1:  # If it's a decimal (0.55), convert to percentage
+                pt_zone_share = pt_zone_share * 100
+            affinity1 = item.get('affinity1', 0)
+            grp_planned = (item['trps'] * 100 / affinity1) if affinity1 > 0 else 0
+            gross_cpp = item.get('gross_cpp_eur', item.get('price_per_sec_no_discount', item['price_per_sec_eur']))
+            
+            # Indices
+            duration_idx = item.get('duration_index', 1.0)
+            seasonal_idx = item.get('seasonal_index', 1.0)
+            trp_purchase_idx = item.get('trp_purchase_index', 1.0)
+            advance_idx = item.get('advance_purchase_index', 1.0)
+            position_idx = item.get('position_index', 1.0)
+            
+            # Prices
+            gross_price = item.get('gross_price_eur', item_cost)
+            client_discount = item.get('client_discount', 0)
+            net_price = gross_price * (1 - client_discount / 100)
+            agency_discount = item.get('agency_discount', 0)
+            net_net_price = net_price * (1 - agency_discount / 100)
+            
             ws.cell(row=current_row, column=1).value = wave['name'] or f"Banga {wave['id']}"
             ws.cell(row=current_row, column=2).value = f"{wave.get('start_date', '')} - {wave.get('end_date', '')}"
-            ws.cell(row=current_row, column=3).value = item['owner']
-            ws.cell(row=current_row, column=4).value = item['target_group']
-            ws.cell(row=current_row, column=5).value = f"{item['primary_label']}{' + ' + item['secondary_label'] if item['secondary_label'] else ''}"
-            ws.cell(row=current_row, column=6).value = item['trps']
-            ws.cell(row=current_row, column=7).value = round(item['price_per_sec_eur'], 2)
-            ws.cell(row=current_row, column=8).value = round(item_cost, 2)
+            ws.cell(row=current_row, column=3).value = item['owner']  # Kanalų grupė
+            ws.cell(row=current_row, column=4).value = item['target_group']  # Perkama TG
+            ws.cell(row=current_row, column=5).value = item.get('tvc_name', '-')  # TVC
+            ws.cell(row=current_row, column=6).value = item.get('tvc_duration', item.get('clip_duration', 0))  # Trukmė
+            ws.cell(row=current_row, column=7).value = tg_size  # TG dydis (*000)
+            ws.cell(row=current_row, column=8).value = f"{tg_share}%" if tg_share > 0 else ""  # TG dalis (%)
+            ws.cell(row=current_row, column=9).value = tg_sample if tg_sample > 0 else ""  # TG imtis
+            ws.cell(row=current_row, column=10).value = f"{channel_share:.1f}%"  # Kanalo dalis
+            ws.cell(row=current_row, column=11).value = f"{pt_zone_share:.1f}%"  # PT zonos dalis
+            ws.cell(row=current_row, column=12).value = item['trps']  # TRP perk.
+            ws.cell(row=current_row, column=13).value = affinity1 if affinity1 > 0 else ""  # Affinity1
+            ws.cell(row=current_row, column=14).value = round(grp_planned, 2) if grp_planned > 0 else ""  # GRP plan.
+            ws.cell(row=current_row, column=15).value = f"€{gross_cpp:.2f}"  # Gross CPP
+            ws.cell(row=current_row, column=16).value = duration_idx  # Trukm.koef
+            ws.cell(row=current_row, column=17).value = seasonal_idx  # Sez.koef
+            ws.cell(row=current_row, column=18).value = trp_purchase_idx  # TRP pirk.
+            ws.cell(row=current_row, column=19).value = advance_idx  # Išank.
+            ws.cell(row=current_row, column=20).value = position_idx  # Pozic.
+            ws.cell(row=current_row, column=21).value = f"€{gross_price:.2f}"  # Gross kaina
+            ws.cell(row=current_row, column=22).value = f"{client_discount}%" if client_discount > 0 else "0%"  # Kl. nuol. %
+            ws.cell(row=current_row, column=23).value = f"€{net_price:.2f}"  # Net kaina
+            ws.cell(row=current_row, column=24).value = f"{agency_discount}%" if agency_discount > 0 else "0%"  # Ag. nuol. %
+            ws.cell(row=current_row, column=25).value = f"€{net_net_price:.2f}"  # Net net kaina
             
-            # Apply borders
-            for col in range(1, 9):
-                ws.cell(row=current_row, column=col).border = border
+            # Apply zebra striping and borders
+            row_fill = light_fill if row_count % 2 == 1 else None
+            for col in range(1, 26):
+                cell = ws.cell(row=current_row, column=col)
+                cell.border = border
+                if row_fill:
+                    cell.fill = row_fill
+                cell.font = Font(size=9)  # Smaller font for data
+                cell.alignment = Alignment(horizontal='center', vertical='center')  # Center alignment
             
             current_row += 1
+            row_count += 1
         
         # Wave summary with client discount
         if wave['items']:
@@ -1275,7 +1369,7 @@ def generate_client_excel_report(campaign_id: int):
             client_cost = costs['client_cost']
             total_cost += client_cost
             
-            ws.merge_cells(f'A{current_row}:G{current_row}')
+            ws.merge_cells(f'A{current_row}:X{current_row}')
             cell = ws[f'A{current_row}']
             discount_text = f" (-{costs['client_discount_percent']}%)" if costs['client_discount_percent'] > 0 else ""
             cell.value = f"Bangos suma{discount_text}:"
@@ -1283,27 +1377,161 @@ def generate_client_excel_report(campaign_id: int):
             cell.fill = wave_fill
             cell.alignment = Alignment(horizontal='right')
             
-            ws.cell(row=current_row, column=8).value = round(client_cost, 2)
-            ws.cell(row=current_row, column=8).font = wave_font
-            ws.cell(row=current_row, column=8).fill = wave_fill
+            ws.cell(row=current_row, column=25).value = f"€{client_cost:.2f}"
+            ws.cell(row=current_row, column=25).font = wave_font
+            ws.cell(row=current_row, column=25).fill = wave_fill
             
-            for col in range(1, 9):
-                ws.cell(row=current_row, column=col).border = border
+            for col in range(1, 26):
+                cell = ws.cell(row=current_row, column=col)
+                cell.border = border
+                cell.fill = wave_fill
             
             current_row += 2
     
     # Grand total
-    ws.merge_cells(f'A{current_row}:G{current_row}')
+    ws.merge_cells(f'A{current_row}:X{current_row}')
     cell = ws[f'A{current_row}']
-    cell.value = "BENDRA SUMA:"
-    cell.font = Font(bold=True, size=14)
+    cell.value = "BENDRA KAMPANIJOS SUMA:"
+    cell.font = Font(bold=True, size=12, color="1F4E79")
     cell.alignment = Alignment(horizontal='right')
+    cell.fill = total_fill
+    cell.border = thick_border
     
-    ws.cell(row=current_row, column=8).value = round(total_cost, 2)
-    ws.cell(row=current_row, column=8).font = Font(bold=True, size=14)
+    total_cell = ws.cell(row=current_row, column=25)
+    total_cell.value = f"€{total_cost:.2f}"
+    total_cell.font = Font(bold=True, size=12, color="1F4E79")
+    total_cell.fill = total_fill
+    total_cell.border = thick_border
+    
+    # Add TRP Calendar below campaign info
+    if trp_data:
+        # Position calendar after campaign info, before main table
+        cal_start_row = 15  # After campaign info section
+        
+        # Calendar title
+        ws.merge_cells(f'A{cal_start_row}:F{cal_start_row}')
+        cal_title = ws[f'A{cal_start_row}']
+        cal_title.value = "TRP KALENDORIUS"
+        cal_title.font = Font(bold=True, size=12, color="1F4E79")
+        cal_title.alignment = Alignment(horizontal='center')
+        cal_title.fill = PatternFill(start_color="F0F8FF", end_color="F0F8FF", fill_type="solid")
+        cal_start_row += 2
+        
+        import json
+        from datetime import datetime, timedelta
+        if isinstance(trp_data, str):
+            trp_data = json.loads(trp_data)
+        
+        if trp_data:
+            # Get date range from campaign or from TRP data
+            start_date_str = campaign.get('start_date', '')
+            end_date_str = campaign.get('end_date', '')
+            
+            if start_date_str and end_date_str:
+                try:
+                    start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+                    end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+                    
+                    # Calculate weeks
+                    current_date = start_date
+                    week_num = 0
+                    max_weeks = 8  # Limit to 8 weeks for space
+                    
+                    while current_date <= end_date and week_num < max_weeks:
+                        week_start = current_date
+                        week_end = min(current_date + timedelta(days=6), end_date)
+                        
+                        # Week header
+                        week_label = f"Savaitė {week_num + 1}"
+                        ws.cell(row=cal_start_row, column=1).value = week_label
+                        ws.cell(row=cal_start_row, column=1).font = Font(bold=True, size=9, color="1F4E79")
+                        ws.cell(row=cal_start_row, column=1).alignment = Alignment(horizontal='center')
+                        
+                        # Days of week
+                        day_names = ['Pr', 'An', 'Tr', 'Kt', 'Pn', 'Št', 'Sk']
+                        for i, day_name in enumerate(day_names):
+                            col_idx = i + 2
+                            if col_idx <= 8:  # Don't exceed reasonable width
+                                day_date = week_start + timedelta(days=i)
+                                if day_date <= week_end:
+                                    # Day header
+                                    ws.cell(row=cal_start_row, column=col_idx).value = day_name
+                                    ws.cell(row=cal_start_row, column=col_idx).font = Font(bold=True, size=8)
+                                    ws.cell(row=cal_start_row, column=col_idx).alignment = Alignment(horizontal='center')
+                                    ws.cell(row=cal_start_row, column=col_idx).fill = header_fill
+                                    
+                                    # Date
+                                    ws.cell(row=cal_start_row + 1, column=col_idx).value = day_date.strftime('%d')
+                                    ws.cell(row=cal_start_row + 1, column=col_idx).font = Font(size=8)
+                                    ws.cell(row=cal_start_row + 1, column=col_idx).alignment = Alignment(horizontal='center')
+                                    
+                                    # TRP value
+                                    date_key = day_date.strftime('%Y-%m-%d')
+                                    trp_value = trp_data.get(date_key, 0)
+                                    if trp_value > 0:
+                                        ws.cell(row=cal_start_row + 2, column=col_idx).value = f"{trp_value:.1f}"
+                                        ws.cell(row=cal_start_row + 2, column=col_idx).font = Font(size=8, bold=True, color="FF6B35")
+                                    else:
+                                        ws.cell(row=cal_start_row + 2, column=col_idx).value = ""
+                                    ws.cell(row=cal_start_row + 2, column=col_idx).alignment = Alignment(horizontal='center')
+                                    
+                                    # Borders for calendar
+                                    for row_offset in range(3):
+                                        cell = ws.cell(row=cal_start_row + row_offset, column=col_idx)
+                                        cell.border = border
+                        
+                        # Week total
+                        week_total = sum(float(trp_data.get((week_start + timedelta(days=i)).strftime('%Y-%m-%d'), 0)) 
+                                       for i in range(7) if week_start + timedelta(days=i) <= week_end)
+                        if week_total > 0:
+                            ws.cell(row=cal_start_row + 2, column=9).value = f"Σ {week_total:.1f}"
+                            ws.cell(row=cal_start_row + 2, column=9).font = Font(size=8, bold=True, color="1F4E79")
+                            ws.cell(row=cal_start_row + 2, column=9).alignment = Alignment(horizontal='center')
+                        
+                        cal_start_row += 4
+                        current_date = week_end + timedelta(days=1)
+                        week_num += 1
+                    
+                    # Total TRP summary
+                    total_trp = sum(float(v) for v in trp_data.values())
+                    if total_trp > 0:
+                        ws.cell(row=cal_start_row, column=1).value = "BENDRAS TRP:"
+                        ws.cell(row=cal_start_row, column=1).font = Font(bold=True, size=10, color="1F4E79")
+                        ws.cell(row=cal_start_row, column=2).value = f"{total_trp:.1f}"
+                        ws.cell(row=cal_start_row, column=2).font = Font(bold=True, size=10, color="1F4E79")
+                        ws.cell(row=cal_start_row, column=2).fill = total_fill
+                    
+                except Exception as e:
+                    # Fallback to simple table if date parsing fails
+                    ws.cell(row=cal_start_row, column=1).value = "Data"
+                    ws.cell(row=cal_start_row, column=2).value = "TRP"
+                    for col in [1, 2]:
+                        ws.cell(row=cal_start_row, column=col).font = header_font
+                        ws.cell(row=cal_start_row, column=col).fill = header_fill
+                    cal_start_row += 1
+                    
+                    for date_str, trp_value in sorted(trp_data.items()):
+                        ws.cell(row=cal_start_row, column=1).value = date_str
+                        ws.cell(row=cal_start_row, column=2).value = float(trp_value)
+                        cal_start_row += 1
+    
+    # Professional footer
+    current_row += 3
+    ws.merge_cells(f'A{current_row}:Y{current_row}')
+    footer_cell = ws[f'A{current_row}']
+    from datetime import datetime
+    footer_cell.value = f"Ataskaita sugeneruota: {datetime.now().strftime('%Y-%m-%d %H:%M')} | TV Planner Sistema"
+    footer_cell.font = Font(size=8, italic=True, color="808080")
+    footer_cell.alignment = Alignment(horizontal='center')
     
     # Adjust column widths
-    column_widths = [15, 20, 15, 20, 30, 10, 10, 12]
+    column_widths = [
+        12, 18, 15, 25, 12, 8,  # Banga, Laikotarpis, Kanalų grupė, Perkama tikslinė grupė, TVC, Trukmė
+        12, 10, 8, 15, 15,      # TG dydis, TG dalis, TG imtis, Kanalo dalis, PT zonos dalis
+        12, 10, 15, 12, 20,     # TRP perkama, Affinity1, GRP planuojamas, Gross CPP, Trukmės koeficientas
+        20, 22, 20, 18, 12,     # Sezoninis koeficientas, TRP pirkimo koeficientas, Išankstinis koeficientas, Pozicijos indeksas, Gross kaina
+        15, 12, 15, 15          # Kliento nuolaida %, Net kaina, Agentūros nuolaida %, Net net kaina
+    ]
     for col, width in enumerate(column_widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
     
@@ -1322,6 +1550,9 @@ def generate_agency_csv_order(campaign_id: int):
     campaign = data['campaign']
     waves = data['waves']
     
+    # Load TRP calendar data
+    trp_data = load_trp_distribution(campaign_id)
+    
     csv_content = []
     csv_content.append(['# TV UŽSAKYMAS'])
     csv_content.append(['Kampanija', campaign['name']])
@@ -1332,8 +1563,8 @@ def generate_agency_csv_order(campaign_id: int):
     
     # Headers
     csv_content.append([
-        'Banga', 'Laikotarpis', 'Savininkas', 'Tikslinė grupė', 'Kanalas', 
-        'TRP', 'Bazinė kaina €/sek', 'Kliento kaina €/sek', 'Agentūros kaina €/sek', 
+        'Banga', 'Laikotarpis', 'TVC', 'Trukmė', 'Savininkas', 'Tikslinė grupė', 'Kanalas', 
+        'TRP', 'CPP €', 'TG dydis', 'Bazinė kaina €/sek', 'Kliento kaina €/sek', 'Agentūros kaina €/sek', 
         'Kliento nuolaida %', 'Agentūros nuolaida %', 'Galutinė suma €'
     ])
     
@@ -1359,10 +1590,14 @@ def generate_agency_csv_order(campaign_id: int):
             csv_content.append([
                 wave['name'] or f"Banga {wave['id']}",
                 f"{wave.get('start_date', '')} - {wave.get('end_date', '')}",
+                item.get('tvc_name', '-'),
+                f"{item.get('tvc_duration', item.get('clip_duration', 0))}s",
                 item['owner'],
                 item['target_group'],
                 f"{item['primary_label']}{' + ' + item['secondary_label'] if item['secondary_label'] else ''}",
                 trps,
+                round(item.get('price_per_sec_no_discount', base_price), 2),
+                f"{item.get('tg_size_thousands', 0)}k",
                 round(base_price, 4),
                 round(client_price_per_sec, 4),
                 round(agency_price_per_sec, 4),
@@ -1373,7 +1608,20 @@ def generate_agency_csv_order(campaign_id: int):
     
     # Total
     csv_content.append([])
-    csv_content.append(['BENDRA AGENTŪROS SUMA €', '', '', '', '', '', '', '', '', '', '', round(total_agency_cost, 2)])
+    csv_content.append(['BENDRA AGENTŪROS SUMA €', '', '', '', '', '', '', '', '', '', '', '', '', '', '', round(total_agency_cost, 2)])
+    
+    # Add TRP Calendar if exists
+    if trp_data:
+        csv_content.append([])
+        csv_content.append(['# TRP KALENDORIUS'])
+        csv_content.append(['Data', 'TRP'])
+        
+        import json
+        if isinstance(trp_data, str):
+            trp_data = json.loads(trp_data)
+            
+        for date_str, trp_value in sorted(trp_data.items()):
+            csv_content.append([date_str, float(trp_value)])
     
     # Write CSV
     import csv as csv_module

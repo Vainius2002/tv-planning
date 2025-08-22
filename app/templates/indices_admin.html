@@ -4,12 +4,12 @@
 
 {% block content %}
 <div
-  data-target-groups="{{ url_for('indices.target_groups_list') }}"
+  data-channel-groups="{{ url_for('indices.channel_groups_list') }}"
   data-duration-list="{{ url_for('indices.duration_indices_list') }}"
   data-duration-create="{{ url_for('indices.duration_indices_create') }}"
-  data-duration-delete-base="{{ url_for('indices.duration_indices_delete', target_group='__TG__', duration_seconds=0) }}"
+  data-duration-delete-base="{{ url_for('indices.duration_indices_delete', channel_group='__CG__', duration_seconds=0) }}"
   data-seasonal-list="{{ url_for('indices.seasonal_indices_list') }}"
-  data-seasonal-update-base="{{ url_for('indices.seasonal_indices_update', target_group='__TG__', month=0) }}"
+  data-seasonal-update-base="{{ url_for('indices.seasonal_indices_update', channel_group='__CG__', month=0) }}"
   data-position-list="{{ url_for('indices.position_indices_list') }}"
 >
   
@@ -20,25 +20,25 @@
   </div>
 
   <div class="space-y-8">
-    <!-- Target Group Selection -->
+    <!-- Channel Group Selection -->
     <section class="bg-blue-50 rounded-xl border border-blue-200 p-4">
       <div class="flex items-center gap-4">
-        <label class="text-sm font-medium text-blue-900">Tikslinė grupė:</label>
-        <select id="targetGroupSelector" class="rounded-lg border-blue-300 px-3 py-2 text-sm bg-white">
+        <label class="text-sm font-medium text-blue-900">Kanalų grupė:</label>
+        <select id="channelGroupSelector" class="rounded-lg border-blue-300 px-3 py-2 text-sm bg-white">
           <option value="">Kraunama...</option>
         </select>
-        <span class="text-sm text-blue-700">Pasirinkite TG, kad pamatytumėte jos specifinę indeksų informaciją</span>
+        <span class="text-sm text-blue-700">Pasirinkite kanalų grupę, kad pamatytumėte jos specifinę indeksų informaciją</span>
       </div>
     </section>
 
     <!-- Duration Indices -->
     <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <h2 class="text-xl font-semibold text-gray-900 mb-4">Trukmės indeksai</h2>
-      <p class="text-sm text-gray-600 mb-4">Indeksai pagal klipo trukmę sekundėmis ir tikslinę grupę. Reikšmės paremtos rinkos standartais.</p>
+      <p class="text-sm text-gray-600 mb-4">Indeksai pagal klipo trukmę sekundėmis ir kanalų grupę. Reikšmės paremtos rinkos standartais.</p>
       
       <!-- Add new duration index -->
       <div class="bg-slate-50 rounded-lg p-4 mb-6" id="durationForm">
-        <h3 class="font-medium text-slate-700 mb-3">Redaguoti trukmės indeksą pasirinktai TG</h3>
+        <h3 class="font-medium text-slate-700 mb-3">Redaguoti trukmės indeksą pasirinktai kanalų grupei</h3>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
             <label class="block text-sm text-slate-600 mb-1">Trukmės intervalas</label>
@@ -69,14 +69,14 @@
 
       <!-- Duration indices summary -->
       <div id="durationSummary" class="bg-slate-50 rounded-lg p-4">
-        <p class="text-sm text-slate-600">Pasirinkite tikslinę grupę, kad pamatytumėte jos trukmės indeksus</p>
+        <p class="text-sm text-slate-600">Pasirinkite kanalų grupę, kad pamatytumėte jos trukmės indeksus</p>
       </div>
     </section>
 
     <!-- Seasonal Indices -->
     <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <h2 class="text-xl font-semibold text-gray-900 mb-4">Sezoniniai indeksai</h2>
-      <p class="text-sm text-gray-600 mb-4">Indeksai pagal mėnesį ir tikslinę grupę. Skirtingos TG turi skirtingus sezoningumo modelius.</p>
+      <p class="text-sm text-gray-600 mb-4">Indeksai pagal mėnesį ir kanalų grupę. Skirtingos kanalų grupės turi skirtingus sezoningumo modelius.</p>
       
       <!-- Seasonal indices table -->
       <div class="overflow-x-auto">
@@ -97,7 +97,7 @@
     <!-- Position Indices -->
     <section class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <h2 class="text-xl font-semibold text-gray-900 mb-4">Pozicijos indeksai</h2>
-      <p class="text-sm text-gray-600 mb-4">Indeksai pagal reklamos poziciją reklamų bloke ir tikslinę grupę.</p>
+      <p class="text-sm text-gray-600 mb-4">Indeksai pagal reklamos poziciją reklamų bloke ir kanalų grupę.</p>
       
       <!-- Position indices table -->
       <div class="overflow-x-auto">
@@ -116,11 +116,11 @@
 
     <!-- Usage Information -->
     <section class="bg-blue-50 rounded-xl border border-blue-200 p-6">
-      <h3 class="font-medium text-blue-900 mb-2">📋 Kaip naudojami TG-specifiniai indeksai</h3>
+      <h3 class="font-medium text-blue-900 mb-2">📋 Kaip naudojami kanalų grupių indeksai</h3>
       <div class="text-sm text-blue-800 space-y-2">
-        <p><strong>Trukmės indeksai:</strong> Automatiškai pritaikomi pagal TVC trukmę ir tikslinę grupę. Indeksai paremti rinkos standartais.</p>
-        <p><strong>Sezoniniai indeksai:</strong> Skirtingi pagal TG - specifinės TG (A25-55, M25-65) ir bendrosios TG (Visi, Moterys) turi skirtingus sezoningumo modelius.</p>
-        <p><strong>Pozicijos indeksai:</strong> Skiriasi pagal TG tipą - specifinės ir bendrosios TG turi skirtingas pozicijos premijas.</p>
+        <p><strong>Trukmės indeksai:</strong> Automatiškai pritaikomi pagal TVC trukmę ir kanalų grupę. Indeksai paremti rinkos standartais.</p>
+        <p><strong>Sezoniniai indeksai:</strong> Skirtingi pagal kanalų grupę - AMB Baltics ir MG grupė turi skirtingus sezoningumo modelius.</p>
+        <p><strong>Pozicijos indeksai:</strong> Skiriasi pagal kanalų grupę - skirtingos grupės turi skirtingas pozicijos premijas.</p>
         <p><strong>Galutinis skaičiavimas:</strong> <code>Bruto kaina = Trukmė × TRP × CPP × Trukmės_idx × Sezoninis_idx × Pozicijos_idx × Kiti_idx</code></p>
       </div>
     </section>

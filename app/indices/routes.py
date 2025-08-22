@@ -8,41 +8,41 @@ from app import models
 def indices_page():
     return render_template("indices_admin.html")
 
-# ---------- Target Groups API ----------
-@bp.route("/target-groups", methods=["GET"])
-def target_groups_list():
-    """Get all available target groups"""
-    return jsonify(models.get_target_groups_list())
+# ---------- Channel Groups API ----------
+@bp.route("/channel-groups", methods=["GET"])
+def channel_groups_list():
+    """Get all available channel groups for indices management"""
+    return jsonify(models.list_channel_groups())
 
 # ---------- Duration Indices API ----------
 @bp.route("/duration-indices", methods=["GET"])
 def duration_indices_list():
-    """Get all duration indices grouped by target group"""
+    """Get all duration indices grouped by channel group"""
     return jsonify(models.list_duration_indices())
 
 @bp.route("/duration-indices", methods=["POST"])
 def duration_indices_create():
     """Create or update duration index"""
     data = request.get_json(force=True)
-    target_group = data.get("target_group")
+    channel_group = data.get("channel_group")  # Changed from target_group to channel_group
     duration = data.get("duration_seconds")
     index_value = data.get("index_value")
     description = data.get("description", "")
     
-    if not target_group or duration is None or index_value is None:
-        return jsonify({"status": "error", "message": "target_group, duration_seconds and index_value required"}), 400
+    if not channel_group or duration is None or index_value is None:
+        return jsonify({"status": "error", "message": "channel_group, duration_seconds and index_value required"}), 400
     
     try:
-        models.update_duration_index(target_group, int(duration), float(index_value), description.strip() or None)
+        models.update_duration_index(channel_group, int(duration), float(index_value), description.strip() or None)
         return jsonify({"status": "ok"}), 201
     except ValueError as e:
         return jsonify({"status": "error", "message": str(e)}), 400
 
-@bp.route("/duration-indices/<target_group>/<int:duration_seconds>", methods=["DELETE"])
-def duration_indices_delete(target_group, duration_seconds):
+@bp.route("/duration-indices/<channel_group>/<int:duration_seconds>", methods=["DELETE"])
+def duration_indices_delete(channel_group, duration_seconds):
     """Delete duration index"""
     try:
-        models.delete_duration_index(target_group, duration_seconds)
+        models.delete_duration_index(channel_group, duration_seconds)
         return jsonify({"status": "ok"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -50,12 +50,12 @@ def duration_indices_delete(target_group, duration_seconds):
 # ---------- Seasonal Indices API ----------
 @bp.route("/seasonal-indices", methods=["GET"])
 def seasonal_indices_list():
-    """Get all seasonal indices grouped by target group"""
+    """Get all seasonal indices grouped by channel group"""
     return jsonify(models.list_seasonal_indices())
 
-@bp.route("/seasonal-indices/<target_group>/<int:month>", methods=["PATCH"])
-def seasonal_indices_update(target_group, month):
-    """Update seasonal index for specific target group and month"""
+@bp.route("/seasonal-indices/<channel_group>/<int:month>", methods=["PATCH"])
+def seasonal_indices_update(channel_group, month):
+    """Update seasonal index for specific channel group and month"""
     data = request.get_json(force=True)
     index_value = data.get("index_value")
     description = data.get("description")
@@ -64,7 +64,7 @@ def seasonal_indices_update(target_group, month):
         return jsonify({"status": "error", "message": "index_value required"}), 400
     
     try:
-        models.update_seasonal_index(target_group, month, float(index_value), description)
+        models.update_seasonal_index(channel_group, month, float(index_value), description)
         return jsonify({"status": "ok"})
     except ValueError as e:
         return jsonify({"status": "error", "message": str(e)}), 400
@@ -72,5 +72,5 @@ def seasonal_indices_update(target_group, month):
 # ---------- Position Indices API ----------
 @bp.route("/position-indices", methods=["GET"])
 def position_indices_list():
-    """Get all position indices grouped by target group"""
+    """Get all position indices grouped by channel group"""
     return jsonify(models.list_position_indices())

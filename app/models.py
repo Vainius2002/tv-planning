@@ -672,6 +672,9 @@ def update_campaign(cid: int, data: dict):
 
 def delete_campaign(cid: int):
     with get_db() as db:
+        # Delete TRP distribution data first
+        delete_trp_distribution(cid)
+        # Delete campaign (waves and wave_items will cascade)
         db.execute("DELETE FROM campaigns WHERE id=?", (cid,))
 
 def create_wave(campaign_id: int, name: str | None, start_date: str | None, end_date: str | None) -> int:
@@ -768,8 +771,8 @@ def create_wave_item_excel(wave_id: int, excel_data: dict) -> int:
         grp_planned = excel_data["trps"] * 100 / affinity1
     else:
         grp_planned = 0  # Cannot calculate without valid affinity1
-    # CPP = price per second × clip duration
-    gross_cpp_eur = (rate["price_per_sec_eur"] * excel_data["clip_duration"]) if rate else (1.0 * excel_data["clip_duration"])
+    # CPP = price per second (from rate list, no clip duration multiplication)
+    gross_cpp_eur = rate["price_per_sec_eur"] if rate else 1.0
     
     # Get indices from database if available, otherwise use form values
     # Get wave dates for seasonal index calculation
@@ -778,15 +781,15 @@ def create_wave_item_excel(wave_id: int, excel_data: dict) -> int:
         wave_start_date = wave_data["start_date"] if wave_data else None
         wave_end_date = wave_data["end_date"] if wave_data else None
     
-    # Get indices from database using target group and wave date range
-    db_indices = get_indices_for_wave_item(excel_data["target_group"], excel_data["clip_duration"], wave_start_date, wave_end_date)
+    # Get indices from database using channel group and wave date range
+    db_indices = get_indices_for_wave_item(excel_data["channel_group"], excel_data["clip_duration"], wave_start_date, wave_end_date)
     
     # Use database indices if available, otherwise fall back to form values
     duration_index = db_indices.get("duration_index", excel_data.get("duration_index", 1.25))
     seasonal_index = db_indices.get("seasonal_index", excel_data.get("seasonal_index", 0.9))
     
-    # Calculate gross price with all indices (CPP already includes clip duration)
-    gross_price_eur = (excel_data["trps"] * gross_cpp_eur * 
+    # Calculate gross price with all indices and clip duration
+    gross_price_eur = (excel_data["trps"] * gross_cpp_eur * excel_data["clip_duration"] *
                       duration_index * seasonal_index * 
                       excel_data["trp_purchase_index"] * excel_data["advance_purchase_index"] * 
                       excel_data["position_index"])
@@ -849,7 +852,7 @@ def update_wave_item(item_id: int, data: dict):
             sets.append(f"{k}=?"); args.append(v)
     
     # Recalculate prices and GRP if relevant fields were updated
-    need_price_recalc = any(field in data for field in ["client_discount", "agency_discount", "trps", "trp_purchase_index", "advance_purchase_index", "position_index", "duration_index", "seasonal_index"])
+    need_price_recalc = any(field in data for field in ["client_discount", "agency_discount", "trps", "clip_duration", "trp_purchase_index", "advance_purchase_index", "position_index", "duration_index", "seasonal_index"])
     need_grp_recalc = any(field in data for field in ["trps", "affinity1"])
     
     if need_price_recalc or need_grp_recalc:
@@ -868,8 +871,9 @@ def update_wave_item(item_id: int, data: dict):
                 advance_purchase_index = data.get("advance_purchase_index", item["advance_purchase_index"] or 0.95)
                 position_index = data.get("position_index", item["position_index"] or 1.0)
                 
-                # Recalculate gross price with all indices
-                gross_price = (trps * gross_cpp * duration_index * seasonal_index * 
+                # Recalculate gross price with all indices and clip duration
+                clip_duration = data.get("clip_duration", item["clip_duration"] or 10)
+                gross_price = (trps * gross_cpp * clip_duration * duration_index * seasonal_index * 
                              trp_purchase_index * advance_purchase_index * position_index)
                 
                 # Get discounts
@@ -1111,11 +1115,11 @@ def get_campaign_status(campaign_id: int):
 def get_campaign_report_data(campaign_id: int):
     """Get all data needed for campaign reports"""
     with get_db() as db:
-        # Get campaign info
+        # Get campaign info (pricing_list_id might be NULL, so use LEFT JOIN)
         campaign = db.execute("""
-        SELECT c.*, pl.name as pricing_list_name 
+        SELECT c.*, COALESCE(pl.name, 'Default') as pricing_list_name 
         FROM campaigns c
-        JOIN pricing_lists pl ON c.pricing_list_id = pl.id
+        LEFT JOIN pricing_lists pl ON c.pricing_list_id = pl.id
         WHERE c.id = ?
         """, (campaign_id,)).fetchone()
         
@@ -1148,6 +1152,36 @@ def get_campaign_report_data(campaign_id: int):
             'campaign': dict(campaign),
             'waves': waves_data
         }
+
+# ---------------- TRP Calendar ----------------
+
+def save_trp_distribution(campaign_id: int, trp_data: dict):
+    """Save TRP distribution for a campaign"""
+    with get_db() as db:
+        for date_str, trp_value in trp_data.items():
+            db.execute("""
+                INSERT INTO trp_calendar (campaign_id, date, trp_value, updated_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(campaign_id, date) DO UPDATE SET
+                    trp_value = excluded.trp_value,
+                    updated_at = CURRENT_TIMESTAMP
+            """, (campaign_id, date_str, float(trp_value) if trp_value else 0.0))
+
+def load_trp_distribution(campaign_id: int):
+    """Load TRP distribution for a campaign"""
+    with get_db() as db:
+        rows = db.execute("""
+            SELECT date, trp_value FROM trp_calendar 
+            WHERE campaign_id = ? AND trp_value > 0
+            ORDER BY date
+        """, (campaign_id,)).fetchall()
+        
+        return {row['date']: row['trp_value'] for row in rows}
+
+def delete_trp_distribution(campaign_id: int):
+    """Delete all TRP distribution data for a campaign"""
+    with get_db() as db:
+        db.execute("DELETE FROM trp_calendar WHERE campaign_id = ?", (campaign_id,))
 
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -1364,230 +1398,188 @@ def generate_agency_csv_order(campaign_id: int):
 # ---------- INDICES MANAGEMENT ----------
 
 def migrate_add_indices_tables():
-    """Create tables for duration and seasonal indices management"""
-    with get_db() as db:
-        # Duration indices table (based on clip duration and target group)
-        db.execute("""
-        CREATE TABLE IF NOT EXISTS duration_indices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            target_group TEXT NOT NULL,
-            duration_seconds INTEGER NOT NULL,
-            index_value REAL NOT NULL DEFAULT 1.0,
-            description TEXT,
-            UNIQUE(target_group, duration_seconds)
-        )""")
-        
-        # Seasonal indices table (based on months and target group)
-        db.execute("""
-        CREATE TABLE IF NOT EXISTS seasonal_indices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            target_group TEXT NOT NULL,
-            month INTEGER NOT NULL CHECK(month >= 1 AND month <= 12),
-            index_value REAL NOT NULL DEFAULT 1.0,
-            description TEXT,
-            UNIQUE(target_group, month)
-        )""")
-        
-        # Position indices table (based on ad position and target group)
-        db.execute("""
-        CREATE TABLE IF NOT EXISTS position_indices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            target_group TEXT NOT NULL,
-            position_type TEXT NOT NULL,
-            index_value REAL NOT NULL DEFAULT 1.0,
-            description TEXT,
-            UNIQUE(target_group, position_type)
-        )""")
-        
-        # Get all available target groups from TRP rates
-        trp_rates = db.execute("SELECT DISTINCT target_group FROM trp_rates").fetchall()
-        target_groups = [rate["target_group"] for rate in trp_rates]
-        
-        if not target_groups:
-            # Add some default target groups if none exist
-            target_groups = ["W18-49", "W25-54", "M18-49", "M25-54", "ALL18-49"]
-        
-        # Duration indices based on industry standard values
-        # These apply to all target groups (same in both images)
-        duration_ranges = [
-            ((5, 9), 1.35, "5\"-9\""),
-            ((10, 14), 1.25, "10\"-14\""), 
-            ((15, 19), 1.2, "15\"-19\""),
-            ((20, 24), 1.15, "20\"-24\""),
-            ((25, 29), 1.1, "25\"-29\""),
-            ((30, 44), 1.0, "30\"-44\""),
-            ((45, 999), 1.0, "≥45\"")
-        ]
-        
-        # Create duration indices for each TG (same values for all)
-        for tg in target_groups:
-            for (min_dur, max_dur), index_val, desc in duration_ranges:
-                # Create entries for each second in the range
-                for duration in range(min_dur, min(max_dur + 1, 301)):  # Cap at 300 seconds
-                    db.execute("""
-                        INSERT OR IGNORE INTO duration_indices (target_group, duration_seconds, index_value, description)
-                        VALUES (?, ?, ?, ?)
-                    """, (tg, duration, index_val, f"{desc} ({tg})"))
-        
-        # Seasonal indices - different patterns based on target group type
-        # Pattern 1: A25-55, A25-65, A55+, W25-55, W25-65, M25-65 (from image 1)
-        seasonal_pattern_1 = [
-            (1, 0.9, "Sausis"), (2, 0.95, "Vasaris"), (3, 1.5, "Kovas"),
-            (4, 1.55, "Balandis"), (5, 1.6, "Gegužė"), (6, 1.55, "Birželis"),
-            (7, 1.1, "Liepa"), (8, 1.1, "Rugpjūtis"), (9, 1.65, "Rugsėjis"),
-            (10, 1.65, "Spalis"), (11, 1.65, "Lapkritis"), (12, 1.5, "Gruodis")
-        ]
-        
-        # Pattern 2: Visi, Moterys (from image 2) 
-        seasonal_pattern_2 = [
-            (1, 0.9, "Sausis"), (2, 1.0, "Vasaris"), (3, 1.4, "Kovas"),
-            (4, 1.45, "Balandis"), (5, 1.45, "Gegužė"), (6, 1.4, "Birželis"),
-            (7, 0.95, "Liepa"), (8, 1.0, "Rugpjūtis"), (9, 1.60, "Rugsėjis"),
-            (10, 1.65, "Spalis"), (11, 1.65, "Lapkritis"), (12, 1.5, "Gruodis")
-        ]
-        
-        # Assign patterns based on target group characteristics
-        for tg in target_groups:
-            # Use pattern 2 for broad demographics (Visi, Moterys, ALL)
-            if any(keyword in tg.upper() for keyword in ['ALL', 'VISI', 'MOTER', 'WOMEN']):
-                pattern = seasonal_pattern_2
-            else:
-                # Use pattern 1 for specific age/gender groups
-                pattern = seasonal_pattern_1
-            
-            for month, index_val, desc in pattern:
-                db.execute("""
-                    INSERT OR IGNORE INTO seasonal_indices (target_group, month, index_value, description)
-                    VALUES (?, ?, ?, ?)
-                """, (tg, month, index_val, f"{desc} ({tg})"))
-        
-        # Position indices - different values based on target group type
-        # Position values from images (image 1 vs image 2)
-        position_pattern_1 = [
-            ("first", 1.45, "Pirma pozicija"),
-            ("second", 1.3, "Antra pozicija"), 
-            ("last", 1.3, "Paskutinė"),
-            ("other", 1.2, "Kita spec.")
-        ]
-        
-        position_pattern_2 = [
-            ("first", 1.5, "Pirma pozicija"),
-            ("second", 1.4, "Antra pozicija"),
-            ("last", 1.4, "Paskutinė"), 
-            ("other", 1.3, "Kita spec.")
-        ]
-        
-        # Assign position patterns based on target group characteristics
-        for tg in target_groups:
-            # Use pattern 2 for broad demographics (Visi, Moterys, ALL)
-            if any(keyword in tg.upper() for keyword in ['ALL', 'VISI', 'MOTER', 'WOMEN']):
-                pattern = position_pattern_2
-            else:
-                # Use pattern 1 for specific age/gender groups
-                pattern = position_pattern_1
-            
-            for pos_type, index_val, desc in pattern:
-                db.execute("""
-                    INSERT OR IGNORE INTO position_indices (target_group, position_type, index_value, description)
-                    VALUES (?, ?, ?, ?)
-                """, (tg, pos_type, index_val, f"{desc} ({tg})"))
-        
-        db.commit()
+    """Create tables for duration and seasonal indices management - LEGACY FUNCTION
+    
+    This function is now deprecated. Indices have been migrated to use channel_group_id
+    instead of target_group. The new structure is already created by the migration script.
+    """
+    # This function is now a no-op since the migration has already been run
+    # and the new channel_group-based structure is in place
+    print("migrate_add_indices_tables: Indices tables already migrated to channel group structure")
+    pass
 
 def list_duration_indices():
-    """Get all duration indices grouped by target group"""
+    """Get all duration indices grouped by channel group"""
     with get_db() as db:
         return [dict(row) for row in db.execute(
-            "SELECT * FROM duration_indices ORDER BY target_group, duration_seconds"
+            """SELECT di.*, cg.name as channel_group_name 
+               FROM duration_indices di 
+               JOIN channel_groups cg ON di.channel_group_id = cg.id 
+               ORDER BY cg.name, di.duration_seconds"""
         ).fetchall()]
 
 def list_seasonal_indices():
-    """Get all seasonal indices grouped by target group"""
+    """Get all seasonal indices grouped by channel group"""
     with get_db() as db:
         return [dict(row) for row in db.execute(
-            "SELECT * FROM seasonal_indices ORDER BY target_group, month"
+            """SELECT si.*, cg.name as channel_group_name 
+               FROM seasonal_indices si 
+               JOIN channel_groups cg ON si.channel_group_id = cg.id 
+               ORDER BY cg.name, si.month"""
         ).fetchall()]
 
 def list_position_indices():
-    """Get all position indices grouped by target group"""
+    """Get all position indices grouped by channel group"""
     with get_db() as db:
         return [dict(row) for row in db.execute(
-            "SELECT * FROM position_indices ORDER BY target_group, position_type"
+            """SELECT pi.*, cg.name as channel_group_name 
+               FROM position_indices pi 
+               JOIN channel_groups cg ON pi.channel_group_id = cg.id 
+               ORDER BY cg.name, pi.position_type"""
         ).fetchall()]
 
-def get_duration_index(target_group, duration_seconds):
-    """Get duration index for specific target group and duration"""
+def get_duration_index(channel_group, duration_seconds):
+    """Get duration index for specific channel group and duration"""
     with get_db() as db:
-        row = db.execute(
-            "SELECT index_value FROM duration_indices WHERE target_group = ? AND duration_seconds = ?",
-            (target_group, duration_seconds)
-        ).fetchone()
-        return float(row["index_value"]) if row else 1.0
+        # First try to find by channel_group_id
+        if isinstance(channel_group, int):
+            channel_group_id = channel_group
+        else:
+            # Look up channel group ID by name
+            cg_row = db.execute(
+                "SELECT id FROM channel_groups WHERE name = ?", 
+                (channel_group,)
+            ).fetchone()
+            channel_group_id = cg_row["id"] if cg_row else None
+            
+        if channel_group_id:
+            row = db.execute(
+                "SELECT index_value FROM duration_indices WHERE channel_group_id = ? AND duration_seconds = ?",
+                (channel_group_id, duration_seconds)
+            ).fetchone()
+            return float(row["index_value"]) if row else 1.0
+        
+        return 1.0  # Default if no channel group found
 
-def get_seasonal_index(target_group, month):
-    """Get seasonal index for specific target group and month (1-12)"""
+def get_seasonal_index(channel_group, month):
+    """Get seasonal index for specific channel group and month (1-12)"""
     with get_db() as db:
-        row = db.execute(
-            "SELECT index_value FROM seasonal_indices WHERE target_group = ? AND month = ?",
-            (target_group, month)
-        ).fetchone()
-        return float(row["index_value"]) if row else 1.0
+        # First try to find by channel_group_id
+        if isinstance(channel_group, int):
+            channel_group_id = channel_group
+        else:
+            # Look up channel group ID by name
+            cg_row = db.execute(
+                "SELECT id FROM channel_groups WHERE name = ?", 
+                (channel_group,)
+            ).fetchone()
+            channel_group_id = cg_row["id"] if cg_row else None
+            
+        if channel_group_id:
+            row = db.execute(
+                "SELECT index_value FROM seasonal_indices WHERE channel_group_id = ? AND month = ?",
+                (channel_group_id, month)
+            ).fetchone()
+            return float(row["index_value"]) if row else 1.0
+        
+        return 1.0  # Default if no channel group found
 
-def get_position_index(target_group, position_type):
-    """Get position index for specific target group and position type"""
+def get_position_index(channel_group, position_type):
+    """Get position index for specific channel group and position type"""
     with get_db() as db:
-        row = db.execute(
-            "SELECT index_value FROM position_indices WHERE target_group = ? AND position_type = ?",
-            (target_group, position_type)
-        ).fetchone()
-        return float(row["index_value"]) if row else 1.0
+        # First try to find by channel_group_id
+        if isinstance(channel_group, int):
+            channel_group_id = channel_group
+        else:
+            # Look up channel group ID by name
+            cg_row = db.execute(
+                "SELECT id FROM channel_groups WHERE name = ?", 
+                (channel_group,)
+            ).fetchone()
+            channel_group_id = cg_row["id"] if cg_row else None
+            
+        if channel_group_id:
+            row = db.execute(
+                "SELECT index_value FROM position_indices WHERE channel_group_id = ? AND position_type = ?",
+                (channel_group_id, position_type)
+            ).fetchone()
+            return float(row["index_value"]) if row else 1.0
+        
+        return 1.0  # Default if no channel group found
 
-def update_duration_index(target_group, duration_seconds, index_value, description=None):
+def update_duration_index(channel_group, duration_seconds, index_value, description=None):
     """Update or create duration index"""
     with get_db() as db:
-        db.execute("""
-            INSERT OR REPLACE INTO duration_indices (target_group, duration_seconds, index_value, description)
-            VALUES (?, ?, ?, ?)
-        """, (target_group, duration_seconds, index_value, description))
-        db.commit()
+        # Look up channel group ID by name if needed
+        if isinstance(channel_group, str):
+            cg_row = db.execute(
+                "SELECT id FROM channel_groups WHERE name = ?", 
+                (channel_group,)
+            ).fetchone()
+            channel_group_id = cg_row["id"] if cg_row else None
+        else:
+            channel_group_id = channel_group
+            
+        if channel_group_id:
+            db.execute("""
+                INSERT OR REPLACE INTO duration_indices (channel_group_id, duration_seconds, index_value, description)
+                VALUES (?, ?, ?, ?)
+            """, (channel_group_id, duration_seconds, index_value, description))
+            db.commit()
 
-def update_seasonal_index(target_group, month, index_value, description=None):
-    """Update seasonal index for specific target group and month"""
+def update_seasonal_index(channel_group, month, index_value, description=None):
+    """Update seasonal index for specific channel group and month"""
     with get_db() as db:
-        db.execute("""
-            INSERT OR REPLACE INTO seasonal_indices (target_group, month, index_value, description)
-            VALUES (?, ?, ?, ?)
-        """, (target_group, month, index_value, description))
-        db.commit()
+        # Look up channel group ID by name if needed
+        if isinstance(channel_group, str):
+            cg_row = db.execute(
+                "SELECT id FROM channel_groups WHERE name = ?", 
+                (channel_group,)
+            ).fetchone()
+            channel_group_id = cg_row["id"] if cg_row else None
+        else:
+            channel_group_id = channel_group
+            
+        if channel_group_id:
+            db.execute("""
+                INSERT OR REPLACE INTO seasonal_indices (channel_group_id, month, index_value, description)
+                VALUES (?, ?, ?, ?)
+            """, (channel_group_id, month, index_value, description))
+            db.commit()
 
-def delete_duration_index(target_group, duration_seconds):
+def delete_duration_index(channel_group, duration_seconds):
     """Delete duration index"""
     with get_db() as db:
-        db.execute("DELETE FROM duration_indices WHERE target_group = ? AND duration_seconds = ?", 
-                   (target_group, duration_seconds))
-        db.commit()
+        # Look up channel group ID by name if needed
+        if isinstance(channel_group, str):
+            cg_row = db.execute(
+                "SELECT id FROM channel_groups WHERE name = ?", 
+                (channel_group,)
+            ).fetchone()
+            channel_group_id = cg_row["id"] if cg_row else None
+        else:
+            channel_group_id = channel_group
+            
+        if channel_group_id:
+            db.execute("DELETE FROM duration_indices WHERE channel_group_id = ? AND duration_seconds = ?", 
+                       (channel_group_id, duration_seconds))
+            db.commit()
 
 def get_target_groups_list():
-    """Get all available target groups"""
+    """Get all available target groups from TRP rates (indices are now by channel group)"""
     with get_db() as db:
-        duration_tgs = db.execute("SELECT DISTINCT target_group FROM duration_indices").fetchall()
-        seasonal_tgs = db.execute("SELECT DISTINCT target_group FROM seasonal_indices").fetchall()
         trp_tgs = db.execute("SELECT DISTINCT target_group FROM trp_rates").fetchall()
         
-        # Combine all unique target groups
+        # Get target groups from TRP rates only (indices are now channel group based)
         all_tgs = set()
-        for row in duration_tgs:
-            all_tgs.add(row["target_group"])
-        for row in seasonal_tgs:
-            all_tgs.add(row["target_group"])
         for row in trp_tgs:
             all_tgs.add(row["target_group"])
             
         return sorted(list(all_tgs))
 
-def get_indices_for_wave_item(target_group, duration_seconds, start_date, end_date=None):
-    """Get appropriate duration and seasonal indices for wave item"""
-    duration_index = get_duration_index(target_group, duration_seconds)
+def get_indices_for_wave_item(channel_group, duration_seconds, start_date, end_date=None):
+    """Get appropriate duration and seasonal indices for wave item based on channel group"""
+    duration_index = get_duration_index(channel_group, duration_seconds)
     
     # Calculate seasonal index based on wave date range
     seasonal_index = 1.0
@@ -1600,34 +1592,34 @@ def get_indices_for_wave_item(target_group, duration_seconds, start_date, end_da
             if end_date:
                 try:
                     end_obj = datetime.strptime(end_date, '%Y-%m-%d')
-                    seasonal_index = calculate_average_seasonal_index(target_group, start_obj, end_obj)
+                    seasonal_index = calculate_average_seasonal_index(channel_group, start_obj, end_obj)
                     print(f"DEBUG: Multi-month wave {start_date} to {end_date}, average seasonal_index={seasonal_index}")
                 except Exception as e:
                     print(f"DEBUG: Error parsing end_date {end_date}, using start_date only: {e}")
-                    seasonal_index = get_seasonal_index(target_group, start_obj.month)
+                    seasonal_index = get_seasonal_index(channel_group, start_obj.month)
             else:
                 # Single month or no end date provided
-                seasonal_index = get_seasonal_index(target_group, start_obj.month)
+                seasonal_index = get_seasonal_index(channel_group, start_obj.month)
                 print(f"DEBUG: Single month wave {start_date}, seasonal_index={seasonal_index}")
                 
         except Exception as e:
             print(f"DEBUG: Error parsing start_date {start_date}: {e}")
     else:
-        print(f"DEBUG: No start_date provided for target_group={target_group}")
+        print(f"DEBUG: No start_date provided for channel_group={channel_group}")
     
     return {
         'duration_index': duration_index,
         'seasonal_index': seasonal_index
     }
 
-def calculate_average_seasonal_index(target_group, start_date, end_date):
+def calculate_average_seasonal_index(channel_group, start_date, end_date):
     """Calculate average seasonal index for a date range spanning multiple months"""
     from datetime import datetime, timedelta
     from calendar import monthrange
     
     if start_date.year != end_date.year or start_date.month == end_date.month:
         # Same month or different years, use simple approach
-        return get_seasonal_index(target_group, start_date.month)
+        return get_seasonal_index(channel_group, start_date.month)
     
     total_weighted_index = 0
     total_days = 0
@@ -1647,7 +1639,7 @@ def calculate_average_seasonal_index(target_group, start_date, end_date):
             _, days_in_current_month = monthrange(current_date.year, current_date.month)
         
         # Get seasonal index for this month
-        month_index = get_seasonal_index(target_group, current_date.month)
+        month_index = get_seasonal_index(channel_group, current_date.month)
         
         # Add to weighted total
         total_weighted_index += month_index * days_in_current_month

@@ -35,6 +35,10 @@
     const TVC_UPDATE = dataDiv.dataset.tvcUpdateBase; // /tvcs/0
     const TVC_DELETE = dataDiv.dataset.tvcDeleteBase; // /tvcs/0
     const W_INDICES  = dataDiv.dataset.wIndicesBase;  // /waves/0/indices
+    const C_EXPORT_EXCEL = dataDiv.dataset.cExportExcelBase; // /campaigns/0/export/client-excel
+    const C_EXPORT_CSV = dataDiv.dataset.cExportCsvBase;     // /campaigns/0/export/agency-csv
+    const TRP_SAVE = dataDiv.dataset.trpSaveBase;            // /campaigns/0/trp-distribution
+    const TRP_LOAD = dataDiv.dataset.trpLoadBase;            // /campaigns/0/trp-distribution
 
     const $ = s => document.querySelector(s);
     const cTbody = $('#cTbody');
@@ -79,11 +83,9 @@
     }
 
     function calculateGrossPrice(item, grossCpp) {
-      // Gross Price = TRP * Gross CPP * duration * duration_index * seasonal_index * trp_purchase_index * advance_purchase_index * position_index
-      // Note: duration_index and seasonal_index come from database (pricing list), not from form
+      // Gross Price = TRP * CPP * duration_index * seasonal_index * trp_purchase_index * advance_purchase_index * position_index
       const trps = parseFloat(item.trps) || 0;
       const cpp = parseFloat(grossCpp) || 0;
-      const duration = parseInt(item.clip_duration) || 10;
       const durationIndex = parseFloat(item.duration_index) || 1.0; // From DB
       const seasonalIndex = parseFloat(item.seasonal_index) || 1.0; // From DB
       const trpPurchaseIndex = parseFloat(item.trp_purchase_index) || 0.95;
@@ -156,8 +158,8 @@
           <td class="px-4 py-2">
             <div class="flex flex-wrap gap-1">
               <button class="open px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Atidaryti</button>
-              <a href="/tv-planner/campaigns/${c.id}/export/client-excel" class="export-client px-3 py-1.5 text-xs rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 no-underline inline-block">Excel klientui</a>
-              <a href="/tv-planner/campaigns/${c.id}/export/agency-csv" class="export-agency px-3 py-1.5 text-xs rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 no-underline inline-block">CSV agentūrai</a>
+              <a href="${urlReplace(C_EXPORT_EXCEL, c.id)}" class="export-client px-3 py-1.5 text-xs rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 no-underline inline-block">Excel klientui</a>
+              <a href="${urlReplace(C_EXPORT_CSV, c.id)}" class="export-agency px-3 py-1.5 text-xs rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 no-underline inline-block">CSV agentūrai</a>
               <button class="del px-3 py-1.5 text-xs rounded-lg border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100">Šalinti</button>
             </div>
           </td>`;
@@ -529,11 +531,22 @@
       while (tempDate <= endDate) {
         const dateStr = tempDate.toISOString().split('T')[0];
         const isWeekend = tempDate.getDay() === 0 || tempDate.getDay() === 6;
-        html += `<td class="px-1 py-1 border-r border-slate-200 ${isWeekend ? 'bg-amber-100' : 'bg-amber-50'}">`;
-        html += `<input type="number" step="0.01" class="trp-input w-full text-xs px-1 py-0.5 border-0 bg-transparent text-center font-medium text-slate-700" data-date="${dateStr}" placeholder="0" />`;
+        html += `<td class="px-2 py-1 border-r border-slate-200 min-w-[50px] ${isWeekend ? 'bg-amber-100' : 'bg-amber-50'}">`;
+        html += `<input type="text" inputmode="decimal" class="trp-input w-full text-xs px-1 py-0.5 border-0 bg-transparent text-center font-medium text-slate-700" data-date="${dateStr}" placeholder="0.00" />`;
         html += '</td>';
         tempDate.setDate(tempDate.getDate() + 1);
       }
+      html += '</tr>';
+      
+      // Auto-distribution controls row
+      html += '<tr class="bg-slate-50 border-t border-slate-200">';
+      html += `<td colspan="${Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1}" class="px-2 py-2 text-xs">`;
+      html += '<div class="flex gap-2 items-center justify-center">';
+      html += '<button id="autoDistributeTRP" class="px-3 py-1 text-xs rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">📊 Auto-paskirstyti TRP</button>';
+      html += '<button id="clearTRP" class="px-3 py-1 text-xs rounded bg-slate-400 text-white hover:bg-slate-500 transition-colors">🗑️ Išvalyti</button>';
+      html += '<span class="text-slate-600 ml-3">TRP bus paskirstyti lygiomis dalimis per aktyvias bangų dienas</span>';
+      html += '</div>';
+      html += '</td>';
       html += '</tr>';
       
       // Total TRP row
@@ -557,6 +570,18 @@
         });
         input.addEventListener('blur', saveTRPDistribution); // Ir kai palieka lauką
       });
+
+      // Auto-distribute TRP button
+      const autoDistributeBtn = document.getElementById('autoDistributeTRP');
+      if (autoDistributeBtn) {
+        autoDistributeBtn.addEventListener('click', autoDistributeTRP);
+      }
+
+      // Clear TRP button
+      const clearBtn = document.getElementById('clearTRP');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', clearAllTRP);
+      }
       
       // Then load existing TRP data
       loadTRPDistribution().then(() => {
@@ -569,27 +594,25 @@
       if (!currentCampaign) return;
       
       try {
-        // For now, use localStorage to store TRP data
-        // In future, this should load from database
-        const storageKey = `trp_distribution_${currentCampaign.id}`;
-        const storedData = localStorage.getItem(storageKey);
+        const response = await fetchJSON(urlReplace(TRP_LOAD, currentCampaign.id));
         
-        console.log('Loading TRP for campaign', currentCampaign.id, 'with key:', storageKey);
-        console.log('Found data:', storedData);
-        
-        if (storedData) {
-          const trpData = JSON.parse(storedData);
+        if (response.status === 'ok' && response.data) {
+          const trpData = response.data;
+          console.log('Loading TRP from database for campaign', currentCampaign.id, ':', trpData);
           
-          // Fill in the input fields - use specific selector for TRP inputs
+          // Fill in the input fields
           Object.keys(trpData).forEach(date => {
             const input = document.querySelector(`.trp-input[data-date="${date}"]`);
             if (input) {
-              input.value = trpData[date] > 0 ? trpData[date].toFixed(2) : '';
-              console.log('Set input for', date, 'to', trpData[date]);
+              const roundedValue = trpData[date] > 0 ? Math.round(trpData[date] * 100) / 100 : 0;
+              input.value = roundedValue > 0 ? roundedValue.toString() : '';
+              console.log('Set input for', date, 'to', roundedValue, '(from', trpData[date], ')');
             } else {
               console.log('TRP Input not found for date:', date);
             }
           });
+        } else {
+          console.log('No TRP distribution data found for campaign', currentCampaign.id);
         }
       } catch (error) {
         console.error('Error loading TRP distribution:', error);
@@ -623,21 +646,120 @@
         
         trpInputs.forEach(input => {
           const date = input.dataset.date;
-          const value = parseFloat(input.value) || 0;
-          console.log(`Processing input for ${date}: value="${input.value}", parsed=${value}`);
+          const rawValue = input.value.trim();
+          const value = rawValue === '' ? 0 : parseFloat(rawValue) || 0;
+          console.log(`SAVE DEBUG: Processing input for ${date}: raw_value="${rawValue}", parsed=${value}, type="${input.type}"`);
           trpData[date] = value; // Saugok visus, net ir 0
         });
         
-        // For now, save to localStorage
-        // In future, this should save to database via API
-        const storageKey = `trp_distribution_${currentCampaign.id}`;
-        localStorage.setItem(storageKey, JSON.stringify(trpData));
-        
-        console.log('TRP Distribution saved for campaign', currentCampaign.id, ':', trpData);
-        console.log('Storage key:', storageKey);
+        // Save to database via API
+        try {
+          const response = await fetchJSON(urlReplace(TRP_SAVE, currentCampaign.id), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ trp_data: trpData })
+          });
+          
+          if (response.status === 'ok') {
+            console.log('TRP Distribution saved to database for campaign', currentCampaign.id, ':', trpData);
+          } else {
+            console.error('Failed to save TRP distribution:', response.message);
+          }
+        } catch (apiError) {
+          console.error('Error saving TRP distribution to database:', apiError);
+        }
       } catch (error) {
         console.error('Error saving TRP distribution:', error);
       }
+    }
+
+    // Auto-distribute TRP across active wave days
+    function autoDistributeTRP() {
+      if (!currentWaves || currentWaves.length === 0) {
+        alert('Nėra bangų, kurioms galima paskirstyti TRP');
+        return;
+      }
+
+      // Get total TRP from all wave items
+      let totalTRP = 0;
+      const waveItems = document.querySelectorAll('#waves .items tr');
+      
+      waveItems.forEach(row => {
+        const trpInput = row.querySelector('.itm-trps');
+        if (trpInput && trpInput.value) {
+          totalTRP += parseFloat(trpInput.value) || 0;
+        }
+      });
+
+      if (totalTRP === 0) {
+        alert('Įveskite TRP reikšmes bangų eilutėse pirmiau auto-paskirstymo');
+        return;
+      }
+
+      // Get all active wave days
+      const activeDays = new Set();
+      currentWaves.forEach(wave => {
+        if (wave.start_date && wave.end_date) {
+          const startDate = new Date(wave.start_date);
+          const endDate = new Date(wave.end_date);
+          
+          for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+            activeDays.add(d.toISOString().split('T')[0]);
+          }
+        }
+      });
+
+      if (activeDays.size === 0) {
+        alert('Nėra aktyvių bangos dienų');
+        return;
+      }
+
+      // Calculate daily TRP
+      const dailyTRP = totalTRP / activeDays.size;
+      console.log(`DEBUG: totalTRP=${totalTRP}, activeDays=${activeDays.size}, dailyTRP=${dailyTRP}, rounded=${Math.round(dailyTRP * 100) / 100}`);
+      
+      // Clear all inputs first
+      const trpInputs = document.querySelectorAll('.trp-input');
+      trpInputs.forEach(input => {
+        input.value = '';
+      });
+
+      // Fill active days with calculated daily TRP
+      activeDays.forEach(dateStr => {
+        const input = document.querySelector(`.trp-input[data-date="${dateStr}"]`);
+        if (input) {
+          // Force decimal value with explicit precision
+          const roundedValue = Math.round(dailyTRP * 100) / 100; // Round to 2 decimal places
+          input.value = roundedValue.toString();
+          console.log(`Setting ${dateStr} to ${roundedValue}`);
+        }
+      });
+
+      // Update totals and save
+      updateTotalTRP();
+      
+      // Small delay to ensure DOM is updated before saving
+      setTimeout(() => {
+        saveTRPDistribution();
+      }, 10);
+      
+      const roundedDaily = Math.round(dailyTRP * 100) / 100;
+      alert(`TRP paskirstyti: ${totalTRP.toFixed(2)} TRP per ${activeDays.size} dienas = ${roundedDaily} TRP/dieną`);
+    }
+
+    // Clear all TRP inputs
+    function clearAllTRP() {
+      if (!confirm('Ar tikrai norite išvalyti visus TRP paskirstymus?')) {
+        return;
+      }
+
+      const trpInputs = document.querySelectorAll('.trp-input');
+      trpInputs.forEach(input => {
+        input.value = '';
+      });
+
+      updateTotalTRP();
+      saveTRPDistribution();
     }
 
     function openCampaign(c){
@@ -750,15 +872,15 @@
                     <th class="text-left font-medium px-2 py-1">Kanalų grupė</th>
                     <th class="text-left font-medium px-2 py-1">Perkama TG</th>
                     <th class="text-left font-medium px-2 py-1">TVC</th>
+                    <th class="text-left font-medium px-2 py-1">Trukmė</th>
                     <th class="text-left font-medium px-2 py-1">TG dydis (*000)</th>
                     <th class="text-left font-medium px-2 py-1">TG dalis (%)</th>
                     <th class="text-left font-medium px-2 py-1">TG imtis</th>
                     <th class="text-left font-medium px-2 py-1">Kanalo dalis</th>
                     <th class="text-left font-medium px-2 py-1">PT zonos dalis</th>
-                    <th class="text-left font-medium px-2 py-1">Trukmė</th>
-                    <th class="text-left font-medium px-2 py-1">GRP plan.</th>
                     <th class="text-left font-medium px-2 py-1">TRP perk.</th>
                     <th class="text-left font-medium px-2 py-1">Affinity1</th>
+                    <th class="text-left font-medium px-2 py-1">GRP plan.</th>
                     <th class="text-left font-medium px-2 py-1">Gross CPP</th>
                     <th class="text-left font-medium px-2 py-1">Trukm.koef</th>
                     <th class="text-left font-medium px-2 py-1">Sez.koef</th>
@@ -1070,22 +1192,22 @@
               <td class="px-2 py-1 text-xs">${getChannelName(r.channel_id) || r.owner || '-'}</td>
               <td class="px-2 py-1 text-xs">${r.target_group || '-'}</td>
               <td class="px-2 py-1 text-xs bg-blue-50">${tvcName}</td>
+              <td class="px-2 py-1 text-xs">${r.clip_duration || 10}</td>
               <td class="px-2 py-1 text-xs bg-green-50">${r.tg_size_thousands || '-'}</td>
               <td class="px-2 py-1 text-xs bg-green-50">${r.tg_share_percent ? r.tg_share_percent.toFixed(1) + '%' : '-'}</td>
               <td class="px-2 py-1 text-xs bg-green-50">${r.tg_sample_size || '-'}</td>
               <td class="px-2 py-1 text-xs">${(r.channel_share * 100).toFixed(1)}%</td>
               <td class="px-2 py-1 text-xs">${(r.pt_zone_share * 100).toFixed(1)}%</td>
-              <td class="px-2 py-1 text-xs">${r.clip_duration || 10}</td>
-              <td class="px-2 py-1 text-xs">${grpPlanned.toFixed(2)}</td>
               <td class="px-2 py-1"><input class="itm-trps w-16 text-xs border rounded px-1 py-0.5 bg-purple-50" type="number" step="0.01" value="${r.trps || ''}" placeholder="TRP"></td>
               <td class="px-2 py-1"><input class="itm-affinity1 w-12 text-xs border rounded px-1 py-0.5 bg-purple-50" type="number" step="0.1" value="${r.affinity1 || ''}" placeholder="Affinity"></td>
+              <td class="px-2 py-1 text-xs grp-planned">${grpPlanned.toFixed(2)}</td>
               <td class="px-2 py-1 text-xs">€${grossCpp.toFixed(2)}</td>
               <td class="px-2 py-1 text-xs bg-yellow-50">${(r.duration_index || 1.25).toFixed(2)}</td>
               <td class="px-2 py-1 text-xs bg-yellow-50">${(r.seasonal_index || 0.9).toFixed(2)}</td>
               <td class="px-2 py-1"><input class="itm-trp-purchase w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.trp_purchase_index || 0.95).toFixed(2)}" title="TRP pirkimo indeksas (default: 0.95)"></td>
               <td class="px-2 py-1"><input class="itm-advance-purchase w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.advance_purchase_index || 0.95).toFixed(2)}" title="Išankstinio pirkimo indeksas (default: 0.95)"></td>
               <td class="px-2 py-1"><input class="itm-position w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.position_index || 1.0).toFixed(2)}" title="Pozicijos indeksas (default: 1.0)"></td>
-              <td class="px-2 py-1 text-xs">€${grossPrice.toFixed(2)}</td>
+              <td class="px-2 py-1 text-xs gross-price">€${grossPrice.toFixed(2)}</td>
               <td class="px-2 py-1"><input class="itm-client-discount w-12 text-xs border rounded px-1 py-0.5 bg-blue-50" type="number" step="0.1" min="0" max="100" value="${r.client_discount || 0}" title="Kliento nuolaida (%)"></td>
               <td class="px-2 py-1 text-xs net-price">€${netPrice.toFixed(2)}</td>
               <td class="px-2 py-1"><input class="itm-agency-discount w-12 text-xs border rounded px-1 py-0.5 bg-blue-50" type="number" step="0.1" min="0" max="100" value="${r.agency_discount || 0}" title="Agentūros nuolaida (%)"></td>
@@ -1099,18 +1221,66 @@
             `;
             // Add real-time price recalculation when discounts change
             const recalculatePrices = () => {
+              // Get current values from inputs and stored data
+              const trps = parseFloat(tr.querySelector('.itm-trps').value) || 0;
+              const durationIndex = parseFloat(r.duration_index) || 1.0; // From original data
+              const seasonalIndex = parseFloat(r.seasonal_index) || 1.0; // From original data  
+              const trpPurchaseIndex = parseFloat(tr.querySelector('.itm-trp-purchase').value) || 0.95;
+              const advancePurchaseIndex = parseFloat(tr.querySelector('.itm-advance-purchase').value) || 0.95;
+              const positionIndex = parseFloat(tr.querySelector('.itm-position').value) || 1.0;
               const clientDiscount = parseFloat(tr.querySelector('.itm-client-discount').value) || 0;
               const agencyDiscount = parseFloat(tr.querySelector('.itm-agency-discount').value) || 0;
-              const newNetPrice = calculateNetPrice(grossPrice, clientDiscount);
+              
+              // Recalculate gross price with current values
+              const itemData = {
+                trps: trps,
+                duration_index: durationIndex,
+                seasonal_index: seasonalIndex,
+                trp_purchase_index: trpPurchaseIndex,
+                advance_purchase_index: advancePurchaseIndex,
+                position_index: positionIndex
+              };
+              
+              const newGrossPrice = calculateGrossPrice(itemData, grossCpp);
+              const newNetPrice = calculateNetPrice(newGrossPrice, clientDiscount);
               const newNetNetPrice = calculateNetNetPrice(newNetPrice, agencyDiscount);
               
-              // Update the displayed prices using classes
+              // Update all displayed prices
+              const grossPriceCell = tr.querySelector('.gross-price');
               const netPriceCell = tr.querySelector('.net-price');
               const netNetPriceCell = tr.querySelector('.net-net-price');
+              
+              if (grossPriceCell) grossPriceCell.innerHTML = `€${newGrossPrice.toFixed(2)}`;
               if (netPriceCell) netPriceCell.innerHTML = `€${newNetPrice.toFixed(2)}`;
               if (netNetPriceCell) netNetPriceCell.innerHTML = `€${newNetNetPrice.toFixed(2)}`;
             };
             
+            // Function to recalculate and update GRP when TRP or affinity changes
+            const recalculateGRP = () => {
+              const trps = parseFloat(tr.querySelector('.itm-trps').value) || 0;
+              const affinity1 = parseFloat(tr.querySelector('.itm-affinity1').value);
+              
+              let newGRP = 0;
+              if (affinity1 && affinity1 !== 0 && trps > 0) {
+                newGRP = trps * 100 / affinity1;
+              }
+              
+              // Update the GRP display
+              const grpCell = tr.querySelector('.grp-planned');
+              if (grpCell) {
+                grpCell.textContent = newGRP.toFixed(2);
+              }
+            };
+            
+            // Add event listeners for GRP recalculation
+            tr.querySelector('.itm-trps').addEventListener('input', recalculateGRP);
+            tr.querySelector('.itm-affinity1').addEventListener('input', recalculateGRP);
+            
+            // Add event listeners for price recalculation (any field that affects pricing)
+            tr.querySelector('.itm-trps').addEventListener('input', recalculatePrices);
+            tr.querySelector('.itm-trp-purchase').addEventListener('input', recalculatePrices);
+            tr.querySelector('.itm-advance-purchase').addEventListener('input', recalculatePrices);
+            tr.querySelector('.itm-position').addEventListener('input', recalculatePrices);
             tr.querySelector('.itm-client-discount').addEventListener('input', recalculatePrices);
             tr.querySelector('.itm-agency-discount').addEventListener('input', recalculatePrices);
             
@@ -1253,15 +1423,12 @@
       });
     }
 
-    // add wave with initial item
+    // add wave (without initial item - dates only)
     $('#wAdd').addEventListener('click', async () => {
       if(!currentCampaign){ alert('Pirma pasirinkite kampaniją'); return; }
       
       const start = $('#wStart').value || null;
       const end   = $('#wEnd').value || null;
-      const targetGroup = $('#wTG').value;
-      const trps = $('#wTRP').value;
-      const tvcId = $('#wTVC').value;
       
       if (!start || !end) {
         alert('Prašome pasirinkti bangos pradžios ir pabaigos datas');
@@ -1284,48 +1451,30 @@
         return;
       }
       
-      if (!targetGroup || !trps || !tvcId) {
-        alert('Prašome užpildyti TG, TRP ir TVC laukus');
-        return;
-      }
-      
       try {
-        // Create wave first
+        // Create wave without initial item
         const waveResponse = await fetchJSON(urlReplace(W_CREATE, currentCampaign.id), {
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ name: '', start_date:start, end_date:end })
         });
         
-        // Create initial wave item if wave creation successful
-        if (waveResponse && waveResponse.id) {
-          const selectedTVC = tvcs.find(tvc => tvc.id == tvcId);
-          await fetchJSON(urlReplace(I_CREATE, waveResponse.id), {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              channel_group: 'LNK',  // Default channel group
-              target_group: targetGroup,
-              trps: parseFloat(trps),
-              channel_share: 0.75,   // Default 75%
-              pt_zone_share: 0.55,   // Default 55%
-              clip_duration: selectedTVC ? selectedTVC.duration : 30,
-              tvc_id: parseInt(tvcId),
-              duration_index: 1.25,  // Default
-              seasonal_index: 0.9,   // Default
-              trp_purchase_index: 0.95,
-              advance_purchase_index: 0.95,
-              position_index: 1.0,
-              client_discount: 0,
-              agency_discount: 0
-            })
-          });
-        }
-        
         // Clear form
-        $('#wStart').value = ''; $('#wEnd').value = '';
-        $('#wTG').value = ''; $('#wTRP').value = '';
-        $('#wTVC').value = '';
+        $('#wStart').value = ''; 
+        $('#wEnd').value = '';
         
         await loadWaves(currentCampaign.id);
+        
+        // Show helpful message after wave creation
+        if (waveResponse && waveResponse.id) {
+          // Automatically scroll to the new wave section
+          setTimeout(() => {
+            const wavesSections = document.querySelectorAll('#waves > div');
+            if (wavesSections.length > 0) {
+              const lastWave = wavesSections[wavesSections.length - 1];
+              lastWave.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 500);
+        }
       } catch (error) {
         alert('Klaida kuriant bangą: ' + error.message);
       }

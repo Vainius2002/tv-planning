@@ -229,6 +229,28 @@ def recalculate_wave_discounts(wid):
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# TRP Calendar Distribution
+@bp.route("/campaigns/<int:cid>/trp-distribution", methods=["POST"])
+def save_trp_distribution_api(cid):
+    """Save TRP distribution for a campaign"""
+    data = request.get_json(force=True)
+    trp_data = data.get("trp_data", {})
+    
+    try:
+        models.save_trp_distribution(cid, trp_data)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@bp.route("/campaigns/<int:cid>/trp-distribution", methods=["GET"])
+def load_trp_distribution_api(cid):
+    """Load TRP distribution for a campaign"""
+    try:
+        trp_data = models.load_trp_distribution(cid)
+        return jsonify({"status": "ok", "data": trp_data})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 # Campaign Status
 @bp.route("/campaigns/<int:cid>/status", methods=["PATCH"])
 def update_campaign_status(cid):
@@ -268,6 +290,28 @@ def export_client_excel(cid):
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# TRP Calendar Distribution
+@bp.route("/campaigns/<int:cid>/trp-distribution", methods=["POST"])
+def save_trp_distribution_api(cid):
+    """Save TRP distribution for a campaign"""
+    data = request.get_json(force=True)
+    trp_data = data.get("trp_data", {})
+    
+    try:
+        models.save_trp_distribution(cid, trp_data)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@bp.route("/campaigns/<int:cid>/trp-distribution", methods=["GET"])
+def load_trp_distribution_api(cid):
+    """Load TRP distribution for a campaign"""
+    try:
+        trp_data = models.load_trp_distribution(cid)
+        return jsonify({"status": "ok", "data": trp_data})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @bp.route("/campaigns/<int:cid>/export/agency-csv", methods=["GET"])
 def export_agency_csv(cid):
     """Export agency CSV order file"""
@@ -290,6 +334,28 @@ def export_agency_csv(cid):
             download_name=filename,
             mimetype='text/csv; charset=utf-8'
         )
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# TRP Calendar Distribution
+@bp.route("/campaigns/<int:cid>/trp-distribution", methods=["POST"])
+def save_trp_distribution_api(cid):
+    """Save TRP distribution for a campaign"""
+    data = request.get_json(force=True)
+    trp_data = data.get("trp_data", {})
+    
+    try:
+        models.save_trp_distribution(cid, trp_data)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@bp.route("/campaigns/<int:cid>/trp-distribution", methods=["GET"])
+def load_trp_distribution_api(cid):
+    """Load TRP distribution for a campaign"""
+    try:
+        trp_data = models.load_trp_distribution(cid)
+        return jsonify({"status": "ok", "data": trp_data})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -348,13 +414,46 @@ def get_wave_indices(wid):
         wave = db.execute("SELECT start_date, end_date FROM waves WHERE id = ?", (wid,)).fetchone()
         start_date = wave["start_date"] if wave else None
         end_date = wave["end_date"] if wave else None
+        
+        # Find the channel group for this target group from TRP rates
+        # We need this because indices are now stored by channel group, not target group
+        channel_group_row = db.execute("""
+            SELECT DISTINCT owner FROM trp_rates WHERE target_group = ? LIMIT 1
+        """, (target_group,)).fetchone()
+        
+        if not channel_group_row:
+            return jsonify({"status": "error", "message": f"No channel group found for target group: {target_group}"}), 400
+            
+        channel_group = channel_group_row["owner"]
     
     try:
-        indices = models.get_indices_for_wave_item(target_group, duration_seconds, start_date, end_date)
+        indices = models.get_indices_for_wave_item(channel_group, duration_seconds, start_date, end_date)
         return jsonify({
             "status": "ok",
             "duration_index": indices["duration_index"],
             "seasonal_index": indices["seasonal_index"]
         })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# TRP Calendar Distribution
+@bp.route("/campaigns/<int:cid>/trp-distribution", methods=["POST"])
+def save_trp_distribution_api(cid):
+    """Save TRP distribution for a campaign"""
+    data = request.get_json(force=True)
+    trp_data = data.get("trp_data", {})
+    
+    try:
+        models.save_trp_distribution(cid, trp_data)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@bp.route("/campaigns/<int:cid>/trp-distribution", methods=["GET"])
+def load_trp_distribution_api(cid):
+    """Load TRP distribution for a campaign"""
+    try:
+        trp_data = models.load_trp_distribution(cid)
+        return jsonify({"status": "ok", "data": trp_data})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500

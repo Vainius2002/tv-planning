@@ -1261,11 +1261,8 @@ def generate_client_excel_report(campaign_id: int):
         ws[f'B{current_row}'].font = value_font
         current_row += 1
     
-    # Calculate where to start main table (after calendar if it exists)
-    if trp_data:
-        current_row = 50  # Leave space for calendar above
-    else:
-        current_row += 1
+    # Main table starts at row 15 (after campaign info)
+    current_row = 15
     
     # Table headers
     headers = [
@@ -1403,117 +1400,270 @@ def generate_client_excel_report(campaign_id: int):
     total_cell.fill = total_fill
     total_cell.border = thick_border
     
-    # Add TRP Calendar below campaign info
-    if trp_data:
-        # Position calendar after campaign info, before main table
-        cal_start_row = 15  # After campaign info section
-        
-        # Calendar title
-        ws.merge_cells(f'A{cal_start_row}:F{cal_start_row}')
-        cal_title = ws[f'A{cal_start_row}']
-        cal_title.value = "TRP KALENDORIUS"
-        cal_title.font = Font(bold=True, size=12, color="1F4E79")
-        cal_title.alignment = Alignment(horizontal='center')
-        cal_title.fill = PatternFill(start_color="F0F8FF", end_color="F0F8FF", fill_type="solid")
-        cal_start_row += 2
+    # Add Enhanced TRP Calendar at the same level as main table (to the right)
+    if trp_data or (campaign.get('start_date') and campaign.get('end_date')):
+        # Calendar will be positioned at the same level as main table (row 15+)
+        cal_start_row = 15  # Same as main table start
         
         import json
         from datetime import datetime, timedelta
         if isinstance(trp_data, str):
             trp_data = json.loads(trp_data)
         
-        if trp_data:
-            # Get date range from campaign or from TRP data
-            start_date_str = campaign.get('start_date', '')
-            end_date_str = campaign.get('end_date', '')
-            
-            if start_date_str and end_date_str:
+        # Get date range from campaign or extend to include all waves
+        start_date_str = campaign.get('start_date', '')
+        end_date_str = campaign.get('end_date', '')
+        
+        if start_date_str and end_date_str:
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+                
+                # Check if any waves extend beyond campaign dates
+                for wave in waves:
+                    if wave.get('start_date'):
+                        wave_start = datetime.strptime(wave['start_date'], '%Y-%m-%d')
+                        if wave_start < start_date:
+                            start_date = wave_start
+                    if wave.get('end_date'):
+                        wave_end = datetime.strptime(wave['end_date'], '%Y-%m-%d')
+                        if wave_end > end_date:
+                            end_date = wave_end
+                
+                # Show all active days - no date limiting, just make columns narrower
+                calendar_limited = False  # We're not limiting dates anymore
+                
+                # Create horizontal calendar like in the UI - start from column AA (27) to not interfere with main table
+                
+                # First add calendar title above the calendar (spanning across calendar columns)
+                calendar_title_row = cal_start_row - 2  # 2 rows above calendar
+                calendar_start_col = 27  # AA
+                calendar_end_col = min(27 + (end_date - start_date).days + 3, 50)  # Estimate calendar width
+                
+                if calendar_start_col < calendar_end_col:
+                    ws.merge_cells(f'{openpyxl.utils.get_column_letter(calendar_start_col)}{calendar_title_row}:{openpyxl.utils.get_column_letter(calendar_end_col)}{calendar_title_row}')
+                    title_cell = ws.cell(row=calendar_title_row, column=calendar_start_col)
+                    title_cell.value = "KAMPANIJOS KALENDORIUS IR TRP PASKIRSTYMAS"
+                    title_cell.font = Font(bold=True, size=12, color="1F4E79")
+                    title_cell.alignment = Alignment(horizontal='center')
+                    title_cell.fill = PatternFill(start_color="E3F2FD", end_color="E3F2FD", fill_type="solid")
+                
+                # Month headers row
+                current_date = start_date
+                col_idx = 27  # Start calendar from column AA
+                months = []
+                month_spans = {}
+                
+                # Calculate month spans
+                while current_date <= end_date:
+                    month_key = current_date.strftime('%Y-%m')
+                    month_name = current_date.strftime('%B %Y')
+                    if month_key not in month_spans:
+                        month_spans[month_key] = {'name': month_name, 'start_col': col_idx, 'days': 0}
+                        months.append(month_key)
+                    month_spans[month_key]['days'] += 1
+                    current_date += timedelta(days=1)
+                    col_idx += 1
+                
+                # Render month headers
+                for month_key in months:
+                    month_info = month_spans[month_key]
+                    start_col = month_info['start_col']
+                    end_col = start_col + month_info['days'] - 1
+                    
+                    # Set value first, then merge
+                    ws.cell(row=cal_start_row, column=start_col).value = month_info['name']
+                    
+                    # Style the main cell before merging
+                    cell = ws.cell(row=cal_start_row, column=start_col)
+                    cell.font = Font(bold=True, size=10, color="1F4E79")  # Readable font
+                    cell.fill = PatternFill(start_color="E8F4F8", end_color="E8F4F8", fill_type="solid")
+                    cell.alignment = Alignment(horizontal='center')
+                    cell.border = border
+                    
+                    # Merge after setting value and style (if needed)
+                    if start_col != end_col:
+                        ws.merge_cells(f'{openpyxl.utils.get_column_letter(start_col)}{cal_start_row}:{openpyxl.utils.get_column_letter(end_col)}{cal_start_row}')
+                
+                # Day numbers row
+                current_date = start_date
+                col_idx = 27  # Start from column AA
+                while current_date <= end_date:
+                    day_cell = ws.cell(row=cal_start_row + 1, column=col_idx)
+                    day_cell.value = current_date.day
+                    day_cell.font = Font(bold=True, size=10)  # Readable day numbers
+                    day_cell.alignment = Alignment(horizontal='center')
+                    
+                    # Weekend styling
+                    if current_date.weekday() in [5, 6]:  # Saturday, Sunday
+                        day_cell.fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
+                    else:
+                        day_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                    day_cell.border = border
+                    
+                    current_date += timedelta(days=1)
+                    col_idx += 1
+                
+                # Week days row
+                current_date = start_date
+                col_idx = 27  # Start from column AA
+                weekday_names = ['Pr', 'An', 'Tr', 'Kt', 'Pn', 'Št', 'Sk']
+                while current_date <= end_date:
+                    weekday_cell = ws.cell(row=cal_start_row + 2, column=col_idx)
+                    weekday_cell.value = weekday_names[current_date.weekday()]
+                    weekday_cell.font = Font(size=9)  # Readable weekday names
+                    weekday_cell.alignment = Alignment(horizontal='center')
+                    
+                    # Weekend styling
+                    if current_date.weekday() in [5, 6]:  # Saturday, Sunday
+                        weekday_cell.fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
+                        weekday_cell.font = Font(size=9, color="999999")  # Readable weekend font
+                    else:
+                        weekday_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                    weekday_cell.border = border
+                    
+                    current_date += timedelta(days=1)
+                    col_idx += 1
+                
+                # Wave rows (showing which dates each wave covers)
+                row_idx = cal_start_row + 3
+                for wave_idx, wave in enumerate(waves):
+                    if wave.get('start_date') and wave.get('end_date'):
+                        wave_start = datetime.strptime(wave['start_date'], '%Y-%m-%d')
+                        wave_end = datetime.strptime(wave['end_date'], '%Y-%m-%d')
+                        
+                        current_date = start_date
+                        col_idx = 27  # Start from column AA
+                        
+                        while current_date <= end_date:
+                            wave_cell = ws.cell(row=row_idx, column=col_idx)
+                            
+                            if wave_start <= current_date <= wave_end:
+                                wave_cell.value = f"B{wave_idx + 1}"
+                                wave_cell.font = Font(size=9, bold=True, color="FFFFFF")  # Readable wave indicators
+                                if current_date.weekday() in [5, 6]:  # Weekend
+                                    wave_cell.fill = PatternFill(start_color="81C784", end_color="81C784", fill_type="solid")  # Light green
+                                else:
+                                    wave_cell.fill = PatternFill(start_color="66BB6A", end_color="66BB6A", fill_type="solid")  # Green
+                                wave_cell.alignment = Alignment(horizontal='center')
+                            else:
+                                wave_cell.value = ""
+                                if current_date.weekday() in [5, 6]:  # Weekend
+                                    wave_cell.fill = PatternFill(start_color="F9F9F9", end_color="F9F9F9", fill_type="solid")
+                                else:
+                                    wave_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                            
+                            wave_cell.border = border
+                            current_date += timedelta(days=1)
+                            col_idx += 1
+                        
+                        row_idx += 1
+                
+                # TRP Distribution row (prominent yellow background like in UI)
+                trp_row = row_idx + 1
+                current_date = start_date
+                col_idx = 27  # Start from column AA
+                
+                while current_date <= end_date:
+                    trp_cell = ws.cell(row=trp_row, column=col_idx)
+                    date_key = current_date.strftime('%Y-%m-%d')
+                    trp_value = trp_data.get(date_key, 0) if trp_data else 0
+                    
+                    if trp_value > 0:
+                        trp_cell.value = f"{trp_value:.2f}"
+                        trp_cell.font = Font(size=10, bold=True, color="B8860B")  # Readable TRP values
+                    else:
+                        trp_cell.value = ""
+                    
+                    # Yellow background like in UI
+                    if current_date.weekday() in [5, 6]:  # Weekend
+                        trp_cell.fill = PatternFill(start_color="FFF8DC", end_color="FFF8DC", fill_type="solid")  # Cornsilk
+                    else:
+                        trp_cell.fill = PatternFill(start_color="FFFACD", end_color="FFFACD", fill_type="solid")  # Lemon chiffon
+                    
+                    trp_cell.alignment = Alignment(horizontal='center')
+                    trp_cell.border = Border(
+                        left=Side(style='medium', color='FFD700'), 
+                        right=Side(style='medium', color='FFD700'), 
+                        top=Side(style='medium', color='FFD700'), 
+                        bottom=Side(style='medium', color='FFD700')
+                    )  # Gold border
+                    
+                    current_date += timedelta(days=1)
+                    col_idx += 1
+                
+                # Column labels for the calendar
+                ws.cell(row=cal_start_row + 2, column=col_idx + 1).value = "Savaitės dienos"
+                ws.cell(row=cal_start_row + 2, column=col_idx + 1).font = Font(size=8, italic=True)
+                
+                for wave_idx in range(len(waves)):
+                    ws.cell(row=cal_start_row + 3 + wave_idx, column=col_idx + 1).value = f"Banga {wave_idx + 1}"
+                    ws.cell(row=cal_start_row + 3 + wave_idx, column=col_idx + 1).font = Font(size=9, color="1F4E79")
+                
+                ws.cell(row=trp_row, column=col_idx + 1).value = "TRP paskirstymas"
+                ws.cell(row=trp_row, column=col_idx + 1).font = Font(size=9, bold=True, color="B8860B")
+                
+                # Total TRP summary  
+                total_trp = sum(float(v) for v in trp_data.values()) if trp_data else 0
+                if total_trp > 0:
+                    summary_row = trp_row + 2
+                    ws.merge_cells(f'A{summary_row}:E{summary_row}')
+                    summary_cell = ws[f'A{summary_row}']
+                    summary_cell.value = f"BENDRAS TRP: {total_trp:.2f}"
+                    summary_cell.font = Font(bold=True, size=12, color="1F4E79")
+                    summary_cell.alignment = Alignment(horizontal='center')
+                    summary_cell.fill = total_fill
+                    summary_cell.border = thick_border
+                    
+                    # No limitation note needed since we show all active days
+                
+                # Set row heights for calendar section to standard readable height
+                for row in range(cal_start_row, trp_row + 3):  # All calendar rows
+                    try:
+                        ws.row_dimensions[row].height = 13  # Standard readable height
+                    except:
+                        pass  # Skip if row setting fails
+                
+                # Make ONLY calendar columns (AA onwards) very narrow 
+                calendar_start_col = 27  # AA column
+                calendar_end_col = min(col_idx + 1, 60)  # Limit to reasonable range
+                for col in range(calendar_start_col, calendar_end_col):
+                    try:
+                        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 1.8  # Very narrow for calendar days
+                    except:
+                        pass
+                
+            except Exception as e:
+                # Fallback to simple table if date parsing fails
+                print(f"Calendar generation error: {e}")  # For debugging
                 try:
-                    start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
-                    end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
-                    
-                    # Calculate weeks
-                    current_date = start_date
-                    week_num = 0
-                    max_weeks = 8  # Limit to 8 weeks for space
-                    
-                    while current_date <= end_date and week_num < max_weeks:
-                        week_start = current_date
-                        week_end = min(current_date + timedelta(days=6), end_date)
-                        
-                        # Week header
-                        week_label = f"Savaitė {week_num + 1}"
-                        ws.cell(row=cal_start_row, column=1).value = week_label
-                        ws.cell(row=cal_start_row, column=1).font = Font(bold=True, size=9, color="1F4E79")
-                        ws.cell(row=cal_start_row, column=1).alignment = Alignment(horizontal='center')
-                        
-                        # Days of week
-                        day_names = ['Pr', 'An', 'Tr', 'Kt', 'Pn', 'Št', 'Sk']
-                        for i, day_name in enumerate(day_names):
-                            col_idx = i + 2
-                            if col_idx <= 8:  # Don't exceed reasonable width
-                                day_date = week_start + timedelta(days=i)
-                                if day_date <= week_end:
-                                    # Day header
-                                    ws.cell(row=cal_start_row, column=col_idx).value = day_name
-                                    ws.cell(row=cal_start_row, column=col_idx).font = Font(bold=True, size=8)
-                                    ws.cell(row=cal_start_row, column=col_idx).alignment = Alignment(horizontal='center')
-                                    ws.cell(row=cal_start_row, column=col_idx).fill = header_fill
-                                    
-                                    # Date
-                                    ws.cell(row=cal_start_row + 1, column=col_idx).value = day_date.strftime('%d')
-                                    ws.cell(row=cal_start_row + 1, column=col_idx).font = Font(size=8)
-                                    ws.cell(row=cal_start_row + 1, column=col_idx).alignment = Alignment(horizontal='center')
-                                    
-                                    # TRP value
-                                    date_key = day_date.strftime('%Y-%m-%d')
-                                    trp_value = trp_data.get(date_key, 0)
-                                    if trp_value > 0:
-                                        ws.cell(row=cal_start_row + 2, column=col_idx).value = f"{trp_value:.1f}"
-                                        ws.cell(row=cal_start_row + 2, column=col_idx).font = Font(size=8, bold=True, color="FF6B35")
-                                    else:
-                                        ws.cell(row=cal_start_row + 2, column=col_idx).value = ""
-                                    ws.cell(row=cal_start_row + 2, column=col_idx).alignment = Alignment(horizontal='center')
-                                    
-                                    # Borders for calendar
-                                    for row_offset in range(3):
-                                        cell = ws.cell(row=cal_start_row + row_offset, column=col_idx)
-                                        cell.border = border
-                        
-                        # Week total
-                        week_total = sum(float(trp_data.get((week_start + timedelta(days=i)).strftime('%Y-%m-%d'), 0)) 
-                                       for i in range(7) if week_start + timedelta(days=i) <= week_end)
-                        if week_total > 0:
-                            ws.cell(row=cal_start_row + 2, column=9).value = f"Σ {week_total:.1f}"
-                            ws.cell(row=cal_start_row + 2, column=9).font = Font(size=8, bold=True, color="1F4E79")
-                            ws.cell(row=cal_start_row + 2, column=9).alignment = Alignment(horizontal='center')
-                        
-                        cal_start_row += 4
-                        current_date = week_end + timedelta(days=1)
-                        week_num += 1
-                    
-                    # Total TRP summary
-                    total_trp = sum(float(v) for v in trp_data.values())
-                    if total_trp > 0:
-                        ws.cell(row=cal_start_row, column=1).value = "BENDRAS TRP:"
-                        ws.cell(row=cal_start_row, column=1).font = Font(bold=True, size=10, color="1F4E79")
-                        ws.cell(row=cal_start_row, column=2).value = f"{total_trp:.1f}"
-                        ws.cell(row=cal_start_row, column=2).font = Font(bold=True, size=10, color="1F4E79")
-                        ws.cell(row=cal_start_row, column=2).fill = total_fill
-                    
-                except Exception as e:
-                    # Fallback to simple table if date parsing fails
                     ws.cell(row=cal_start_row, column=1).value = "Data"
                     ws.cell(row=cal_start_row, column=2).value = "TRP"
                     for col in [1, 2]:
-                        ws.cell(row=cal_start_row, column=col).font = header_font
-                        ws.cell(row=cal_start_row, column=col).fill = header_fill
+                        cell = ws.cell(row=cal_start_row, column=col)
+                        cell.font = header_font
+                        cell.fill = header_fill
+                        cell.border = border
                     cal_start_row += 1
                     
-                    for date_str, trp_value in sorted(trp_data.items()):
-                        ws.cell(row=cal_start_row, column=1).value = date_str
-                        ws.cell(row=cal_start_row, column=2).value = float(trp_value)
-                        cal_start_row += 1
+                    if trp_data:
+                        for date_str, trp_value in sorted(trp_data.items()):
+                            try:
+                                ws.cell(row=cal_start_row, column=1).value = date_str
+                                ws.cell(row=cal_start_row, column=2).value = float(trp_value)
+                                # Add borders for consistency
+                                for col in [1, 2]:
+                                    ws.cell(row=cal_start_row, column=col).border = border
+                                cal_start_row += 1
+                            except:
+                                continue  # Skip problematic entries
+                except Exception as fallback_error:
+                    print(f"Fallback table creation failed: {fallback_error}")
+                    # If even fallback fails, just add a simple message
+                    try:
+                        ws.cell(row=cal_start_row, column=1).value = "TRP data available - see campaign details"
+                    except:
+                        pass  # Give up gracefully
     
     # Professional footer
     current_row += 3
@@ -1524,7 +1674,7 @@ def generate_client_excel_report(campaign_id: int):
     footer_cell.font = Font(size=8, italic=True, color="808080")
     footer_cell.alignment = Alignment(horizontal='center')
     
-    # Adjust column widths
+    # Adjust column widths - normal widths for main table
     column_widths = [
         12, 18, 15, 25, 12, 8,  # Banga, Laikotarpis, Kanalų grupė, Perkama tikslinė grupė, TVC, Trukmė
         12, 10, 8, 15, 15,      # TG dydis, TG dalis, TG imtis, Kanalo dalis, PT zonos dalis

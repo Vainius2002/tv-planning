@@ -115,6 +115,90 @@
 
     // -------- campaigns table --------
     
+    // Generate TRP calendar data for Excel export
+    function generateTRPCalendarData() {
+      if (!currentCampaign || !currentWaves || currentWaves.length === 0) {
+        return null;
+      }
+      
+      // Get campaign date range
+      let startDate = currentCampaign.start_date ? new Date(currentCampaign.start_date) : null;
+      let endDate = currentCampaign.end_date ? new Date(currentCampaign.end_date) : null;
+      
+      // Extend to include all wave dates
+      currentWaves.forEach(wave => {
+        if (wave.start_date) {
+          const waveStart = new Date(wave.start_date);
+          if (!startDate || waveStart < startDate) startDate = waveStart;
+        }
+        if (wave.end_date) {
+          const waveEnd = new Date(wave.end_date);
+          if (!endDate || waveEnd > endDate) endDate = waveEnd;
+        }
+      });
+      
+      if (!startDate || !endDate) return null;
+      
+      // Generate date columns
+      const dateColumns = [];
+      const currentDate = new Date(startDate);
+      while (currentDate <= endDate) {
+        dateColumns.push(currentDate.toISOString().split('T')[0]);
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      // Generate wave data
+      const waveRows = [];
+      currentWaves.forEach((wave, waveIndex) => {
+        if (!wave.start_date || !wave.end_date) return;
+        
+        // Calculate total TRP for this wave from table
+        let waveTotalTRP = 0;
+        const tableRows = document.querySelectorAll('#wavesTableBody tr');
+        tableRows.forEach(row => {
+          const waveCell = row.querySelector('td:first-child');
+          if (waveCell && waveCell.textContent.includes(`Banga ${waveIndex + 1}`)) {
+            const trpInput = row.querySelector('.itm-trps');
+            if (trpInput && trpInput.value) {
+              waveTotalTRP += parseFloat(trpInput.value) || 0;
+            }
+          }
+        });
+        
+        if (waveTotalTRP === 0) return;
+        
+        const waveStart = new Date(wave.start_date);
+        const waveEnd = new Date(wave.end_date);
+        const waveDays = Math.ceil((waveEnd - waveStart) / (1000 * 60 * 60 * 24)) + 1;
+        const dailyTRP = waveTotalTRP / waveDays;
+        
+        // Create daily distribution
+        const dailyValues = {};
+        dateColumns.forEach(dateStr => {
+          const date = new Date(dateStr);
+          const isInWave = date >= waveStart && date <= waveEnd;
+          dailyValues[dateStr] = isInWave ? Math.round(dailyTRP * 100) / 100 : 0;
+        });
+        
+        waveRows.push({
+          waveIndex: waveIndex + 1,
+          waveName: `Banga ${waveIndex + 1}`,
+          startDate: wave.start_date,
+          endDate: wave.end_date,
+          totalTRP: waveTotalTRP,
+          dailyValues: dailyValues
+        });
+      });
+      
+      return {
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        dateColumns: dateColumns,
+        waveRows: waveRows,
+        campaignName: currentCampaign.name
+      };
+    }
+
     function renderCampaigns(){
       cTbody.innerHTML = '';
       
@@ -158,12 +242,26 @@
           <td class="px-4 py-2">
             <div class="flex flex-wrap gap-1">
               <button class="open px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Atidaryti</button>
-              <a href="${urlReplace(C_EXPORT_EXCEL, c.id)}" class="export-client px-3 py-1.5 text-xs rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 no-underline inline-block">Excel klientui</a>
+              <button class="export-client px-3 py-1.5 text-xs rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" data-campaign-id="${c.id}">Excel klientui</button>
               <a href="${urlReplace(C_EXPORT_CSV, c.id)}" class="export-agency px-3 py-1.5 text-xs rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 no-underline inline-block">CSV agentūrai</a>
               <button class="del px-3 py-1.5 text-xs rounded-lg border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100">Šalinti</button>
             </div>
           </td>`;
         tr.querySelector('.open').addEventListener('click', () => openCampaign(c));
+        tr.querySelector('.export-client').addEventListener('click', async () => {
+          try {
+            const url = urlReplace(C_EXPORT_EXCEL, c.id);
+            // Create a temporary link to download the file
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = '';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } catch (error) {
+            alert('Klaida eksportuojant Excel failą: ' + error.message);
+          }
+        });
         tr.querySelector('.del').addEventListener('click', async () => {
           if(!confirm('Šalinti kampaniją?')) return;
           await fetchJSON(urlReplace(C_DELETE, c.id), { method: 'DELETE' });

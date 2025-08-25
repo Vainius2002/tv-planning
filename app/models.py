@@ -1525,97 +1525,85 @@ def generate_client_excel_report(campaign_id: int):
                     current_date += timedelta(days=1)
                     col_idx += 1
                 
-                # Wave rows (showing which dates each wave covers)
+                # Wave rows with individual TRP distribution (showing TRP values per wave per day)
                 row_idx = cal_start_row + 3
+                valid_wave_count = 0
                 for wave_idx, wave in enumerate(waves):
                     if wave.get('start_date') and wave.get('end_date'):
-                        wave_start = datetime.strptime(wave['start_date'], '%Y-%m-%d')
-                        wave_end = datetime.strptime(wave['end_date'], '%Y-%m-%d')
-                        
-                        current_date = start_date
-                        col_idx = 27  # Start from column AA
-                        
-                        while current_date <= end_date:
-                            wave_cell = ws.cell(row=row_idx, column=col_idx)
+                        try:
+                            wave_start = datetime.strptime(wave['start_date'], '%Y-%m-%d')
+                            wave_end = datetime.strptime(wave['end_date'], '%Y-%m-%d')
                             
-                            if wave_start <= current_date <= wave_end:
-                                wave_cell.value = f"B{wave_idx + 1}"
-                                wave_cell.font = Font(size=9, bold=True, color="FFFFFF")  # Readable wave indicators
-                                if current_date.weekday() in [5, 6]:  # Weekend
-                                    wave_cell.fill = PatternFill(start_color="81C784", end_color="81C784", fill_type="solid")  # Light green
-                                else:
-                                    wave_cell.fill = PatternFill(start_color="66BB6A", end_color="66BB6A", fill_type="solid")  # Green
-                                wave_cell.alignment = Alignment(horizontal='center')
-                            else:
-                                wave_cell.value = ""
-                                if current_date.weekday() in [5, 6]:  # Weekend
-                                    wave_cell.fill = PatternFill(start_color="F9F9F9", end_color="F9F9F9", fill_type="solid")
-                                else:
-                                    wave_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                            # Calculate total TRP for this wave
+                            wave_total_trp = sum(item['trps'] for item in wave['items'] if item.get('trps', 0) > 0)
+                            wave_days = (wave_end - wave_start).days + 1
+                            daily_trp = wave_total_trp / wave_days if wave_days > 0 else 0
                             
-                            wave_cell.border = border
-                            current_date += timedelta(days=1)
-                            col_idx += 1
-                        
-                        row_idx += 1
+                            current_date = start_date
+                            col_idx = 27  # Start from column AA
+                            
+                            while current_date <= end_date:
+                                wave_cell = ws.cell(row=row_idx, column=col_idx)
+                                
+                                if wave_start <= current_date <= wave_end:
+                                    # Show TRP value for active days
+                                    wave_cell.value = f"{daily_trp:.2f}" if daily_trp > 0 else ""
+                                    wave_cell.font = Font(size=9, bold=True, color="FFFFFF")
+                                    if current_date.weekday() in [5, 6]:  # Weekend
+                                        wave_cell.fill = PatternFill(start_color="81C784", end_color="81C784", fill_type="solid")  # Light green
+                                    else:
+                                        wave_cell.fill = PatternFill(start_color="66BB6A", end_color="66BB6A", fill_type="solid")  # Green
+                                    wave_cell.alignment = Alignment(horizontal='center')
+                                else:
+                                    wave_cell.value = ""
+                                    if current_date.weekday() in [5, 6]:  # Weekend
+                                        wave_cell.fill = PatternFill(start_color="F9F9F9", end_color="F9F9F9", fill_type="solid")
+                                    else:
+                                        wave_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                                
+                                wave_cell.border = border
+                                current_date += timedelta(days=1)
+                                col_idx += 1
+                            
+                            row_idx += 1
+                            valid_wave_count += 1
+                        except ValueError as e:
+                            # Skip waves with invalid dates
+                            continue
                 
-                # TRP Distribution row (prominent yellow background like in UI)
-                trp_row = row_idx + 1
-                current_date = start_date
-                col_idx = 27  # Start from column AA
-                
-                while current_date <= end_date:
-                    trp_cell = ws.cell(row=trp_row, column=col_idx)
-                    date_key = current_date.strftime('%Y-%m-%d')
-                    trp_value = trp_data.get(date_key, 0) if trp_data else 0
-                    
-                    if trp_value > 0:
-                        trp_cell.value = f"{trp_value:.2f}"
-                        trp_cell.font = Font(size=10, bold=True, color="B8860B")  # Readable TRP values
-                    else:
-                        trp_cell.value = ""
-                    
-                    # Yellow background like in UI
-                    if current_date.weekday() in [5, 6]:  # Weekend
-                        trp_cell.fill = PatternFill(start_color="FFF8DC", end_color="FFF8DC", fill_type="solid")  # Cornsilk
-                    else:
-                        trp_cell.fill = PatternFill(start_color="FFFACD", end_color="FFFACD", fill_type="solid")  # Lemon chiffon
-                    
-                    trp_cell.alignment = Alignment(horizontal='center')
-                    trp_cell.border = Border(
-                        left=Side(style='medium', color='FFD700'), 
-                        right=Side(style='medium', color='FFD700'), 
-                        top=Side(style='medium', color='FFD700'), 
-                        bottom=Side(style='medium', color='FFD700')
-                    )  # Gold border
-                    
-                    current_date += timedelta(days=1)
-                    col_idx += 1
+                # Skip the combined TRP row - we now show individual TRP per wave
+                trp_row = row_idx  # row_idx will be at the end of all wave rows
                 
                 # Column labels for the calendar
                 ws.cell(row=cal_start_row + 2, column=col_idx + 1).value = "Savaitės dienos"
                 ws.cell(row=cal_start_row + 2, column=col_idx + 1).font = Font(size=8, italic=True)
                 
-                for wave_idx in range(len(waves)):
-                    ws.cell(row=cal_start_row + 3 + wave_idx, column=col_idx + 1).value = f"Banga {wave_idx + 1}"
-                    ws.cell(row=cal_start_row + 3 + wave_idx, column=col_idx + 1).font = Font(size=9, color="1F4E79")
+                # Wave labels with TRP totals
+                label_row = cal_start_row + 3
+                for wave_idx, wave in enumerate(waves):
+                    if wave.get('start_date') and wave.get('end_date'):
+                        try:
+                            datetime.strptime(wave['start_date'], '%Y-%m-%d')
+                            datetime.strptime(wave['end_date'], '%Y-%m-%d')
+                            wave_total_trp = sum(item['trps'] for item in wave['items'] if item.get('trps', 0) > 0)
+                            label = f"Banga {wave_idx + 1} (TRP: {wave_total_trp:.2f})"
+                            ws.cell(row=label_row, column=col_idx + 1).value = label
+                            ws.cell(row=label_row, column=col_idx + 1).font = Font(size=9, color="1F4E79", bold=True)
+                            label_row += 1
+                        except ValueError:
+                            continue
                 
-                ws.cell(row=trp_row, column=col_idx + 1).value = "TRP paskirstymas"
-                ws.cell(row=trp_row, column=col_idx + 1).font = Font(size=9, bold=True, color="B8860B")
-                
-                # Total TRP summary  
-                total_trp = sum(float(v) for v in trp_data.values()) if trp_data else 0
-                if total_trp > 0:
+                # Total TRP summary calculated from all waves
+                total_campaign_trp = sum(sum(item['trps'] for item in wave['items'] if item.get('trps', 0) > 0) for wave in waves)
+                if total_campaign_trp > 0:
                     summary_row = trp_row + 2
                     ws.merge_cells(f'A{summary_row}:E{summary_row}')
                     summary_cell = ws[f'A{summary_row}']
-                    summary_cell.value = f"BENDRAS TRP: {total_trp:.2f}"
+                    summary_cell.value = f"BENDRAS KAMPANIJOS TRP: {total_campaign_trp:.2f}"
                     summary_cell.font = Font(bold=True, size=12, color="1F4E79")
                     summary_cell.alignment = Alignment(horizontal='center')
                     summary_cell.fill = total_fill
                     summary_cell.border = thick_border
-                    
-                    # No limitation note needed since we show all active days
                 
                 # Set row heights for calendar section to standard readable height
                 for row in range(cal_start_row, trp_row + 3):  # All calendar rows
@@ -1624,12 +1612,12 @@ def generate_client_excel_report(campaign_id: int):
                     except:
                         pass  # Skip if row setting fails
                 
-                # Make ONLY calendar columns (AA onwards) very narrow 
+                # Make calendar columns wider to show TRP values properly
                 calendar_start_col = 27  # AA column
                 calendar_end_col = min(col_idx + 1, 60)  # Limit to reasonable range
                 for col in range(calendar_start_col, calendar_end_col):
                     try:
-                        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 1.8  # Very narrow for calendar days
+                        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 4.5  # Wider for TRP values
                     except:
                         pass
                 

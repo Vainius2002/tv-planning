@@ -973,7 +973,7 @@
                     try {
                       const itemId = tr.querySelector('.itm-save').dataset.itemId;
                       const trps = parseFloat(tr.querySelector('.itm-trps').value) || 0;
-                      const affinity1 = parseFloat(tr.querySelector('.itm-affinity1').value) || null;
+                      const affinity1 = parseFloat(tr.querySelector('.itm-affinity1').value) || 0;
                       const trpPurchaseIndex = parseFloat(tr.querySelector('.itm-trp-purchase').value) || 0.95;
                       const advancePurchaseIndex = parseFloat(tr.querySelector('.itm-advance-purchase').value) || 0.95;
                       const positionIndex = parseFloat(tr.querySelector('.itm-position').value) || 1.0;
@@ -1391,9 +1391,9 @@
             channel_share: 0.75, // 75% default
             pt_zone_share: 0.55, // 55% default
             clip_duration: clipDuration,
-            tvc_id: tvcId ? parseInt(tvcId) : null,
-            affinity1: null, // Will be editable in resulting table
-            affinity2: null,
+            tvc_id: tvcId ? parseInt(tvcId) : 0,
+            affinity1: 0, // Will be editable in resulting table
+            affinity2: 0,
             // Advanced parameters with defaults
             duration_index: parseFloat(section.querySelector('.duration-index').value) || 1.25,
             seasonal_index: parseFloat(section.querySelector('.seasonal-index').value) || 0.9,
@@ -1542,7 +1542,7 @@
               try {
                 // Get only editable values
                 const trps = parseFloat(tr.querySelector('.itm-trps').value) || 0;
-                const affinity1 = parseFloat(tr.querySelector('.itm-affinity1').value) || null;
+                const affinity1 = parseFloat(tr.querySelector('.itm-affinity1').value) || 0;
                 const trpPurchaseIndex = parseFloat(tr.querySelector('.itm-trp-purchase').value) || 0.95;
                 const advancePurchaseIndex = parseFloat(tr.querySelector('.itm-advance-purchase').value) || 0.95;
                 const positionIndex = parseFloat(tr.querySelector('.itm-position').value) || 1.0;
@@ -1822,22 +1822,27 @@
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                channel_group: channelGroup,
-                target_group: targetGroup,
-                trps: trps,
+                channel_group: channelGroup || '',
+                target_group: targetGroup || '',
+                trps: trps || 0,
                 channel_share: 0.75,
                 pt_zone_share: 0.55,
-                clip_duration: clipDuration,
-                tvc_id: tvcId ? parseInt(tvcId) : null,
-                affinity1: null,
-                affinity2: null,
+                clip_duration: clipDuration || 30,
+                tvc_id: tvcId ? parseInt(tvcId) : 0,
+                affinity1: 0, // Changed from null to 0
+                affinity2: 0, // Changed from null to 0
                 duration_index: 1.25,
                 seasonal_index: 0.9,
                 trp_purchase_index: 0.95,
                 advance_purchase_index: 0.95,
                 position_index: 1.0,
                 client_discount: 0,
-                agency_discount: 0
+                agency_discount: 0,
+                // Add these fields to prevent null issues
+                tg_size_thousands: 0,
+                tg_share_percent: 0,
+                tg_sample_size: 0,
+                gross_cpp_eur: 0
               })
             });
             

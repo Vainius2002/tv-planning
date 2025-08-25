@@ -136,14 +136,90 @@
             <div id="tvcList" class="space-y-2"></div>
           </div>
           
-          <div class="mb-4">
-            <label class="block text-sm text-slate-600 mb-1">Bangos laikotarpis</label>
-            <div class="grid grid-cols-2 gap-2 max-w-md">
-              <input id="wStart" type="date" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
-              <input id="wEnd" type="date" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
+          <!-- Wave creation form -->
+          <div id="initialWaveForm" class="mb-6 p-4 bg-white rounded-lg border border-slate-200">
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-2 mb-3">
+              <div>
+                <label class="block text-xs text-slate-600 mb-1">Pradžia</label>
+                <input id="firstWaveStart" type="date" class="w-full rounded border-slate-300 px-2 py-1 text-sm">
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 mb-1">Pabaiga</label>
+                <input id="firstWaveEnd" type="date" class="w-full rounded border-slate-300 px-2 py-1 text-sm">
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 mb-1">Kanalų grupė</label>
+                <select id="firstWaveChannel" class="w-full rounded border-slate-300 px-2 py-1 text-sm">
+                  <option value="">Pasirinkti kanalų grupę</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 mb-1">Perkama TG</label>
+                <select id="firstWaveTG" class="w-full rounded border-slate-300 px-2 py-1 text-sm">
+                  <option value="">Pirma pasirinkite kanalų grupę</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 mb-1">TVC</label>
+                <select id="firstWaveTVC" class="w-full rounded border-slate-300 px-2 py-1 text-sm">
+                  <option value="">Pasirinkti TVC</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 mb-1">TRP perkami</label>
+                <input id="firstWaveTRP" type="number" step="0.01" class="w-full rounded border-slate-300 px-2 py-1 text-sm" placeholder="35.14">
+              </div>
+              <div class="flex items-end">
+                <button id="createFirstWave" class="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium w-full">Pridėti Excel eilutę</button>
+              </div>
             </div>
           </div>
-          <button id="wAdd" class="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium mb-4">Pridėti bangą</button>
+
+          <!-- Single table for all waves -->
+          <div id="wavesTable" class="mb-6 border border-slate-200 rounded-xl overflow-hidden" style="display: none;">
+            <div class="px-4 py-3 bg-slate-50">
+              <div class="font-medium">Excel lentelė</div>
+            </div>
+            <div class="p-4">
+              <div class="overflow-x-auto">
+                <table class="min-w-full text-xs">
+                  <thead class="bg-slate-50 text-slate-700 border-b border-slate-200">
+                    <tr>
+                      <th class="text-left font-medium px-2 py-1">Banga</th>
+                      <th class="text-left font-medium px-2 py-1">Pradžia</th>
+                      <th class="text-left font-medium px-2 py-1">Pabaiga</th>
+                      <th class="text-left font-medium px-2 py-1">Kanalų grupė</th>
+                      <th class="text-left font-medium px-2 py-1">Perkama TG</th>
+                      <th class="text-left font-medium px-2 py-1">TVC</th>
+                      <th class="text-left font-medium px-2 py-1">Trukmė</th>
+                      <th class="text-left font-medium px-2 py-1">TG dydis (*000)</th>
+                      <th class="text-left font-medium px-2 py-1">TG dalis (%)</th>
+                      <th class="text-left font-medium px-2 py-1">TG imtis</th>
+                      <th class="text-left font-medium px-2 py-1">Kanalo dalis</th>
+                      <th class="text-left font-medium px-2 py-1">PT zonos dalis</th>
+                      <th class="text-left font-medium px-2 py-1">TRP perk.</th>
+                      <th class="text-left font-medium px-2 py-1">Affinity1</th>
+                      <th class="text-left font-medium px-2 py-1">GRP plan.</th>
+                      <th class="text-left font-medium px-2 py-1">Gross CPP</th>
+                      <th class="text-left font-medium px-2 py-1">Trukm.koef</th>
+                      <th class="text-left font-medium px-2 py-1">Sez.koef</th>
+                      <th class="text-left font-medium px-2 py-1">TRP pirk.</th>
+                      <th class="text-left font-medium px-2 py-1">Išank.</th>
+                      <th class="text-left font-medium px-2 py-1">Pozic.</th>
+                      <th class="text-left font-medium px-2 py-1">Gross kaina</th>
+                      <th class="text-left font-medium px-2 py-1 bg-blue-50">Kl. nuol. %</th>
+                      <th class="text-left font-medium px-2 py-1">Net kaina</th>
+                      <th class="text-left font-medium px-2 py-1 bg-blue-50">Ag. nuol. %</th>
+                      <th class="text-left font-medium px-2 py-1">Net net kaina</th>
+                      <th class="text-left font-medium px-2 py-1 w-32">Veiksmai</th>
+                    </tr>
+                  </thead>
+                  <tbody id="wavesTableBody" class="divide-y divide-slate-100">
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
 
           <div id="waves"></div>
         </div>

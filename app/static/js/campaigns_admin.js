@@ -269,6 +269,11 @@
       
       // Update TVC selections in all wave forms
       updateAllTVCSelections();
+      
+      // Update initial form TVCs
+      if (window.updateInitialFormTVCs) {
+        window.updateInitialFormTVCs();
+      }
     }
 
     function updateAllTVCSelections() {
@@ -396,20 +401,23 @@
         ${currentCampaign.start_date || 'Nėra datos'} - ${currentCampaign.end_date || 'Nėra datos'}
       `;
       
-      // Set date limits for wave creation based on campaign dates
-      const wStart = document.querySelector('#wStart');
-      const wEnd = document.querySelector('#wEnd');
-      if (wStart && currentCampaign.start_date) {
-        wStart.min = currentCampaign.start_date;
+      // Set date limits for initial wave form based on campaign dates
+      const firstWaveStart = document.querySelector('#firstWaveStart');
+      const firstWaveEnd = document.querySelector('#firstWaveEnd');
+      
+      if (firstWaveStart && currentCampaign.start_date) {
+        firstWaveStart.min = currentCampaign.start_date;
+        firstWaveStart.value = currentCampaign.start_date; // Default to campaign start
       }
-      if (wEnd && currentCampaign.end_date) {
-        wEnd.max = currentCampaign.end_date;
+      if (firstWaveEnd && currentCampaign.end_date) {
+        firstWaveEnd.max = currentCampaign.end_date;
+        firstWaveEnd.value = currentCampaign.end_date; // Default to campaign end
       }
-      if (wStart && currentCampaign.end_date) {
-        wStart.max = currentCampaign.end_date;
+      if (firstWaveStart && currentCampaign.end_date) {
+        firstWaveStart.max = currentCampaign.end_date;
       }
-      if (wEnd && currentCampaign.start_date) {
-        wEnd.min = currentCampaign.start_date;
+      if (firstWaveEnd && currentCampaign.start_date) {
+        firstWaveEnd.min = currentCampaign.start_date;
       }
       
       loadTVCs(currentCampaign.id);  // Load TVCs when campaign opens
@@ -774,16 +782,210 @@
       const waves = await fetchJSON(urlReplace(W_LIST, cid));
       currentWaves = waves; // Store for calendar
       
-      // Clear waves div
+      // Clear old waves div (will be removed eventually)
       wavesDiv.innerHTML = '';
       
-      // If no waves, show message
-      if (!waves || waves.length === 0) {
-        wavesDiv.innerHTML = '<div class="text-center text-gray-500 py-8">Nėra sukurtų bangų. Sukurkite bangą naudodami formą viršuje.</div>';
+      // Update the single table with all waves
+      const wavesTable = document.querySelector('#wavesTable');
+      const wavesTableBody = document.querySelector('#wavesTableBody');
+      
+      if (wavesTableBody) {
+        wavesTableBody.innerHTML = '';
+        
+        if (waves && waves.length > 0) {
+          // Show the table
+          if (wavesTable) {
+            wavesTable.style.display = 'block';
+          }
+          
+          // Load all items for all waves and display in single table
+          for(const w of waves){
+            try {
+              const items = await fetchJSON(urlReplace(I_LIST, w.id));
+              const waveIndex = waves.indexOf(w) + 1;
+              
+              if (items && items.length > 0) {
+                for(const item of items) {
+                  const tvcName = item.tvc_id && tvcs.find(tvc => tvc.id == item.tvc_id)?.name || '-';
+                  
+                  // Calculate derived values
+                  const grpPlanned = calculateGRP(item);
+                  const grossCpp = item.gross_cpp_eur || 0;
+                  const grossPrice = calculateGrossPrice(item, grossCpp);
+                  const netPrice = calculateNetPrice(grossPrice, item.client_discount || 0);
+                  const netNetPrice = calculateNetNetPrice(netPrice, item.agency_discount || 0);
+                  
+                  const tr = document.createElement('tr');
+                  tr.innerHTML = `
+                    <td class="px-2 py-1 text-xs font-medium">Banga ${waveIndex}</td>
+                    <td class="px-2 py-1 text-xs">${w.start_date || '-'}</td>
+                    <td class="px-2 py-1 text-xs">${w.end_date || '-'}</td>
+                    <td class="px-2 py-1 text-xs">${item.channel_group || getChannelName(item.channel_id) || item.owner || '-'}</td>
+                    <td class="px-2 py-1 text-xs">${item.target_group || '-'}</td>
+                    <td class="px-2 py-1 text-xs bg-blue-50">${tvcName}</td>
+                    <td class="px-2 py-1 text-xs">${item.clip_duration || 10}</td>
+                    <td class="px-2 py-1 text-xs bg-green-50">${item.tg_size_thousands || '-'}</td>
+                    <td class="px-2 py-1 text-xs bg-green-50">${item.tg_share_percent ? item.tg_share_percent.toFixed(1) + '%' : '-'}</td>
+                    <td class="px-2 py-1 text-xs bg-green-50">${item.tg_sample_size || '-'}</td>
+                    <td class="px-2 py-1 text-xs">${((item.channel_share || 0.75) * 100).toFixed(1)}%</td>
+                    <td class="px-2 py-1 text-xs">${((item.pt_zone_share || 0.55) * 100).toFixed(1)}%</td>
+                    <td class="px-2 py-1"><input class="itm-trps w-16 text-xs border rounded px-1 py-0.5 bg-purple-50" type="number" step="0.01" value="${item.trps || ''}" placeholder="TRP" data-item-id="${item.id}"></td>
+                    <td class="px-2 py-1"><input class="itm-affinity1 w-12 text-xs border rounded px-1 py-0.5 bg-purple-50" type="number" step="0.1" value="${item.affinity1 || ''}" placeholder="Affinity" data-item-id="${item.id}"></td>
+                    <td class="px-2 py-1 text-xs grp-planned">${grpPlanned.toFixed(2)}</td>
+                    <td class="px-2 py-1 text-xs">€${grossCpp.toFixed(2)}</td>
+                    <td class="px-2 py-1 text-xs bg-yellow-50">${(item.duration_index || 1.25).toFixed(2)}</td>
+                    <td class="px-2 py-1 text-xs bg-yellow-50">${(item.seasonal_index || 0.9).toFixed(2)}</td>
+                    <td class="px-2 py-1"><input class="itm-trp-purchase w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(item.trp_purchase_index || 0.95).toFixed(2)}" data-item-id="${item.id}"></td>
+                    <td class="px-2 py-1"><input class="itm-advance-purchase w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(item.advance_purchase_index || 0.95).toFixed(2)}" data-item-id="${item.id}"></td>
+                    <td class="px-2 py-1"><input class="itm-position w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(item.position_index || 1.0).toFixed(2)}" data-item-id="${item.id}"></td>
+                    <td class="px-2 py-1 text-xs gross-price">€${grossPrice.toFixed(2)}</td>
+                    <td class="px-2 py-1"><input class="itm-client-discount w-12 text-xs border rounded px-1 py-0.5 bg-blue-50" type="number" step="0.1" min="0" max="100" value="${item.client_discount || 0}" data-item-id="${item.id}"></td>
+                    <td class="px-2 py-1 text-xs net-price">€${netPrice.toFixed(2)}</td>
+                    <td class="px-2 py-1"><input class="itm-agency-discount w-12 text-xs border rounded px-1 py-0.5 bg-blue-50" type="number" step="0.1" min="0" max="100" value="${item.agency_discount || 0}" data-item-id="${item.id}"></td>
+                    <td class="px-2 py-1 text-xs net-net-price">€${netNetPrice.toFixed(2)}</td>
+                    <td class="px-2 py-1">
+                      <div class="flex gap-1">
+                        <button class="itm-save px-2 py-0.5 text-xs rounded border border-emerald-300 bg-emerald-50 text-emerald-700" data-item-id="${item.id}">Saugoti</button>
+                        <button class="wave-item-del px-2 py-0.5 text-xs rounded border border-rose-300 bg-rose-50 text-rose-700" data-wave-id="${w.id}" data-item-id="${item.id}">X</button>
+                      </div>
+                    </td>
+                  `;
+                  
+                  // Add real-time calculation functions
+                  const recalculatePrices = () => {
+                    // Get current values from inputs and stored data
+                    const trps = parseFloat(tr.querySelector('.itm-trps').value) || 0;
+                    const durationIndex = parseFloat(item.duration_index) || 1.0;
+                    const seasonalIndex = parseFloat(item.seasonal_index) || 1.0;  
+                    const trpPurchaseIndex = parseFloat(tr.querySelector('.itm-trp-purchase').value) || 0.95;
+                    const advancePurchaseIndex = parseFloat(tr.querySelector('.itm-advance-purchase').value) || 0.95;
+                    const positionIndex = parseFloat(tr.querySelector('.itm-position').value) || 1.0;
+                    const clientDiscount = parseFloat(tr.querySelector('.itm-client-discount').value) || 0;
+                    const agencyDiscount = parseFloat(tr.querySelector('.itm-agency-discount').value) || 0;
+                    
+                    // Recalculate gross price with current values
+                    const itemData = {
+                      trps: trps,
+                      duration_index: durationIndex,
+                      seasonal_index: seasonalIndex,
+                      trp_purchase_index: trpPurchaseIndex,
+                      advance_purchase_index: advancePurchaseIndex,
+                      position_index: positionIndex
+                    };
+                    
+                    const newGrossPrice = calculateGrossPrice(itemData, grossCpp);
+                    const newNetPrice = calculateNetPrice(newGrossPrice, clientDiscount);
+                    const newNetNetPrice = calculateNetNetPrice(newNetPrice, agencyDiscount);
+                    
+                    // Update all displayed prices
+                    const grossPriceCell = tr.querySelector('.gross-price');
+                    const netPriceCell = tr.querySelector('.net-price');
+                    const netNetPriceCell = tr.querySelector('.net-net-price');
+                    
+                    if (grossPriceCell) grossPriceCell.innerHTML = `€${newGrossPrice.toFixed(2)}`;
+                    if (netPriceCell) netPriceCell.innerHTML = `€${newNetPrice.toFixed(2)}`;
+                    if (netNetPriceCell) netNetPriceCell.innerHTML = `€${newNetNetPrice.toFixed(2)}`;
+                  };
+                  
+                  // Function to recalculate and update GRP when TRP or affinity changes
+                  const recalculateGRP = () => {
+                    const trps = parseFloat(tr.querySelector('.itm-trps').value) || 0;
+                    const affinity1 = parseFloat(tr.querySelector('.itm-affinity1').value);
+                    
+                    let newGRP = 0;
+                    if (affinity1 && affinity1 !== 0 && trps > 0) {
+                      newGRP = trps * 100 / affinity1;
+                    }
+                    
+                    // Update the GRP display
+                    const grpCell = tr.querySelector('.grp-planned');
+                    if (grpCell) {
+                      grpCell.textContent = newGRP.toFixed(2);
+                    }
+                  };
+                  
+                  // Add event listeners for real-time calculations
+                  tr.querySelector('.itm-trps').addEventListener('input', () => {
+                    recalculateGRP();
+                    recalculatePrices();
+                  });
+                  tr.querySelector('.itm-affinity1').addEventListener('input', recalculateGRP);
+                  tr.querySelector('.itm-trp-purchase').addEventListener('input', recalculatePrices);
+                  tr.querySelector('.itm-advance-purchase').addEventListener('input', recalculatePrices);
+                  tr.querySelector('.itm-position').addEventListener('input', recalculatePrices);
+                  tr.querySelector('.itm-client-discount').addEventListener('input', recalculatePrices);
+                  tr.querySelector('.itm-agency-discount').addEventListener('input', recalculatePrices);
+                  
+                  // Add save handler
+                  tr.querySelector('.itm-save').addEventListener('click', async () => {
+                    try {
+                      const itemId = tr.querySelector('.itm-save').dataset.itemId;
+                      const trps = parseFloat(tr.querySelector('.itm-trps').value) || 0;
+                      const affinity1 = parseFloat(tr.querySelector('.itm-affinity1').value) || null;
+                      const trpPurchaseIndex = parseFloat(tr.querySelector('.itm-trp-purchase').value) || 0.95;
+                      const advancePurchaseIndex = parseFloat(tr.querySelector('.itm-advance-purchase').value) || 0.95;
+                      const positionIndex = parseFloat(tr.querySelector('.itm-position').value) || 1.0;
+                      const clientDiscount = parseFloat(tr.querySelector('.itm-client-discount').value) || 0;
+                      const agencyDiscount = parseFloat(tr.querySelector('.itm-agency-discount').value) || 0;
+                      
+                      await fetchJSON(urlReplace(I_UPDATE, itemId), {
+                        method:'PATCH', 
+                        headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({ 
+                          trps: trps,
+                          affinity1: affinity1,
+                          trp_purchase_index: trpPurchaseIndex,
+                          advance_purchase_index: advancePurchaseIndex,
+                          position_index: positionIndex,
+                          client_discount: clientDiscount,
+                          agency_discount: agencyDiscount
+                        })
+                      });
+                      
+                      await loadWaves(currentCampaign.id);
+                      alert('Išsaugota');
+                    } catch (error) {
+                      alert('Klaida išsaugant: ' + error.message);
+                    }
+                  });
+                  
+                  // Add delete handler
+                  tr.querySelector('.wave-item-del').addEventListener('click', async () => {
+                    if(!confirm('Šalinti eilutę?')) return;
+                    
+                    // Delete the item
+                    await fetchJSON(urlReplace(I_DELETE, item.id), { method:'DELETE' });
+                    
+                    // Check if this was the last item in the wave
+                    const remainingItems = items.filter(i => i.id !== item.id);
+                    if (remainingItems.length === 0) {
+                      // Delete the wave too if it was the last item
+                      await fetchJSON(urlReplace(W_DELETE, w.id), { method:'DELETE' });
+                    }
+                    
+                    await loadWaves(currentCampaign.id);
+                  });
+                  
+                  wavesTableBody.appendChild(tr);
+                }
+              }
+            } catch (e) {
+              console.error('Error loading items for wave', w.id, e);
+            }
+          }
+        } else {
+          // Hide the table if no waves
+          if (wavesTable) {
+            wavesTable.style.display = 'none';
+          }
+        }
       }
       
       // Update calendar with wave information (called once for all cases)
       renderCampaignCalendar();
+      
+      // Don't render the old wave containers anymore
+      return;
       
       for(const w of waves){
         const section = document.createElement('div');
@@ -1423,66 +1625,191 @@
       });
     }
 
-    // add wave (without initial item - dates only)
-    $('#wAdd').addEventListener('click', async () => {
-      if(!currentCampaign){ alert('Pirma pasirinkite kampaniją'); return; }
-      
-      const start = $('#wStart').value || null;
-      const end   = $('#wEnd').value || null;
-      
-      if (!start || !end) {
-        alert('Prašome pasirinkti bangos pradžios ir pabaigos datas');
-        return;
-      }
-      
-      // Validate dates are within campaign period
-      if (currentCampaign.start_date && start < currentCampaign.start_date) {
-        alert(`Bangos pradžia negali būti anksčiau nei kampanijos pradžia (${currentCampaign.start_date})`);
-        return;
-      }
-      if (currentCampaign.end_date && end > currentCampaign.end_date) {
-        alert(`Bangos pabaiga negali būti vėliau nei kampanijos pabaiga (${currentCampaign.end_date})`);
-        return;
-      }
-      
-      // Additional validation: start date cannot be after end date
-      if (start > end) {
-        alert('Bangos pradžios data negali būti vėlesnė nei pabaigos data');
-        return;
-      }
-      
-      try {
-        // Create wave without initial item
-        const waveResponse = await fetchJSON(urlReplace(W_CREATE, currentCampaign.id), {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ name: '', start_date:start, end_date:end })
-        });
-        
-        // Clear form
-        $('#wStart').value = ''; 
-        $('#wEnd').value = '';
-        
-        await loadWaves(currentCampaign.id);
-        
-        // Show helpful message after wave creation
-        if (waveResponse && waveResponse.id) {
-          // Automatically scroll to the new wave section
-          setTimeout(() => {
-            const wavesSections = document.querySelectorAll('#waves > div');
-            if (wavesSections.length > 0) {
-              const lastWave = wavesSections[wavesSections.length - 1];
-              lastWave.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-          }, 500);
-        }
-      } catch (error) {
-        alert('Klaida kuriant bangą: ' + error.message);
-      }
-    });
 
+    // Handle initial wave form
+    const setupInitialWaveForm = async () => {
+      const channelSelect = document.querySelector('#firstWaveChannel');
+      const tgSelect = document.querySelector('#firstWaveTG');
+      const tvcSelect = document.querySelector('#firstWaveTVC');
+      const createBtn = document.querySelector('#createFirstWave');
+      
+      if (!channelSelect || !tgSelect || !tvcSelect || !createBtn) return;
+      
+      // Load channel groups
+      try {
+        const groups = await fetchJSON('/tv-planner/channel-groups');
+        channelSelect.innerHTML = '<option value="">Pasirinkti kanalų grupę</option>';
+        groups.forEach(group => {
+          channelSelect.innerHTML += `<option value="${group.name}">${group.name}</option>`;
+        });
+      } catch (e) {
+        console.error('Error loading channel groups:', e);
+      }
+      
+      // Update TVC selection
+      const updateTVCSelection = () => {
+        tvcSelect.innerHTML = '<option value="">Pasirinkti TVC</option>';
+        if (tvcs && tvcs.length > 0) {
+          tvcs.forEach(tvc => {
+            tvcSelect.innerHTML += `<option value="${tvc.id}">${tvc.name} (${tvc.duration} sek.)</option>`;
+          });
+        }
+      };
+      
+      // Listen for TVC updates
+      window.updateInitialFormTVCs = updateTVCSelection;
+      
+      // Add date validation listeners
+      const startDateInput = document.querySelector('#firstWaveStart');
+      const endDateInput = document.querySelector('#firstWaveEnd');
+      
+      if (startDateInput) {
+        startDateInput.addEventListener('change', () => {
+          if (endDateInput && startDateInput.value) {
+            endDateInput.min = startDateInput.value; // End date cannot be before start date
+          }
+        });
+      }
+      
+      if (endDateInput) {
+        endDateInput.addEventListener('change', () => {
+          if (startDateInput && endDateInput.value) {
+            startDateInput.max = endDateInput.value; // Start date cannot be after end date
+          }
+        });
+      }
+      
+      // Handle channel selection
+      channelSelect.addEventListener('change', async () => {
+        const channelGroupName = channelSelect.value;
+        if (!channelGroupName) {
+          tgSelect.innerHTML = '<option value="">Pirma pasirinkite kanalų grupę</option>';
+          return;
+        }
+        
+        try {
+          const tgs = await fetchJSON(`/tv-planner/trp?owner=${encodeURIComponent(channelGroupName)}`);
+          const uniqueTGs = [...new Set(tgs.map(item => item.target_group))];
+          
+          tgSelect.innerHTML = uniqueTGs.map(t => `<option value="${t}">${t}</option>`).join('');
+          if (uniqueTGs.length === 0) {
+            tgSelect.innerHTML = '<option value="">Nėra prieinamu TG šiai grupei</option>';
+          }
+        } catch (e) {
+          console.error('Error loading target groups:', e);
+          tgSelect.innerHTML = '<option value="">Klaida kraunant TG</option>';
+        }
+      });
+      
+      // Handle wave creation (adds row to table)
+      createBtn.addEventListener('click', async () => {
+        if (!currentCampaign) {
+          alert('Pirma pasirinkite kampaniją');
+          return;
+        }
+        
+        const startDate = document.querySelector('#firstWaveStart').value;
+        const endDate = document.querySelector('#firstWaveEnd').value;
+        const channelGroup = channelSelect.value;
+        const targetGroup = tgSelect.value;
+        const tvcId = tvcSelect.value;
+        const trps = parseFloat(document.querySelector('#firstWaveTRP').value) || 0;
+        
+        if (!startDate || !endDate) {
+          alert('Prašome pasirinkti bangos pradžios ir pabaigos datas');
+          return;
+        }
+        
+        if (!channelGroup || !targetGroup || !trps) {
+          alert('Užpildykite kanalų grupę, tikslinę grupę ir TRP');
+          return;
+        }
+        
+        if (startDate > endDate) {
+          alert('Pradžios data negali būti vėlesnė nei pabaigos data');
+          return;
+        }
+        
+        // Validate dates are within campaign period
+        if (currentCampaign.start_date && startDate < currentCampaign.start_date) {
+          alert(`Bangos pradžia negali būti anksčiau nei kampanijos pradžia (${currentCampaign.start_date})`);
+          return;
+        }
+        if (currentCampaign.end_date && endDate > currentCampaign.end_date) {
+          alert(`Bangos pabaiga negali būti vėliau nei kampanijos pabaiga (${currentCampaign.end_date})`);
+          return;
+        }
+        
+        try {
+          // Each row is its own wave, so always create a new wave
+          const waveCount = currentWaves ? currentWaves.length + 1 : 1;
+          
+          // Create new wave for this row
+          const waveResponse = await fetchJSON(urlReplace(W_CREATE, currentCampaign.id), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: `Banga ${waveCount}`,
+              start_date: startDate,
+              end_date: endDate
+            })
+          });
+          
+          if (!waveResponse || !waveResponse.id) {
+            throw new Error('Failed to create wave');
+          }
+          
+          const waveId = waveResponse.id;
+          
+          if (waveId) {
+            // Create first item in the wave
+            const selectedTVC = tvcs.find(tvc => tvc.id == tvcId);
+            const clipDuration = selectedTVC ? selectedTVC.duration : 10;
+            
+            await fetchJSON(urlReplace(I_CREATE, waveId), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                channel_group: channelGroup,
+                target_group: targetGroup,
+                trps: trps,
+                channel_share: 0.75,
+                pt_zone_share: 0.55,
+                clip_duration: clipDuration,
+                tvc_id: tvcId ? parseInt(tvcId) : null,
+                affinity1: null,
+                affinity2: null,
+                duration_index: 1.25,
+                seasonal_index: 0.9,
+                trp_purchase_index: 0.95,
+                advance_purchase_index: 0.95,
+                position_index: 1.0,
+                client_discount: 0,
+                agency_discount: 0
+              })
+            });
+            
+            // Clear form for next entry
+            document.querySelector('#firstWaveStart').value = '';
+            document.querySelector('#firstWaveEnd').value = '';
+            document.querySelector('#firstWaveTRP').value = '';
+            channelSelect.value = '';
+            tgSelect.innerHTML = '<option value="">Pirma pasirinkite kanalų grupę</option>';
+            tvcSelect.value = '';
+            
+            // Reload waves to show new row in table
+            await loadWaves(currentCampaign.id);
+          }
+        } catch (error) {
+          alert('Klaida kuriant bangą: ' + error.message);
+        }
+      });
+    };
+    
     // initial boot
     (async () => {
       await loadCampaigns();
+      await setupInitialWaveForm();
     })();
   });
 })();

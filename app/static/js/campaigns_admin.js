@@ -457,6 +457,8 @@
       
       // Month row
       html += '<tr class="border-b border-slate-200">';
+      html += `<th class="px-2 py-1 text-xs font-medium text-slate-700 bg-slate-50 border-r border-slate-300 sticky left-0">Banga</th>`;
+      
       const months = [];
       const monthDays = {};
       let tempDate = new Date(startDate);
@@ -479,6 +481,7 @@
       
       // Day numbers row
       html += '<tr class="border-b border-slate-300">';
+      html += `<th class="px-2 py-1 text-xs font-medium bg-slate-50 border-r border-slate-300 sticky left-0"></th>`;
       tempDate = new Date(startDate);
       while (tempDate <= endDate) {
         const dayNum = tempDate.getDate();
@@ -490,6 +493,7 @@
       
       // Week days row  
       html += '<tr class="border-b border-slate-200">';
+      html += `<td class="px-2 py-1 text-xs bg-slate-50 border-r border-slate-300 sticky left-0"></td>`;
       tempDate = new Date(startDate);
       const weekDayNames = ['S', 'P', 'A', 'T', 'K', 'Pn', 'Š'];
       while (tempDate <= endDate) {
@@ -502,11 +506,13 @@
       html += '</thead>';
       html += '<tbody>';
       
-      // Wave rows
+      // Wave rows with TRP inputs
       if (currentWaves && currentWaves.length > 0) {
         currentWaves.forEach((wave, waveIndex) => {
           if (wave.start_date && wave.end_date) {
-            html += '<tr class="border-b border-slate-200 hover:bg-slate-50">';
+            html += `<tr class="border-b border-slate-200 hover:bg-slate-50">`;
+            html += `<td class="px-2 py-2 text-xs font-medium bg-slate-100 border-r border-slate-300 sticky left-0">Banga ${waveIndex + 1}</td>`;
+            
             tempDate = new Date(startDate);
             const waveStart = new Date(wave.start_date);
             const waveEnd = new Date(wave.end_date);
@@ -517,11 +523,10 @@
               const isWeekend = tempDate.getDay() === 0 || tempDate.getDay() === 6;
               
               if (isInWave) {
-                html += `<td class="px-1 py-2 text-center border-r border-slate-200 ${isWeekend ? 'bg-green-100' : 'bg-green-200'} cursor-pointer hover:bg-green-300" data-wave="${waveIndex}" data-date="${dateStr}">`;
-                html += `<span class="text-xs font-medium">B${waveIndex + 1}</span>`;
+                html += `<td class="px-1 py-1 border-r border-slate-200 ${isWeekend ? 'bg-green-100' : 'bg-green-200'}">`;
+                html += `<input type="text" inputmode="decimal" class="trp-input-wave w-full text-xs px-1 py-0.5 border-0 bg-transparent text-center font-medium text-slate-700" data-wave-id="${wave.id}" data-date="${dateStr}" placeholder="0.00" />`;
               } else {
-                html += `<td class="px-1 py-2 border-r border-slate-200 ${isWeekend ? 'bg-gray-50' : ''}"`;
-                html += '';
+                html += `<td class="px-1 py-1 border-r border-slate-200 ${isWeekend ? 'bg-gray-50' : ''}">`;
               }
               html += '</td>';
               tempDate.setDate(tempDate.getDate() + 1);
@@ -531,36 +536,15 @@
         });
       }
       
-      // TRP distribution row
-      html += '<tr class="border-t-2 border-slate-400 bg-amber-50">';
-      tempDate = new Date(startDate);
-      const dailyTRPs = {}; // Store TRP values per date
-      
-      while (tempDate <= endDate) {
-        const dateStr = tempDate.toISOString().split('T')[0];
-        const isWeekend = tempDate.getDay() === 0 || tempDate.getDay() === 6;
-        html += `<td class="px-2 py-1 border-r border-slate-200 min-w-[50px] ${isWeekend ? 'bg-amber-100' : 'bg-amber-50'}">`;
-        html += `<input type="text" inputmode="decimal" class="trp-input w-full text-xs px-1 py-0.5 border-0 bg-transparent text-center font-medium text-slate-700" data-date="${dateStr}" placeholder="0.00" />`;
-        html += '</td>';
-        tempDate.setDate(tempDate.getDate() + 1);
-      }
-      html += '</tr>';
-      
       // Auto-distribution controls row
       html += '<tr class="bg-slate-50 border-t border-slate-200">';
-      html += `<td colspan="${Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1}" class="px-2 py-2 text-xs">`;
+      html += `<td class="px-2 py-2 text-xs bg-slate-100 border-r border-slate-300 sticky left-0"></td>`;
+      html += `<td colspan="${Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24))}" class="px-2 py-2 text-xs">`;
       html += '<div class="flex gap-2 items-center justify-center">';
-      html += '<button id="autoDistributeTRP" class="px-3 py-1 text-xs rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">📊 Auto-paskirstyti TRP</button>';
-      html += '<button id="clearTRP" class="px-3 py-1 text-xs rounded bg-slate-400 text-white hover:bg-slate-500 transition-colors">🗑️ Išvalyti</button>';
-      html += '<span class="text-slate-600 ml-3">TRP bus paskirstyti lygiomis dalimis per aktyvias bangų dienas</span>';
+      html += '<button id="autoDistributeTRP" class="px-3 py-1 text-xs rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">📊 Auto-paskirstyti TRP (visiems bangoms)</button>';
+      html += '<button id="clearTRP" class="px-3 py-1 text-xs rounded bg-slate-400 text-white hover:bg-slate-500 transition-colors">🗑️ Išvalyti visus TRP</button>';
+      html += '<span class="text-slate-600 ml-3">Kiekvienos bangos TRP bus paskirstyti per jos aktyvias dienas</span>';
       html += '</div>';
-      html += '</td>';
-      html += '</tr>';
-      
-      // Total TRP row
-      html += '<tr class="border-t border-slate-300 bg-slate-100 font-medium">';
-      html += `<td colspan="${Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1}" class="px-2 py-2 text-xs text-right">`;
-      html += 'Viso TRP: <span id="totalTRP" class="font-bold text-slate-700">0.00</span>';
       html += '</td>';
       html += '</tr>';
       
@@ -569,14 +553,15 @@
       
       calendarDiv.innerHTML = html;
       
-      // Add event listeners first
-      const trpInputs = calendarDiv.querySelectorAll('.trp-input');
-      trpInputs.forEach(input => {
+      // Add event listeners for wave-specific TRP inputs
+      const trpWaveInputs = calendarDiv.querySelectorAll('.trp-input-wave');
+      trpWaveInputs.forEach(input => {
         input.addEventListener('input', () => {
-          updateTotalTRP();
-          saveTRPDistribution(); // Saugojam iškart kai keičiasi
+          saveWaveTRPDistribution(input.dataset.waveId);
         });
-        input.addEventListener('blur', saveTRPDistribution); // Ir kai palieka lauką
+        input.addEventListener('blur', () => {
+          saveWaveTRPDistribution(input.dataset.waveId);
+        });
       });
 
       // Auto-distribute TRP button
@@ -591,10 +576,12 @@
         clearBtn.addEventListener('click', clearAllTRP);
       }
       
-      // Then load existing TRP data
-      loadTRPDistribution().then(() => {
-        updateTotalTRP(); // Calculate initial total after loading data
-      });
+      // Then load existing TRP data for each wave
+      if (currentWaves && currentWaves.length > 0) {
+        currentWaves.forEach(wave => {
+          loadWaveTRPDistribution(wave.id);
+        });
+      }
     }
 
     // -------- TRP Distribution functions --------
@@ -681,78 +668,139 @@
       }
     }
 
-    // Auto-distribute TRP across active wave days
+    // Auto-distribute TRP across each wave's active days
     function autoDistributeTRP() {
       if (!currentWaves || currentWaves.length === 0) {
         alert('Nėra bangų, kurioms galima paskirstyti TRP');
         return;
       }
 
-      // Get total TRP from all wave items
-      let totalTRP = 0;
-      const waveItems = document.querySelectorAll('#waves .items tr');
-      
-      waveItems.forEach(row => {
-        const trpInput = row.querySelector('.itm-trps');
-        if (trpInput && trpInput.value) {
-          totalTRP += parseFloat(trpInput.value) || 0;
+      let totalDistributed = 0;
+      let totalDays = 0;
+
+      // Process each wave separately
+      currentWaves.forEach((wave, waveIndex) => {
+        if (!wave.start_date || !wave.end_date) return;
+
+        // Get TRP for this specific wave from the table
+        let waveTRP = 0;
+        const tableRows = document.querySelectorAll('#wavesTableBody tr');
+        tableRows.forEach(row => {
+          const waveCell = row.querySelector('td:first-child');
+          if (waveCell && waveCell.textContent.includes(`Banga ${waveIndex + 1}`)) {
+            const trpInput = row.querySelector('.itm-trps');
+            if (trpInput && trpInput.value) {
+              waveTRP += parseFloat(trpInput.value) || 0;
+            }
+          }
+        });
+
+        if (waveTRP === 0) return; // Skip waves with no TRP
+
+        // Get active days for this wave
+        const startDate = new Date(wave.start_date);
+        const endDate = new Date(wave.end_date);
+        const activeDays = [];
+        
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+          activeDays.push(d.toISOString().split('T')[0]);
         }
+
+        if (activeDays.length === 0) return;
+
+        // Calculate daily TRP for this wave
+        const dailyTRP = waveTRP / activeDays.length;
+        const roundedDaily = Math.round(dailyTRP * 100) / 100;
+
+        // Clear this wave's inputs first
+        const waveInputs = document.querySelectorAll(`.trp-input-wave[data-wave-id="${wave.id}"]`);
+        waveInputs.forEach(input => {
+          input.value = '';
+        });
+
+        // Fill this wave's active days with calculated daily TRP
+        activeDays.forEach(dateStr => {
+          const input = document.querySelector(`.trp-input-wave[data-wave-id="${wave.id}"][data-date="${dateStr}"]`);
+          if (input) {
+            input.value = roundedDaily.toString();
+          }
+        });
+
+        // Save this wave's TRP distribution
+        saveWaveTRPDistribution(wave.id);
+
+        totalDistributed += waveTRP;
+        totalDays += activeDays.length;
       });
 
-      if (totalTRP === 0) {
+      if (totalDistributed === 0) {
         alert('Įveskite TRP reikšmes bangų eilutėse pirmiau auto-paskirstymo');
         return;
       }
 
-      // Get all active wave days
-      const activeDays = new Set();
-      currentWaves.forEach(wave => {
-        if (wave.start_date && wave.end_date) {
-          const startDate = new Date(wave.start_date);
-          const endDate = new Date(wave.end_date);
+      alert(`TRP paskirstyti: ${totalDistributed.toFixed(2)} TRP per ${currentWaves.length} bangas`);
+    }
+
+    // -------- Wave-specific TRP Distribution functions --------
+    async function loadWaveTRPDistribution(waveId) {
+      if (!currentCampaign || !waveId) return;
+      
+      try {
+        // Use wave-specific endpoint if available, otherwise fall back to campaign TRP
+        const response = await fetchJSON(`/tv-planner/waves/${waveId}/trp-distribution`);
+        
+        if (response.status === 'ok' && response.data) {
+          const trpData = response.data;
           
-          for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-            activeDays.add(d.toISOString().split('T')[0]);
-          }
+          // Fill in the input fields for this wave
+          Object.keys(trpData).forEach(date => {
+            const input = document.querySelector(`.trp-input-wave[data-wave-id="${waveId}"][data-date="${date}"]`);
+            if (input && trpData[date] > 0) {
+              const roundedValue = Math.round(trpData[date] * 100) / 100;
+              input.value = roundedValue.toString();
+            }
+          });
         }
-      });
-
-      if (activeDays.size === 0) {
-        alert('Nėra aktyvių bangos dienų');
-        return;
+      } catch (error) {
+        console.log(`No TRP distribution found for wave ${waveId} (this is normal for new waves)`);
       }
-
-      // Calculate daily TRP
-      const dailyTRP = totalTRP / activeDays.size;
-      console.log(`DEBUG: totalTRP=${totalTRP}, activeDays=${activeDays.size}, dailyTRP=${dailyTRP}, rounded=${Math.round(dailyTRP * 100) / 100}`);
+    }
+    
+    async function saveWaveTRPDistribution(waveId) {
+      if (!currentCampaign || !waveId) return;
       
-      // Clear all inputs first
-      const trpInputs = document.querySelectorAll('.trp-input');
-      trpInputs.forEach(input => {
-        input.value = '';
-      });
-
-      // Fill active days with calculated daily TRP
-      activeDays.forEach(dateStr => {
-        const input = document.querySelector(`.trp-input[data-date="${dateStr}"]`);
-        if (input) {
-          // Force decimal value with explicit precision
-          const roundedValue = Math.round(dailyTRP * 100) / 100; // Round to 2 decimal places
-          input.value = roundedValue.toString();
-          console.log(`Setting ${dateStr} to ${roundedValue}`);
+      try {
+        const trpData = {};
+        const waveInputs = document.querySelectorAll(`.trp-input-wave[data-wave-id="${waveId}"]`);
+        
+        waveInputs.forEach(input => {
+          const date = input.dataset.date;
+          const rawValue = input.value.trim();
+          const value = rawValue === '' ? 0 : parseFloat(rawValue) || 0;
+          trpData[date] = value;
+        });
+        
+        // Save to database via wave-specific endpoint
+        try {
+          const response = await fetchJSON(`/tv-planner/waves/${waveId}/trp-distribution`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ trp_data: trpData })
+          });
+          
+          console.log(`TRP Distribution saved for wave ${waveId}:`, trpData);
+        } catch (apiError) {
+          // Fall back to campaign-level save if wave-specific endpoint doesn't exist
+          console.log('Wave-specific TRP endpoint not available, using campaign-level save');
+          const response = await fetchJSON(urlReplace(TRP_SAVE, currentCampaign.id), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ trp_data: trpData, wave_id: waveId })
+          });
         }
-      });
-
-      // Update totals and save
-      updateTotalTRP();
-      
-      // Small delay to ensure DOM is updated before saving
-      setTimeout(() => {
-        saveTRPDistribution();
-      }, 10);
-      
-      const roundedDaily = Math.round(dailyTRP * 100) / 100;
-      alert(`TRP paskirstyti: ${totalTRP.toFixed(2)} TRP per ${activeDays.size} dienas = ${roundedDaily} TRP/dieną`);
+      } catch (error) {
+        console.error(`Error saving TRP distribution for wave ${waveId}:`, error);
+      }
     }
 
     // Clear all TRP inputs
@@ -761,13 +809,17 @@
         return;
       }
 
-      const trpInputs = document.querySelectorAll('.trp-input');
+      const trpInputs = document.querySelectorAll('.trp-input-wave');
       trpInputs.forEach(input => {
         input.value = '';
       });
 
-      updateTotalTRP();
-      saveTRPDistribution();
+      // Save cleared data for each wave
+      if (currentWaves) {
+        currentWaves.forEach(wave => {
+          saveWaveTRPDistribution(wave.id);
+        });
+      }
     }
 
     function openCampaign(c){

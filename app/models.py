@@ -1224,7 +1224,7 @@ def generate_client_excel_report(campaign_id: int):
     current_row = 1
     
     # Campaign header
-    ws.merge_cells(f'A{current_row}:Y{current_row}')
+    ws.merge_cells(f'A{current_row}:X{current_row}')
     cell = ws[f'A{current_row}']
     cell.value = f"TV KOMUNIKACIJOS PLANAS"
     cell.font = Font(size=18, bold=True, color="1F4E79")
@@ -1233,7 +1233,7 @@ def generate_client_excel_report(campaign_id: int):
     current_row += 1
     
     # Campaign name
-    ws.merge_cells(f'A{current_row}:Y{current_row}')
+    ws.merge_cells(f'A{current_row}:X{current_row}')
     cell = ws[f'A{current_row}']
     cell.value = f"KAMPANIJA: {campaign['name'].upper()}"
     cell.font = Font(size=14, bold=True, color="1F4E79")
@@ -1266,7 +1266,7 @@ def generate_client_excel_report(campaign_id: int):
     
     # Table headers
     headers = [
-        'Banga', 'Laikotarpis', 'Kanalų grupė', 'Perkama tikslinė grupė', 'TVC', 'Trukmė', 
+        'Laikotarpis', 'Kanalų grupė', 'Perkama tikslinė grupė', 'TVC', 'Trukmė', 
         'TG dydis (*000)', 'TG dalis (%)', 'TG imtis', 'Kanalo dalis (%)', 'PT zonos dalis (%)', 
         'TRP perkama', 'Affinity1', 'GRP planuojamas', 'Gross CPP', 'Trukmės koeficientas', 'Sezoninis koeficientas', 
         'TRP pirkimo koeficientas', 'Išankstinis koeficientas', 'Pozicijos indeksas', 'Gross kaina', 'Kliento nuolaida %', 'Net kaina', 
@@ -1321,35 +1321,34 @@ def generate_client_excel_report(campaign_id: int):
             agency_discount = item.get('agency_discount', 0)
             net_net_price = net_price * (1 - agency_discount / 100)
             
-            ws.cell(row=current_row, column=1).value = wave['name'] or f"Banga {wave['id']}"
-            ws.cell(row=current_row, column=2).value = f"{wave.get('start_date', '')} - {wave.get('end_date', '')}"
-            ws.cell(row=current_row, column=3).value = item['owner']  # Kanalų grupė
-            ws.cell(row=current_row, column=4).value = item['target_group']  # Perkama TG
-            ws.cell(row=current_row, column=5).value = item.get('tvc_name', '-')  # TVC
-            ws.cell(row=current_row, column=6).value = item.get('tvc_duration', item.get('clip_duration', 0))  # Trukmė
-            ws.cell(row=current_row, column=7).value = tg_size  # TG dydis (*000)
-            ws.cell(row=current_row, column=8).value = f"{tg_share}%" if tg_share > 0 else ""  # TG dalis (%)
-            ws.cell(row=current_row, column=9).value = tg_sample if tg_sample > 0 else ""  # TG imtis
-            ws.cell(row=current_row, column=10).value = f"{channel_share:.1f}%"  # Kanalo dalis
-            ws.cell(row=current_row, column=11).value = f"{pt_zone_share:.1f}%"  # PT zonos dalis
-            ws.cell(row=current_row, column=12).value = item['trps']  # TRP perk.
-            ws.cell(row=current_row, column=13).value = affinity1 if affinity1 > 0 else ""  # Affinity1
-            ws.cell(row=current_row, column=14).value = round(grp_planned, 2) if grp_planned > 0 else ""  # GRP plan.
-            ws.cell(row=current_row, column=15).value = f"€{gross_cpp:.2f}"  # Gross CPP
-            ws.cell(row=current_row, column=16).value = duration_idx  # Trukm.koef
-            ws.cell(row=current_row, column=17).value = seasonal_idx  # Sez.koef
-            ws.cell(row=current_row, column=18).value = trp_purchase_idx  # TRP pirk.
-            ws.cell(row=current_row, column=19).value = advance_idx  # Išank.
-            ws.cell(row=current_row, column=20).value = position_idx  # Pozic.
-            ws.cell(row=current_row, column=21).value = f"€{gross_price:.2f}"  # Gross kaina
-            ws.cell(row=current_row, column=22).value = f"{client_discount}%" if client_discount > 0 else "0%"  # Kl. nuol. %
-            ws.cell(row=current_row, column=23).value = f"€{net_price:.2f}"  # Net kaina
-            ws.cell(row=current_row, column=24).value = f"{agency_discount}%" if agency_discount > 0 else "0%"  # Ag. nuol. %
-            ws.cell(row=current_row, column=25).value = f"€{net_net_price:.2f}"  # Net net kaina
+            ws.cell(row=current_row, column=1).value = f"{wave.get('start_date', '')} - {wave.get('end_date', '')}"
+            ws.cell(row=current_row, column=2).value = item['owner']  # Kanalų grupė
+            ws.cell(row=current_row, column=3).value = item['target_group']  # Perkama TG
+            ws.cell(row=current_row, column=4).value = item.get('tvc_name', '-')  # TVC
+            ws.cell(row=current_row, column=5).value = item.get('tvc_duration', item.get('clip_duration', 0))  # Trukmė
+            ws.cell(row=current_row, column=6).value = tg_size  # TG dydis (*000)
+            ws.cell(row=current_row, column=7).value = f"{tg_share}%" if tg_share > 0 else ""  # TG dalis (%)
+            ws.cell(row=current_row, column=8).value = tg_sample if tg_sample > 0 else ""  # TG imtis
+            ws.cell(row=current_row, column=9).value = f"{channel_share:.1f}%"  # Kanalo dalis
+            ws.cell(row=current_row, column=10).value = f"{pt_zone_share:.1f}%"  # PT zonos dalis
+            ws.cell(row=current_row, column=11).value = item['trps']  # TRP perk.
+            ws.cell(row=current_row, column=12).value = affinity1 if affinity1 > 0 else ""  # Affinity1
+            ws.cell(row=current_row, column=13).value = round(grp_planned, 2) if grp_planned > 0 else ""  # GRP plan.
+            ws.cell(row=current_row, column=14).value = f"€{gross_cpp:.2f}"  # Gross CPP
+            ws.cell(row=current_row, column=15).value = duration_idx  # Trukm.koef
+            ws.cell(row=current_row, column=16).value = seasonal_idx  # Sez.koef
+            ws.cell(row=current_row, column=17).value = trp_purchase_idx  # TRP pirk.
+            ws.cell(row=current_row, column=18).value = advance_idx  # Išank.
+            ws.cell(row=current_row, column=19).value = position_idx  # Pozic.
+            ws.cell(row=current_row, column=20).value = f"€{gross_price:.2f}"  # Gross kaina
+            ws.cell(row=current_row, column=21).value = f"{client_discount}%" if client_discount > 0 else "0%"  # Kl. nuol. %
+            ws.cell(row=current_row, column=22).value = f"€{net_price:.2f}"  # Net kaina
+            ws.cell(row=current_row, column=23).value = f"{agency_discount}%" if agency_discount > 0 else "0%"  # Ag. nuol. %
+            ws.cell(row=current_row, column=24).value = f"€{net_net_price:.2f}"  # Net net kaina
             
             # Apply zebra striping and borders
             row_fill = light_fill if row_count % 2 == 1 else None
-            for col in range(1, 26):
+            for col in range(1, 25):
                 cell = ws.cell(row=current_row, column=col)
                 cell.border = border
                 if row_fill:
@@ -1366,7 +1365,7 @@ def generate_client_excel_report(campaign_id: int):
             client_cost = costs['client_cost']
             total_cost += client_cost
             
-            ws.merge_cells(f'A{current_row}:X{current_row}')
+            ws.merge_cells(f'A{current_row}:W{current_row}')
             cell = ws[f'A{current_row}']
             discount_text = f" (-{costs['client_discount_percent']}%)" if costs['client_discount_percent'] > 0 else ""
             cell.value = f"Bangos suma{discount_text}:"
@@ -1374,11 +1373,11 @@ def generate_client_excel_report(campaign_id: int):
             cell.fill = wave_fill
             cell.alignment = Alignment(horizontal='right')
             
-            ws.cell(row=current_row, column=25).value = f"€{client_cost:.2f}"
-            ws.cell(row=current_row, column=25).font = wave_font
-            ws.cell(row=current_row, column=25).fill = wave_fill
+            ws.cell(row=current_row, column=24).value = f"€{client_cost:.2f}"
+            ws.cell(row=current_row, column=24).font = wave_font
+            ws.cell(row=current_row, column=24).fill = wave_fill
             
-            for col in range(1, 26):
+            for col in range(1, 25):
                 cell = ws.cell(row=current_row, column=col)
                 cell.border = border
                 cell.fill = wave_fill
@@ -1386,7 +1385,7 @@ def generate_client_excel_report(campaign_id: int):
             current_row += 2
     
     # Grand total
-    ws.merge_cells(f'A{current_row}:X{current_row}')
+    ws.merge_cells(f'A{current_row}:W{current_row}')
     cell = ws[f'A{current_row}']
     cell.value = "BENDRA KAMPANIJOS SUMA:"
     cell.font = Font(bold=True, size=12, color="1F4E79")
@@ -1394,7 +1393,7 @@ def generate_client_excel_report(campaign_id: int):
     cell.fill = total_fill
     cell.border = thick_border
     
-    total_cell = ws.cell(row=current_row, column=25)
+    total_cell = ws.cell(row=current_row, column=24)
     total_cell.value = f"€{total_cost:.2f}"
     total_cell.font = Font(bold=True, size=12, color="1F4E79")
     total_cell.fill = total_fill
@@ -1437,8 +1436,8 @@ def generate_client_excel_report(campaign_id: int):
                 
                 # First add calendar title above the calendar (spanning across calendar columns)
                 calendar_title_row = cal_start_row - 2  # 2 rows above calendar
-                calendar_start_col = 27  # AA
-                calendar_end_col = min(27 + (end_date - start_date).days + 3, 50)  # Estimate calendar width
+                calendar_start_col = 26  # Z
+                calendar_end_col = min(26 + (end_date - start_date).days + 3, 50)  # Estimate calendar width
                 
                 if calendar_start_col < calendar_end_col:
                     ws.merge_cells(f'{openpyxl.utils.get_column_letter(calendar_start_col)}{calendar_title_row}:{openpyxl.utils.get_column_letter(calendar_end_col)}{calendar_title_row}')
@@ -1450,7 +1449,7 @@ def generate_client_excel_report(campaign_id: int):
                 
                 # Month headers row
                 current_date = start_date
-                col_idx = 27  # Start calendar from column AA
+                col_idx = 26  # Start calendar from column Z
                 months = []
                 month_spans = {}
                 
@@ -1487,7 +1486,7 @@ def generate_client_excel_report(campaign_id: int):
                 
                 # Day numbers row
                 current_date = start_date
-                col_idx = 27  # Start from column AA
+                col_idx = 26  # Start from column Z
                 while current_date <= end_date:
                     day_cell = ws.cell(row=cal_start_row + 1, column=col_idx)
                     day_cell.value = current_date.day
@@ -1506,7 +1505,7 @@ def generate_client_excel_report(campaign_id: int):
                 
                 # Week days row
                 current_date = start_date
-                col_idx = 27  # Start from column AA
+                col_idx = 26  # Start from column Z
                 weekday_names = ['Pr', 'An', 'Tr', 'Kt', 'Pn', 'Št', 'Sk']
                 while current_date <= end_date:
                     weekday_cell = ws.cell(row=cal_start_row + 2, column=col_idx)
@@ -1540,7 +1539,7 @@ def generate_client_excel_report(campaign_id: int):
                             daily_trp = wave_total_trp / wave_days if wave_days > 0 else 0
                             
                             current_date = start_date
-                            col_idx = 27  # Start from column AA
+                            col_idx = 26  # Start from column Z
                             
                             while current_date <= end_date:
                                 wave_cell = ws.cell(row=row_idx, column=col_idx)
@@ -1586,7 +1585,9 @@ def generate_client_excel_report(campaign_id: int):
                             datetime.strptime(wave['start_date'], '%Y-%m-%d')
                             datetime.strptime(wave['end_date'], '%Y-%m-%d')
                             wave_total_trp = sum(item['trps'] for item in wave['items'] if item.get('trps', 0) > 0)
-                            label = f"Banga {wave_idx + 1} (TRP: {wave_total_trp:.2f})"
+                            # Get channel group from first item in wave
+                            channel_group = wave['items'][0]['owner'] if wave['items'] and wave['items'][0].get('owner') else f"Banga {wave_idx + 1}"
+                            label = f"{channel_group} (TRP: {wave_total_trp:.2f})"
                             ws.cell(row=label_row, column=col_idx + 1).value = label
                             ws.cell(row=label_row, column=col_idx + 1).font = Font(size=9, color="1F4E79", bold=True)
                             label_row += 1
@@ -1613,7 +1614,7 @@ def generate_client_excel_report(campaign_id: int):
                         pass  # Skip if row setting fails
                 
                 # Make calendar columns wider to show TRP values properly
-                calendar_start_col = 27  # AA column
+                calendar_start_col = 26  # Z column
                 calendar_end_col = min(col_idx + 1, 60)  # Limit to reasonable range
                 for col in range(calendar_start_col, calendar_end_col):
                     try:
@@ -1655,7 +1656,7 @@ def generate_client_excel_report(campaign_id: int):
     
     # Professional footer
     current_row += 3
-    ws.merge_cells(f'A{current_row}:Y{current_row}')
+    ws.merge_cells(f'A{current_row}:X{current_row}')
     footer_cell = ws[f'A{current_row}']
     from datetime import datetime
     footer_cell.value = f"Ataskaita sugeneruota: {datetime.now().strftime('%Y-%m-%d %H:%M')} | TV Planner Sistema"

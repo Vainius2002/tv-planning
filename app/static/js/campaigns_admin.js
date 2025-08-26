@@ -156,8 +156,12 @@
         let waveTotalTRP = 0;
         const tableRows = document.querySelectorAll('#wavesTableBody tr');
         tableRows.forEach(row => {
-          const waveCell = row.querySelector('td:first-child');
-          if (waveCell && waveCell.textContent.includes(`Banga ${waveIndex + 1}`)) {
+          // Check if this row belongs to the current wave by matching dates
+          const startDateCell = row.querySelector('td:nth-child(1)');
+          const endDateCell = row.querySelector('td:nth-child(2)');
+          if (startDateCell && endDateCell && 
+              startDateCell.textContent === (wave.start_date || '-') && 
+              endDateCell.textContent === (wave.end_date || '-')) {
             const trpInput = row.querySelector('.itm-trps');
             if (trpInput && trpInput.value) {
               waveTotalTRP += parseFloat(trpInput.value) || 0;
@@ -182,7 +186,7 @@
         
         waveRows.push({
           waveIndex: waveIndex + 1,
-          waveName: `Banga ${waveIndex + 1}`,
+          waveName: wave.channel_group || `Banga ${waveIndex + 1}`,
           startDate: wave.start_date,
           endDate: wave.end_date,
           totalTRP: waveTotalTRP,
@@ -555,7 +559,7 @@
       
       // Month row
       html += '<tr class="border-b border-slate-200">';
-      html += `<th class="px-2 py-1 text-xs font-medium text-slate-700 bg-slate-50 border-r border-slate-300 sticky left-0">Banga</th>`;
+      html += `<th class="px-2 py-1 text-xs font-medium text-slate-700 bg-slate-50 border-r border-slate-300 sticky left-0">Kanalų grupė</th>`;
       
       const months = [];
       const monthDays = {};
@@ -609,7 +613,7 @@
         currentWaves.forEach((wave, waveIndex) => {
           if (wave.start_date && wave.end_date) {
             html += `<tr class="border-b border-slate-200 hover:bg-slate-50">`;
-            html += `<td class="px-2 py-2 text-xs font-medium bg-slate-100 border-r border-slate-300 sticky left-0">Banga ${waveIndex + 1}</td>`;
+            html += `<td class="px-2 py-2 text-xs font-medium bg-slate-100 border-r border-slate-300 sticky left-0">${wave.channel_group || `Banga ${waveIndex + 1}`}</td>`;
             
             tempDate = new Date(startDate);
             const waveStart = new Date(wave.start_date);
@@ -784,8 +788,12 @@
         let waveTRP = 0;
         const tableRows = document.querySelectorAll('#wavesTableBody tr');
         tableRows.forEach(row => {
-          const waveCell = row.querySelector('td:first-child');
-          if (waveCell && waveCell.textContent.includes(`Banga ${waveIndex + 1}`)) {
+          // Check if this row belongs to the current wave by matching dates
+          const startDateCell = row.querySelector('td:nth-child(1)');
+          const endDateCell = row.querySelector('td:nth-child(2)');
+          if (startDateCell && endDateCell && 
+              startDateCell.textContent === (wave.start_date || '-') && 
+              endDateCell.textContent === (wave.end_date || '-')) {
             const trpInput = row.querySelector('.itm-trps');
             if (trpInput && trpInput.value) {
               waveTRP += parseFloat(trpInput.value) || 0;
@@ -930,6 +938,24 @@
     
     async function loadWaves(cid){
       const waves = await fetchJSON(urlReplace(W_LIST, cid));
+      
+      // Load items for each wave to get channel group
+      for(const wave of waves) {
+        try {
+          const items = await fetchJSON(urlReplace(I_LIST, wave.id));
+          wave.items = items;
+          // Get channel group from first item
+          if (items && items.length > 0) {
+            wave.channel_group = items[0].channel_group || items[0].owner || `Banga ${waves.indexOf(wave) + 1}`;
+          } else {
+            wave.channel_group = `Banga ${waves.indexOf(wave) + 1}`;
+          }
+        } catch(e) {
+          wave.items = [];
+          wave.channel_group = `Banga ${waves.indexOf(wave) + 1}`;
+        }
+      }
+      
       currentWaves = waves; // Store for calendar
       
       // Clear old waves div (will be removed eventually)
@@ -967,7 +993,6 @@
                   
                   const tr = document.createElement('tr');
                   tr.innerHTML = `
-                    <td class="px-2 py-1 text-xs font-medium">Banga ${waveIndex}</td>
                     <td class="px-2 py-1 text-xs">${w.start_date || '-'}</td>
                     <td class="px-2 py-1 text-xs">${w.end_date || '-'}</td>
                     <td class="px-2 py-1 text-xs">${item.channel_group || getChannelName(item.channel_id) || item.owner || '-'}</td>
@@ -1144,7 +1169,7 @@
         try {
         section.innerHTML = `
           <div class="px-4 py-3 bg-slate-50 flex items-center justify-between">
-            <div class="font-medium">Banga ${waves.indexOf(w) + 1} <span class="text-slate-500 ml-2">${(w.start_date||'')} ${w.end_date?('– '+w.end_date):''}</span></div>
+            <div class="font-medium">${w.channel_group || `Banga ${waves.indexOf(w) + 1}`} <span class="text-slate-500 ml-2">${(w.start_date||'')} ${w.end_date?('– '+w.end_date):''}</span></div>
             <div class="flex gap-2">
               <button class="w-del px-3 py-1.5 text-xs rounded-lg border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100">Šalinti bangą</button>
             </div>

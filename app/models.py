@@ -1663,13 +1663,13 @@ def generate_client_excel_report(campaign_id: int):
     footer_cell.font = Font(size=8, italic=True, color="808080")
     footer_cell.alignment = Alignment(horizontal='center')
     
-    # Adjust column widths - normal widths for main table
+    # Adjust column widths - normal widths for main table (without Banga column)
     column_widths = [
-        12, 18, 15, 25, 12, 8,  # Banga, Laikotarpis, Kanalų grupė, Perkama tikslinė grupė, TVC, Trukmė
-        12, 10, 8, 15, 15,      # TG dydis, TG dalis, TG imtis, Kanalo dalis, PT zonos dalis
-        12, 10, 15, 12, 20,     # TRP perkama, Affinity1, GRP planuojamas, Gross CPP, Trukmės koeficientas
-        20, 22, 20, 18, 12,     # Sezoninis koeficientas, TRP pirkimo koeficientas, Išankstinis koeficientas, Pozicijos indeksas, Gross kaina
-        15, 12, 15, 15          # Kliento nuolaida %, Net kaina, Agentūros nuolaida %, Net net kaina
+        24, 18, 25, 12, 8,      # Laikotarpis (wider for dates), Kanalų grupė, Perkama tikslinė grupė, TVC, Trukmė
+        13, 11, 10, 15, 15,     # TG dydis, TG dalis, TG imtis, Kanalo dalis, PT zonos dalis
+        13, 11, 15, 13, 20,     # TRP perkama, Affinity1, GRP planuojamas, Gross CPP, Trukmės koeficientas
+        20, 22, 20, 18, 13,     # Sezoninis koeficientas, TRP pirkimo koeficientas, Išankstinis koeficientas, Pozicijos indeksas, Gross kaina
+        16, 13, 16, 16          # Kliento nuolaida %, Net kaina, Agentūros nuolaida %, Net net kaina
     ]
     for col, width in enumerate(column_widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width

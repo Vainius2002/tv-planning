@@ -159,3 +159,133 @@ def get_local_campaign_id(campaign_id):
     else:
         # This is already a local campaign
         return int(campaign_id)
+
+
+def create_plan_in_projects_crm(campaign_id, plan_name, description="", budget=0.0):
+    """Create a plan in Projects-CRM"""
+    try:
+        # Remove 'crm_' prefix to get actual campaign ID
+        if str(campaign_id).startswith('crm_'):
+            actual_crm_campaign_id = int(campaign_id.replace('crm_', ''))
+        else:
+            # This shouldn't happen for waves from Projects-CRM campaigns
+            logger.warning(f"Trying to create plan for non-CRM campaign: {campaign_id}")
+            return None
+        
+        url = f"{PROJECTS_CRM_API_URL}/campaigns/{actual_crm_campaign_id}/plans"
+        headers = {'X-API-Key': PROJECTS_CRM_API_KEY, 'Content-Type': 'application/json'}
+        
+        data = {
+            'name': plan_name,
+            'description': description,
+            'budget': budget,
+            'status': 'active'
+        }
+        
+        response = requests.post(url, json=data, headers=headers, timeout=TIMEOUT)
+        
+        if response.status_code == 201:
+            plan_data = response.json()
+            logger.info(f"Created plan '{plan_name}' in Projects-CRM campaign {actual_crm_campaign_id}")
+            return plan_data
+        else:
+            logger.error(f"Failed to create plan in Projects-CRM: {response.status_code} - {response.text}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error creating plan in Projects-CRM: {e}")
+        return None
+
+
+def sync_wave_to_projects_crm_plan(campaign_id, wave_name, wave_start_date, wave_end_date):
+    """Sync a TV-Planner wave to Projects-CRM as a plan"""
+    # Only sync if this is a Projects-CRM campaign
+    if not str(campaign_id).startswith('crm_'):
+        return None
+    
+    # Create description with wave dates
+    description = f"TV-Planner wave: {wave_name}"
+    if wave_start_date and wave_end_date:
+        description += f" ({wave_start_date} to {wave_end_date})"
+    
+    # Create plan in Projects-CRM
+    return create_plan_in_projects_crm(
+        campaign_id=campaign_id,
+        plan_name=wave_name,
+        description=description,
+        budget=0.0
+    )
+
+
+def get_projects_crm_campaign_id_from_local(local_campaign_id):
+    """Get the original Projects-CRM campaign ID from a local campaign"""
+    try:
+        from app import models
+        
+        # Get the campaign details to find the original CRM ID
+        campaigns = models.list_campaigns()
+        for campaign in campaigns:
+            if campaign.get('id') == local_campaign_id:
+                # Check if this campaign name has the Projects-CRM format
+                name = campaign.get('name', '')
+                if ' (' in name and name.count('(') == 1:
+                    # Extract the code part, e.g., "Campaign Name (PLN-25-006-A)" -> "PLN-25-006-A"
+                    code_part = name.split(' (')[-1].rstrip(')')
+                    if code_part.startswith('PLN-'):
+                        # This looks like a Projects-CRM campaign
+                        # We need to find the actual campaign ID
+                        projects_crm_campaigns = get_campaigns()
+                        for crm_campaign in projects_crm_campaigns:
+                            if crm_campaign.get('code') == code_part:
+                                return f"crm_{crm_campaign['id']}"
+        
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error finding Projects-CRM campaign ID: {e}")
+        return None
+
+
+def delete_plan_from_projects_crm(campaign_id, plan_name):
+    """Delete a plan from Projects-CRM by name"""
+    try:
+        # Remove 'crm_' prefix to get actual campaign ID
+        if str(campaign_id).startswith('crm_'):
+            actual_crm_campaign_id = int(campaign_id.replace('crm_', ''))
+        else:
+            logger.warning(f"Trying to delete plan from non-CRM campaign: {campaign_id}")
+            return None
+        
+        # URL encode the plan name to handle spaces and special characters
+        import urllib.parse
+        encoded_plan_name = urllib.parse.quote(plan_name, safe='')
+        
+        url = f"{PROJECTS_CRM_API_URL}/campaigns/{actual_crm_campaign_id}/plans/by-name/{encoded_plan_name}"
+        headers = {'X-API-Key': PROJECTS_CRM_API_KEY}
+        
+        response = requests.delete(url, headers=headers, timeout=TIMEOUT)
+        
+        if response.status_code == 200:
+            result = response.json()
+            logger.info(f"Deleted plan '{plan_name}' from Projects-CRM campaign {actual_crm_campaign_id}")
+            return result
+        elif response.status_code == 404:
+            logger.warning(f"Plan '{plan_name}' not found in Projects-CRM campaign {actual_crm_campaign_id}")
+            return None
+        else:
+            logger.error(f"Failed to delete plan from Projects-CRM: {response.status_code} - {response.text}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error deleting plan from Projects-CRM: {e}")
+        return None
+
+
+def sync_wave_deletion_to_projects_crm(campaign_id, wave_name):
+    """Sync wave deletion from TV-Planner to Projects-CRM plan deletion"""
+    # Only sync if this is a Projects-CRM campaign
+    if not str(campaign_id).startswith('crm_'):
+        return None
+    
+    # Delete the corresponding plan in Projects-CRM
+    return delete_plan_from_projects_crm(campaign_id, wave_name)

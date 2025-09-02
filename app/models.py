@@ -703,6 +703,15 @@ def update_wave(wid: int, data: dict):
     with get_db() as db:
         db.execute(f"UPDATE waves SET {', '.join(sets)} WHERE id=?", args)
 
+def list_waves_for_deletion_sync(wid: int):
+    with get_db() as db:
+        row = db.execute("""
+            SELECT w.name, w.campaign_id
+            FROM waves w
+            WHERE w.id=?
+        """, (wid,)).fetchone()
+        return dict(row) if row else None
+
 def delete_wave(wid: int):
     with get_db() as db:
         db.execute("DELETE FROM waves WHERE id=?", (wid,))

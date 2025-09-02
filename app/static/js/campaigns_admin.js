@@ -613,7 +613,12 @@
         currentWaves.forEach((wave, waveIndex) => {
           if (wave.start_date && wave.end_date) {
             html += `<tr class="border-b border-slate-200 hover:bg-slate-50">`;
-            html += `<td class="px-2 py-2 text-xs font-medium bg-slate-100 border-r border-slate-300 sticky left-0">${wave.channel_group || `Banga ${waveIndex + 1}`}</td>`;
+            html += `<td class="px-2 py-2 text-xs font-medium bg-slate-100 border-r border-slate-300 sticky left-0">
+              <div class="flex items-center justify-between">
+                <span>${wave.channel_group || `Banga ${waveIndex + 1}`}</span>
+                <button class="calendar-wave-delete ml-2 text-rose-600 hover:text-rose-800 text-xs" data-wave-id="${wave.id}" title="Šalinti bangą">✕</button>
+              </div>
+            </td>`;
             
             tempDate = new Date(startDate);
             const waveStart = new Date(wave.start_date);
@@ -663,6 +668,27 @@
         });
         input.addEventListener('blur', () => {
           saveWaveTRPDistribution(input.dataset.waveId);
+        });
+      });
+
+      // Add event listeners for calendar wave delete buttons
+      const calendarWaveDeleteBtns = calendarDiv.querySelectorAll('.calendar-wave-delete');
+      calendarWaveDeleteBtns.forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Šalinti bangą iš kalendoriaus?')) return;
+          
+          try {
+            const waveId = btn.dataset.waveId;
+            console.log('Deleting wave from calendar:', waveId);
+            
+            await fetchJSON(urlReplace(W_DELETE, waveId), { method: 'DELETE' });
+            
+            console.log('Wave deleted, reloading...');
+            await loadWaves(currentCampaign.id);
+          } catch (error) {
+            console.error('Error deleting wave from calendar:', error);
+            alert('Klaida šalinant bangą: ' + error.message);
+          }
         });
       });
 
@@ -1128,17 +1154,27 @@
                   tr.querySelector('.wave-item-del').addEventListener('click', async () => {
                     if(!confirm('Šalinti eilutę?')) return;
                     
-                    // Delete the item
-                    await fetchJSON(urlReplace(I_DELETE, item.id), { method:'DELETE' });
-                    
-                    // Check if this was the last item in the wave
-                    const remainingItems = items.filter(i => i.id !== item.id);
-                    if (remainingItems.length === 0) {
-                      // Delete the wave too if it was the last item
-                      await fetchJSON(urlReplace(W_DELETE, w.id), { method:'DELETE' });
+                    try {
+                      console.log('Deleting wave item:', item.id);
+                      
+                      // Delete the item
+                      await fetchJSON(urlReplace(I_DELETE, item.id), { method:'DELETE' });
+                      
+                      // Check if this was the last item in the wave
+                      const remainingItems = items.filter(i => i.id !== item.id);
+                      if (remainingItems.length === 0) {
+                        console.log('Deleting wave too:', w.id);
+                        // Delete the wave too if it was the last item
+                        await fetchJSON(urlReplace(W_DELETE, w.id), { method:'DELETE' });
+                      }
+                      
+                      console.log('Reloading waves...');
+                      await loadWaves(currentCampaign.id);
+                      console.log('Waves reloaded successfully');
+                    } catch (error) {
+                      console.error('Error during deletion:', error);
+                      alert('Klaida šalinant: ' + error.message);
                     }
-                    
-                    await loadWaves(currentCampaign.id);
                   });
                   
                   wavesTableBody.appendChild(tr);
@@ -1706,8 +1742,17 @@
             });
             tr.querySelector('.itm-del').addEventListener('click', async () => {
               if(!confirm('Šalinti eilutę?')) return;
-              await fetchJSON(urlReplace(I_DELETE, r.id), { method:'DELETE' });
-              tr.remove();
+              
+              try {
+                console.log('Deleting item (itm-del):', r.id);
+                await fetchJSON(urlReplace(I_DELETE, r.id), { method:'DELETE' });
+                console.log('Item deleted, reloading waves...');
+                await loadWaves(currentCampaign.id);
+                console.log('Waves reloaded successfully');
+              } catch (error) {
+                console.error('Error during deletion:', error);
+                alert('Klaida šalinant: ' + error.message);
+              }
             });
             itemsTbody.appendChild(tr);
           });
@@ -1917,7 +1962,9 @@
         
         try {
           // Each row is its own wave, so always create a new wave
-          const waveCount = currentWaves ? currentWaves.length + 1 : 1;
+          // Refresh wave count to ensure we start from 1 if no waves exist
+          const freshWaves = await fetchJSON(urlReplace(W_LIST, currentCampaign.id));
+          const waveCount = freshWaves ? freshWaves.length + 1 : 1;
           
           // Create new wave for this row
           const waveResponse = await fetchJSON(urlReplace(W_CREATE, currentCampaign.id), {

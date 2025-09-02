@@ -2,7 +2,13 @@
 from . import bp
 from flask import render_template, request, jsonify, send_file
 from app import models
-from app.projects_crm_service import get_tv_planner_campaigns, get_local_campaign_id
+from app.projects_crm_service import (
+    get_tv_planner_campaigns, 
+    get_local_campaign_id, 
+    sync_wave_to_projects_crm_plan,
+    sync_wave_deletion_to_projects_crm,
+    get_projects_crm_campaign_id_from_local
+)
 from datetime import datetime
 
 # ---------- Page ----------
@@ -87,8 +93,38 @@ def waves_create(cid):
     try:
         local_cid = get_local_campaign_id(cid)
         data = request.get_json(force=True)
-        wid = models.create_wave(local_cid, data.get("name"), data.get("start_date"), data.get("end_date"))
+        
+        wave_name = data.get("name")
+        wave_start_date = data.get("start_date")
+        wave_end_date = data.get("end_date")
+        
+        print(f"Creating wave: {wave_name} for campaign {cid} (local: {local_cid})")
+        
+        # Create wave in TV-Planner
+        wid = models.create_wave(local_cid, wave_name, wave_start_date, wave_end_date)
+        print(f"Created wave with ID: {wid}")
+        
+        # Sync to Projects-CRM if this is a Projects-CRM campaign
+        original_cid = cid if str(cid).startswith('crm_') else get_projects_crm_campaign_id_from_local(local_cid)
+        
+        if original_cid:
+            try:
+                plan_data = sync_wave_to_projects_crm_plan(
+                    campaign_id=original_cid,
+                    wave_name=wave_name,
+                    wave_start_date=wave_start_date,
+                    wave_end_date=wave_end_date
+                )
+                if plan_data:
+                    print(f"Successfully synced wave '{wave_name}' to Projects-CRM as plan '{plan_data['name']}'")
+                else:
+                    print(f"Failed to sync wave '{wave_name}' to Projects-CRM")
+            except Exception as sync_error:
+                print(f"Error syncing wave to Projects-CRM: {sync_error}")
+                # Don't fail the wave creation if sync fails
+        
         return jsonify({"status":"ok","id":wid}), 201
+        
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -100,8 +136,44 @@ def waves_update(wid):
 
 @bp.route("/waves/<int:wid>", methods=["DELETE"])
 def waves_delete(wid):
-    models.delete_wave(wid)
-    return jsonify({"status":"ok"})
+    try:
+        print(f"Deleting wave {wid}")
+        
+        # Get wave information before deleting it
+        from app import models
+        wave = models.list_waves_for_deletion_sync(wid)
+        print(f"Wave info: {wave}")
+        
+        if wave:
+            wave_name = wave.get('name')
+            campaign_id = wave.get('campaign_id')
+            print(f"Wave name: {wave_name}, Campaign ID: {campaign_id}")
+            
+            # Delete the wave from TV-Planner
+            models.delete_wave(wid)
+            print("Wave deleted from database")
+            
+            # Sync deletion to Projects-CRM if this is a Projects-CRM campaign
+            if campaign_id and wave_name:
+                original_cid = get_projects_crm_campaign_id_from_local(campaign_id)
+                if original_cid:
+                    try:
+                        result = sync_wave_deletion_to_projects_crm(original_cid, wave_name)
+                        if result:
+                            print(f"Successfully deleted plan '{wave_name}' from Projects-CRM")
+                        else:
+                            print(f"Plan '{wave_name}' not found in Projects-CRM (may have been already deleted)")
+                    except Exception as sync_error:
+                        print(f"Error syncing wave deletion to Projects-CRM: {sync_error}")
+                        # Don't fail the wave deletion if sync fails
+        else:
+            # Wave not found, just try to delete it anyway
+            models.delete_wave(wid)
+            
+        return jsonify({"status":"ok"})
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # ---------- Wave items ----------
 @bp.route("/waves/<int:wid>/items", methods=["GET"])

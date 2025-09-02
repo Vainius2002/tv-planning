@@ -2,6 +2,7 @@
 from . import bp
 from flask import render_template, request, jsonify, send_file
 from app import models
+from app.projects_crm_service import get_tv_planner_campaigns
 from datetime import datetime
 
 # ---------- Page ----------
@@ -26,7 +27,20 @@ def pl_targets(pl_id):
 # ---------- Campaigns API ----------
 @bp.route("/campaigns-api", methods=["GET"])
 def campaigns_list():
-    return jsonify(models.list_campaigns())
+    # Get local TV-Planner campaigns
+    local_campaigns = models.list_campaigns()
+    
+    # Get campaigns from Projects-CRM
+    try:
+        projects_crm_campaigns = get_tv_planner_campaigns()
+    except Exception as e:
+        print(f"Error fetching Projects-CRM campaigns: {e}")
+        projects_crm_campaigns = []
+    
+    # Combine both lists
+    all_campaigns = local_campaigns + projects_crm_campaigns
+    
+    return jsonify(all_campaigns)
 
 @bp.route("/campaigns-api", methods=["POST"])
 def campaigns_create():

@@ -2,7 +2,7 @@
 from . import bp
 from flask import render_template, request, jsonify, send_file
 from app import models
-from app.projects_crm_service import get_tv_planner_campaigns
+from app.projects_crm_service import get_tv_planner_campaigns, get_local_campaign_id
 from datetime import datetime
 
 # ---------- Page ----------
@@ -74,15 +74,23 @@ def campaigns_delete(cid):
     return jsonify({"status":"ok"})
 
 # ---------- Waves ----------
-@bp.route("/campaigns/<int:cid>/waves", methods=["GET"])
+@bp.route("/campaigns/<cid>/waves", methods=["GET"])
 def waves_list(cid):
-    return jsonify(models.list_waves(cid))
+    try:
+        local_cid = get_local_campaign_id(cid)
+        return jsonify(models.list_waves(local_cid))
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-@bp.route("/campaigns/<int:cid>/waves", methods=["POST"])
+@bp.route("/campaigns/<cid>/waves", methods=["POST"])
 def waves_create(cid):
-    data = request.get_json(force=True)
-    wid = models.create_wave(cid, data.get("name"), data.get("start_date"), data.get("end_date"))
-    return jsonify({"status":"ok","id":wid}), 201
+    try:
+        local_cid = get_local_campaign_id(cid)
+        data = request.get_json(force=True)
+        wid = models.create_wave(local_cid, data.get("name"), data.get("start_date"), data.get("end_date"))
+        return jsonify({"status":"ok","id":wid}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @bp.route("/waves/<int:wid>", methods=["PATCH"])
 def waves_update(wid):
@@ -257,17 +265,18 @@ def update_campaign_status(cid):
         return jsonify({"status": "error", "message": str(e)}), 400
 
 # Reports
-@bp.route("/campaigns/<int:cid>/export/client-excel", methods=["GET"])
+@bp.route("/campaigns/<cid>/export/client-excel", methods=["GET"])
 def export_client_excel(cid):
     """Export client Excel report"""
     try:
-        excel_file = models.generate_client_excel_report(cid)
+        local_cid = get_local_campaign_id(cid)
+        excel_file = models.generate_client_excel_report(local_cid)
         if not excel_file:
             return jsonify({"status": "error", "message": "Campaign not found"}), 404
         
         # Get campaign name for filename
-        campaign_data = models.get_campaign_report_data(cid)
-        campaign_name = campaign_data['campaign']['name'] if campaign_data else f"Campaign_{cid}"
+        campaign_data = models.get_campaign_report_data(local_cid)
+        campaign_name = campaign_data['campaign']['name'] if campaign_data else f"Campaign_{local_cid}"
         
         # Clean filename
         safe_name = "".join(c for c in campaign_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
@@ -308,12 +317,16 @@ def export_agency_csv(cid):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # TVCs
-@bp.route("/campaigns/<int:cid>/tvcs", methods=["GET"])
+@bp.route("/campaigns/<cid>/tvcs", methods=["GET"])
 def list_tvcs(cid):
     """List all TVCs for a campaign"""
-    return jsonify(models.list_campaign_tvcs(cid))
+    try:
+        local_cid = get_local_campaign_id(cid)
+        return jsonify(models.list_campaign_tvcs(local_cid))
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-@bp.route("/campaigns/<int:cid>/tvcs", methods=["POST"])
+@bp.route("/campaigns/<cid>/tvcs", methods=["POST"])
 def create_tvc(cid):
     """Create a new TVC for a campaign"""
     data = request.get_json(force=True)
@@ -321,10 +334,13 @@ def create_tvc(cid):
     duration = data.get("duration", 0)
     
     try:
-        tvc_id = models.create_tvc(cid, name, int(duration))
+        local_cid = get_local_campaign_id(cid)
+        tvc_id = models.create_tvc(local_cid, name, int(duration))
         return jsonify({"status": "ok", "id": tvc_id}), 201
     except ValueError as e:
         return jsonify({"status": "error", "message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @bp.route("/tvcs/<int:tvc_id>", methods=["PATCH"])
 def update_tvc(tvc_id):

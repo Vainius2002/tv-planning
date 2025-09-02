@@ -106,3 +106,56 @@ def get_tv_planner_campaigns():
     """Get campaigns formatted for TV-Planner"""
     campaigns = get_campaigns()
     return [convert_campaign_for_tv_planner(campaign) for campaign in campaigns]
+
+
+def sync_projects_crm_campaign_to_local(campaign_id):
+    """Sync a specific Projects-CRM campaign to local TV-Planner database"""
+    from app import models
+    
+    # Remove 'crm_' prefix to get the actual campaign ID
+    if str(campaign_id).startswith('crm_'):
+        actual_crm_id = int(campaign_id.replace('crm_', ''))
+    else:
+        actual_crm_id = int(campaign_id)
+    
+    # Get the campaign from Projects-CRM
+    projects_crm_campaign = get_campaign(actual_crm_id)
+    if not projects_crm_campaign:
+        raise ValueError(f"Campaign {actual_crm_id} not found in Projects-CRM")
+    
+    # Convert to TV-Planner format
+    tv_campaign = convert_campaign_for_tv_planner(projects_crm_campaign)
+    
+    # Check if already exists in local database
+    try:
+        existing_campaigns = models.list_campaigns()
+        for existing in existing_campaigns:
+            if existing.get('name') == tv_campaign['name']:
+                logger.info(f"Campaign {tv_campaign['name']} already exists locally")
+                return existing['id']
+    except:
+        pass
+    
+    # Create in local database
+    local_campaign_id = models.create_campaign(
+        name=tv_campaign['name'],
+        start_date=tv_campaign['start_date'],
+        end_date=tv_campaign['end_date'], 
+        agency=tv_campaign['agency'],
+        client=tv_campaign['client'],
+        product=tv_campaign['product'],
+        country=tv_campaign['country']
+    )
+    
+    logger.info(f"Synced Projects-CRM campaign {actual_crm_id} to local campaign {local_campaign_id}")
+    return local_campaign_id
+
+
+def get_local_campaign_id(campaign_id):
+    """Get or create local campaign ID for Projects-CRM campaigns"""
+    if str(campaign_id).startswith('crm_'):
+        # This is a Projects-CRM campaign, sync it to local database
+        return sync_projects_crm_campaign_to_local(campaign_id)
+    else:
+        # This is already a local campaign
+        return int(campaign_id)

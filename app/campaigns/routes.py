@@ -35,18 +35,63 @@ def pl_targets(pl_id):
 def campaigns_list():
     # Get local TV-Planner campaigns
     local_campaigns = models.list_campaigns()
+    print(f"Found {len(local_campaigns)} local campaigns")
     
     # Get campaigns from Projects-CRM
     try:
         projects_crm_campaigns = get_tv_planner_campaigns()
+        print(f"Found {len(projects_crm_campaigns)} Projects-CRM campaigns")
     except Exception as e:
         print(f"Error fetching Projects-CRM campaigns: {e}")
         projects_crm_campaigns = []
     
-    # Combine both lists
-    all_campaigns = local_campaigns + projects_crm_campaigns
+    # Deduplicate campaigns by detecting potential matches
+    # Projects-CRM campaigns have names like "Campaign Name (CODE)" 
+    # Local campaigns that were synced might have the same name
+    deduplicated_campaigns = []
+    local_campaign_names = {c['name'] for c in local_campaigns}
     
-    return jsonify(all_campaigns)
+    # Add all local campaigns first
+    deduplicated_campaigns.extend(local_campaigns)
+    
+    # Add Projects-CRM campaigns only if they don't match existing local campaigns
+    for crm_campaign in projects_crm_campaigns:
+        crm_name = crm_campaign['name']
+        
+        # Check if this CRM campaign matches any local campaign
+        is_duplicate = False
+        
+        # Direct name match
+        if crm_name in local_campaign_names:
+            is_duplicate = True
+        
+        # Check for potential sync matches - local campaign might be named the same
+        # as the CRM campaign without the (CODE) suffix
+        base_crm_name = crm_name
+        if ' (' in crm_name and crm_name.endswith(')'):
+            base_crm_name = crm_name.split(' (')[0]
+            if base_crm_name in local_campaign_names:
+                is_duplicate = True
+        
+        # Also check the reverse - if any local campaign contains the CRM name
+        for local_name in local_campaign_names:
+            if base_crm_name.lower() in local_name.lower() or local_name.lower() in base_crm_name.lower():
+                # Additional check: both should have similar dates to be considered duplicates
+                for local_campaign in local_campaigns:
+                    if (local_campaign['name'] == local_name and 
+                        local_campaign.get('start_date') == crm_campaign.get('start_date')):
+                        is_duplicate = True
+                        break
+        
+        if not is_duplicate:
+            deduplicated_campaigns.append(crm_campaign)
+        else:
+            print(f"Skipping duplicate campaign: {crm_name}")
+    
+    crm_added = len(deduplicated_campaigns) - len(local_campaigns)
+    crm_skipped = len(projects_crm_campaigns) - crm_added
+    print(f"Final result: {len(deduplicated_campaigns)} total campaigns ({len(local_campaigns)} local + {crm_added} CRM, {crm_skipped} CRM duplicates skipped)")
+    return jsonify(deduplicated_campaigns)
 
 
 @bp.route("/campaigns-api/<int:cid>", methods=["PATCH"])

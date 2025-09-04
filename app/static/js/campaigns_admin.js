@@ -42,6 +42,12 @@
     const $ = s => document.querySelector(s);
     const cTbody = $('#cTbody');
     const campaignSearch = $('#campaignSearch');
+    const statusFilter = $('#statusFilter');
+    const agencyFilter = $('#agencyFilter');
+    const dateRangeFilter = $('#dateRangeFilter');
+    const clearFilters = $('#clearFilters');
+    const campaignsCount = $('#campaignsCount');
+    const activeFiltersIndicator = $('#activeFiltersIndicator');
 
     const wavePanel = $('#wavePanel');
     const wavesDiv  = $('#waves');
@@ -292,29 +298,119 @@
       });
     }
 
-    function filterCampaigns(searchTerm = '') {
-      if (!searchTerm.trim()) {
-        filteredCampaigns = [...campaigns];
-      } else {
-        const term = searchTerm.toLowerCase();
-        filteredCampaigns = campaigns.filter(c => 
-          (c.name && c.name.toLowerCase().includes(term)) ||
-          (c.client && c.client.toLowerCase().includes(term)) ||
-          (c.product && c.product.toLowerCase().includes(term)) ||
-          (c.agency && c.agency.toLowerCase().includes(term))
-        );
+    function populateAgencyFilter() {
+      const agencies = [...new Set(campaigns.map(c => c.agency).filter(Boolean))];
+      agencyFilter.innerHTML = '<option value="">Visos agentūros</option>';
+      agencies.sort().forEach(agency => {
+        const option = document.createElement('option');
+        option.value = agency;
+        option.textContent = agency;
+        agencyFilter.appendChild(option);
+      });
+    }
+
+    function matchesDateRange(campaign, dateRange) {
+      if (!dateRange) return true;
+      
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      
+      const startDate = campaign.start_date ? new Date(campaign.start_date) : null;
+      const endDate = campaign.end_date ? new Date(campaign.end_date) : null;
+      
+      switch (dateRange) {
+        case 'current_month':
+          return (startDate && startDate.getMonth() === currentMonth && startDate.getFullYear() === currentYear) ||
+                 (endDate && endDate.getMonth() === currentMonth && endDate.getFullYear() === currentYear) ||
+                 (startDate && endDate && startDate <= now && endDate >= now);
+        case 'current_year':
+          return (startDate && startDate.getFullYear() === currentYear) ||
+                 (endDate && endDate.getFullYear() === currentYear);
+        case 'past':
+          return endDate && endDate < now;
+        case 'future':
+          return startDate && startDate > now;
+        default:
+          return true;
       }
+    }
+
+    function filterCampaigns(searchTerm = '', statusFilter = '', agencyFilter = '', dateRangeFilter = '') {
+      filteredCampaigns = campaigns.filter(c => {
+        // Search filter
+        const matchesSearch = !searchTerm.trim() || 
+          (c.name && c.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (c.client && c.client.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (c.product && c.product.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (c.agency && c.agency.toLowerCase().includes(searchTerm.toLowerCase()));
+        
+        // Status filter
+        const matchesStatus = !statusFilter || c.status === statusFilter;
+        
+        // Agency filter
+        const matchesAgency = !agencyFilter || c.agency === agencyFilter;
+        
+        // Date range filter
+        const matchesDate = matchesDateRange(c, dateRangeFilter);
+        
+        return matchesSearch && matchesStatus && matchesAgency && matchesDate;
+      });
+      updateResultsIndicator();
       renderCampaigns();
+    }
+
+    function updateResultsIndicator() {
+      const total = campaigns.length;
+      const showing = filteredCampaigns.length;
+      
+      if (total === showing) {
+        campaignsCount.textContent = `Rodomos visos kampanijos (${total})`;
+      } else {
+        campaignsCount.textContent = `Rodomos ${showing} iš ${total} kampanijų`;
+      }
+      
+      // Show active filters indicator
+      const hasActiveFilters = 
+        campaignSearch.value.trim() ||
+        statusFilter.value ||
+        agencyFilter.value ||
+        dateRangeFilter.value;
+      
+      if (hasActiveFilters) {
+        activeFiltersIndicator.classList.remove('hidden');
+      } else {
+        activeFiltersIndicator.classList.add('hidden');
+      }
+    }
+
+    function applyFilters() {
+      const searchTerm = campaignSearch.value;
+      const statusValue = statusFilter.value;
+      const agencyValue = agencyFilter.value;
+      const dateRangeValue = dateRangeFilter.value;
+      filterCampaigns(searchTerm, statusValue, agencyValue, dateRangeValue);
     }
 
     async function loadCampaigns(){
       campaigns = await fetchJSON(C_LIST);
+      populateAgencyFilter();
       filteredCampaigns = [...campaigns];
       renderCampaigns();
     }
 
-    campaignSearch.addEventListener('input', (e) => {
-      filterCampaigns(e.target.value);
+    // Event listeners
+    campaignSearch.addEventListener('input', applyFilters);
+    statusFilter.addEventListener('change', applyFilters);
+    agencyFilter.addEventListener('change', applyFilters);
+    dateRangeFilter.addEventListener('change', applyFilters);
+    
+    clearFilters.addEventListener('click', () => {
+      campaignSearch.value = '';
+      statusFilter.value = '';
+      agencyFilter.value = '';
+      dateRangeFilter.value = '';
+      applyFilters();
     });
 
     // -------- TVC Management --------

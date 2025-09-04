@@ -101,7 +101,7 @@
             const dayNumber = document.createElement('div');
             dayNumber.className = 'font-medium text-slate-900 mb-1';
             if (isSameDay(currentDayDate, today)) {
-              dayNumber.classList.add('bg-brand-100', 'text-brand-800', 'rounded-full', 'w-6', 'h-6', 'flex', 'items-center', 'justify-center', 'text-xs');
+              dayNumber.classList.add('bg-gray-200', 'text-gray-800', 'rounded-full', 'w-6', 'h-6', 'flex', 'items-center', 'justify-center', 'text-xs');
             }
             dayNumber.textContent = day;
             dayElement.appendChild(dayNumber);
@@ -114,7 +114,7 @@
             dayEvents.forEach(event => {
               const eventElement = document.createElement('div');
               eventElement.className = `text-xs p-1 mb-1 rounded cursor-pointer truncate transition-colors ${
-                event.type === 'campaign' ? 'bg-brand-100 text-brand-800 hover:bg-brand-200' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                event.type === 'campaign' ? 'bg-gray-200 text-gray-800 hover:bg-gray-300' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
               }`;
               eventElement.textContent = event.title;
               eventElement.addEventListener('click', () => showEventDetails(event));

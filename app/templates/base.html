@@ -8,19 +8,7 @@
   <script>
     tailwind.config = {
       theme: {
-        extend: {
-          colors: {
-            'brand': {
-              50: '#f0f9ff',
-              100: '#e0f2fe',
-              500: '#0ea5e9',
-              600: '#0284c7',
-              700: '#0369a1',
-              800: '#075985',
-              900: '#0c4a6e',
-            }
-          }
-        }
+        extend: {}
       }
     }
   </script>
@@ -33,41 +21,47 @@
 </head>
 <body class="min-h-screen bg-gray-50">
   <!-- Header -->
-  <header class="bg-white shadow-sm border-b border-gray-200">
+  <header class="bg-gray-800">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex justify-between h-16">
         <!-- Logo/Brand -->
         <div class="flex items-center">
           <div class="flex-shrink-0">
-            <h1 class="text-2xl font-bold text-brand-700">TV Planner</h1>
+            <div class="flex items-center">
+              <svg class="w-8 h-8 text-white mr-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM4 14V6h16v8H4z"/>
+                <path d="m15 2-3 2-3-2v2h6V2z"/>
+              </svg>
+              <h1 class="text-xl font-bold text-white">TV Planner</h1>
+            </div>
           </div>
         </div>
 
         <!-- Navigation -->
-        <nav class="hidden md:flex items-center space-x-8">
-          <a href="/tv-planner" class="nav-link text-gray-700 hover:text-brand-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+        <nav class="hidden md:flex items-center space-x-4">
+          <a href="/tv-planner" class="nav-link text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
             Pagrindinis
           </a>
-          <a href="/tv-planner/rates" class="nav-link text-gray-700 hover:text-brand-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+          <a href="/tv-planner/rates" class="nav-link text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
             TRP įkainiai
           </a>
-          <a href="/tv-planner/channels" class="nav-link text-gray-700 hover:text-brand-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+          <a href="/tv-planner/channels" class="nav-link text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
             Kanalų grupės
           </a>
-          <a href="/tv-planner/campaigns" class="nav-link text-gray-700 hover:text-brand-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+          <a href="/tv-planner/campaigns" class="nav-link text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
             Kampanijos
           </a>
-          <a href="/tv-planner/indices" class="nav-link text-gray-700 hover:text-brand-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+          <a href="/tv-planner/indices" class="nav-link text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
             Indeksai
           </a>
-          <a href="/tv-planner/calendar" class="nav-link text-gray-700 hover:text-brand-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+          <a href="/tv-planner/calendar" class="nav-link text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">
             Kalendorius
           </a>
         </nav>
 
         <!-- Mobile menu button -->
         <div class="md:hidden flex items-center">
-          <button id="mobileMenuBtn" type="button" class="text-gray-700 hover:text-brand-600 focus:outline-none focus:text-brand-600">
+          <button id="mobileMenuBtn" type="button" class="text-gray-300 hover:text-white focus:outline-none focus:text-white">
             <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
             </svg>
@@ -78,23 +72,23 @@
 
     <!-- Mobile menu -->
     <div id="mobileMenu" class="md:hidden hidden">
-      <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
-        <a href="/tv-planner" class="nav-link-mobile block px-3 py-2 text-base font-medium text-gray-700 hover:text-brand-600 hover:bg-gray-50 rounded-md transition-colors">
+      <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-gray-800">
+        <a href="/tv-planner" class="nav-link-mobile block px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-md transition-colors">
           Pagrindinis
         </a>
-        <a href="/tv-planner/rates" class="nav-link-mobile block px-3 py-2 text-base font-medium text-gray-700 hover:text-brand-600 hover:bg-gray-50 rounded-md transition-colors">
+        <a href="/tv-planner/rates" class="nav-link-mobile block px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-md transition-colors">
           TRP įkainiai
         </a>
-        <a href="/tv-planner/channels" class="nav-link-mobile block px-3 py-2 text-base font-medium text-gray-700 hover:text-brand-600 hover:bg-gray-50 rounded-md transition-colors">
+        <a href="/tv-planner/channels" class="nav-link-mobile block px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-md transition-colors">
           Kanalų grupės
         </a>
-        <a href="/tv-planner/campaigns" class="nav-link-mobile block px-3 py-2 text-base font-medium text-gray-700 hover:text-brand-600 hover:bg-gray-50 rounded-md transition-colors">
+        <a href="/tv-planner/campaigns" class="nav-link-mobile block px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-md transition-colors">
           Kampanijos
         </a>
-        <a href="/tv-planner/indices" class="nav-link-mobile block px-3 py-2 text-base font-medium text-gray-700 hover:text-brand-600 hover:bg-gray-50 rounded-md transition-colors">
+        <a href="/tv-planner/indices" class="nav-link-mobile block px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-md transition-colors">
           Indeksai
         </a>
-        <a href="/tv-planner/calendar" class="nav-link-mobile block px-3 py-2 text-base font-medium text-gray-700 hover:text-brand-600 hover:bg-gray-50 rounded-md transition-colors">
+        <a href="/tv-planner/calendar" class="nav-link-mobile block px-3 py-2 text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-md transition-colors">
           Kalendorius
         </a>
       </div>
@@ -131,8 +125,8 @@
       
       navLinks.forEach(link => {
         if (link.getAttribute('href') === currentPath) {
-          link.classList.remove('text-gray-700');
-          link.classList.add('text-brand-600', 'bg-brand-50');
+          link.classList.remove('text-gray-300');
+          link.classList.add('text-white', 'bg-gray-900');
         }
       });
     });

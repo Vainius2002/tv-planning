@@ -5,7 +5,6 @@
 {% block content %}
 <div
   data-c-list="{{ url_for('campaigns.campaigns_list') }}"
-  data-c-create="{{ url_for('campaigns.campaigns_create') }}"
   data-c-update-base="{{ url_for('campaigns.campaigns_update', cid=0) }}"
   data-c-delete-base="{{ url_for('campaigns.campaigns_delete', cid=0) }}"
   data-w-list-base="{{ url_for('campaigns.waves_list', cid=0) }}"
@@ -45,39 +44,20 @@
   <div class="space-y-8">
     <!-- Campaigns -->
     <section id="campaignsSection" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h2 class="text-xl font-semibold text-gray-900 mb-4">Nauja kampanija</h2>
-      
-      <!-- Campaign basic info (like Excel header) -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">Agentūra</label>
-          <input id="cAgency" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm bg-gray-100" value="BPN LT" readonly>
-        </div>
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">Klientas</label>
-          <input id="cClient" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm" placeholder="pvz. Topo centras">
-        </div>
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">Produktas</label>
-          <input id="cProduct" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm" placeholder="pvz. Topo centras">
-        </div>
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">Kampanijos pavadinimas</label>
-          <input id="cName" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm" placeholder="pvz. Savaitinės akcijos">
-        </div>
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">Šalis</label>
-          <input id="cCountry" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm" value="Lietuva">
-        </div>
-        <div>
-          <label class="block text-sm text-slate-600 mb-1">Laikotarpis</label>
-          <div class="grid grid-cols-2 gap-2">
-            <input id="cStart" type="date" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
-            <input id="cEnd" type="date" class="w-full rounded-lg border-slate-300 px-3 py-2 text-sm">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-semibold text-gray-900">Kampanijos</h2>
+        <div class="relative">
+          <input 
+            id="campaignSearch" 
+            type="text" 
+            placeholder="Ieškoti kampanijų..." 
+            class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 w-64"
+          />
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
           </div>
-        </div>
-        <div class="flex items-end">
-          <button id="cCreate" class="px-4 py-2 text-sm rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors w-full">Sukurti kampaniją</button>
         </div>
       </div>
 

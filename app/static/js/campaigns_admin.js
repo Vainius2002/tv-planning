@@ -6,7 +6,6 @@
     const dataDiv = document.querySelector('[data-c-list]');
 
     const C_LIST    = dataDiv.dataset.cList;
-    const C_CREATE  = dataDiv.dataset.cCreate;
     const C_UPDATE  = dataDiv.dataset.cUpdateBase;    // ends with /0
     const C_DELETE  = dataDiv.dataset.cDeleteBase;    // ends with /0
 
@@ -42,10 +41,7 @@
 
     const $ = s => document.querySelector(s);
     const cTbody = $('#cTbody');
-    const cName = $('#cName'), cStart = $('#cStart'), cEnd = $('#cEnd');
-    const cAgency = $('#cAgency'), cClient = $('#cClient'), cProduct = $('#cProduct');
-    const cCountry = $('#cCountry');
-    const cCreate = $('#cCreate');
+    const campaignSearch = $('#campaignSearch');
 
     const wavePanel = $('#wavePanel');
     const wavesDiv  = $('#waves');
@@ -56,6 +52,7 @@
 
     let lists = [];     // pricing lists
     let campaigns = []; // campaigns
+    let filteredCampaigns = []; // filtered campaigns for search
     let currentCampaign = null;
     let tvcs = [];      // TVCs for current campaign
     let channels = [];  // Store channel groups for lookup
@@ -206,7 +203,7 @@
     function renderCampaigns(){
       cTbody.innerHTML = '';
       
-      campaigns.forEach(c => {
+      filteredCampaigns.forEach(c => {
         const tr = document.createElement('tr');
         const statusColors = {
           'draft': 'bg-slate-100 text-slate-700',
@@ -295,44 +292,29 @@
       });
     }
 
-    async function loadCampaigns(){
-      campaigns = await fetchJSON(C_LIST);
+    function filterCampaigns(searchTerm = '') {
+      if (!searchTerm.trim()) {
+        filteredCampaigns = [...campaigns];
+      } else {
+        const term = searchTerm.toLowerCase();
+        filteredCampaigns = campaigns.filter(c => 
+          (c.name && c.name.toLowerCase().includes(term)) ||
+          (c.client && c.client.toLowerCase().includes(term)) ||
+          (c.product && c.product.toLowerCase().includes(term)) ||
+          (c.agency && c.agency.toLowerCase().includes(term))
+        );
+      }
       renderCampaigns();
     }
 
-    cCreate.addEventListener('click', async () => {
-      const name = cName.value.trim();
-      const start_date = cStart.value || null;
-      const end_date   = cEnd.value || null;
-      const agency = cAgency.value.trim();
-      const client = cClient.value.trim();
-      const product = cProduct.value.trim();
-      const country = cCountry.value.trim() || 'Lietuva';
-      
-      if(!name){ alert('Įveskite kampanijos pavadinimą'); return; }
-      
-      const response = await fetchJSON(C_CREATE, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ 
-          name, start_date, end_date,
-          agency, client, product, country
-        })
-      });
-      
-      // Clear form (except agency which is fixed)
-      cName.value=''; cStart.value=''; cEnd.value='';
-      cClient.value=''; cProduct.value='';
-      cCountry.value='Lietuva';
-      
-      await loadCampaigns();
-      
-      // Automatically open the newly created campaign
-      if(response && response.id) {
-        const newCampaign = campaigns.find(c => c.id === response.id);
-        if(newCampaign) {
-          openCampaign(newCampaign);
-        }
-      }
+    async function loadCampaigns(){
+      campaigns = await fetchJSON(C_LIST);
+      filteredCampaigns = [...campaigns];
+      renderCampaigns();
+    }
+
+    campaignSearch.addEventListener('input', (e) => {
+      filterCampaigns(e.target.value);
     });
 
     // -------- TVC Management --------

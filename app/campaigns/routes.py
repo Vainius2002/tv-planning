@@ -48,25 +48,6 @@ def campaigns_list():
     
     return jsonify(all_campaigns)
 
-@bp.route("/campaigns-api", methods=["POST"])
-def campaigns_create():
-    data = request.get_json(force=True)
-    name = (data.get("name") or "").strip()
-    if not name:
-        return jsonify({"status":"error","message":"name required"}), 400
-    
-    # Get additional campaign fields
-    agency = (data.get("agency") or "").strip()
-    client = (data.get("client") or "").strip()
-    product = (data.get("product") or "").strip()
-    country = (data.get("country") or "Lietuva").strip()
-    
-    cid = models.create_campaign(
-        name, 
-        data.get("start_date"), data.get("end_date"),
-        agency, client, product, country
-    )
-    return jsonify({"status":"ok","id":cid}), 201
 
 @bp.route("/campaigns-api/<int:cid>", methods=["PATCH"])
 def campaigns_update(cid):

@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 PROJECTS_CRM_API_URL = "http://localhost:5002/api"
-PROJECTS_CRM_API_KEY = "projects-api-key"
+PROJECTS_CRM_API_KEY = "projects-crm-api-key-change-in-production"
 TIMEOUT = 10
 
 

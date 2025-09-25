@@ -1108,14 +1108,17 @@
                     <td class="px-2 py-1 text-xs bg-green-50">${item.tg_sample_size || '-'}</td>
                     <td class="px-2 py-1 text-xs">${((item.channel_share || 0.75) * 100).toFixed(1)}%</td>
                     <td class="px-2 py-1 text-xs">${((item.pt_zone_share || 0.55) * 100).toFixed(1)}%</td>
+                    <td class="px-2 py-1 text-xs grp-planned">${grpPlanned.toFixed(2)}</td>
                     <td class="px-2 py-1"><input class="itm-trps w-16 text-xs border rounded px-1 py-0.5 bg-purple-50" type="number" step="0.01" value="${item.trps || ''}" placeholder="TRP" data-item-id="${item.id}"></td>
                     <td class="px-2 py-1"><input class="itm-affinity1 w-12 text-xs border rounded px-1 py-0.5 bg-purple-50" type="number" step="0.1" value="${item.affinity1 || ''}" placeholder="Affinity" data-item-id="${item.id}"></td>
-                    <td class="px-2 py-1 text-xs grp-planned">${grpPlanned.toFixed(2)}</td>
                     <td class="px-2 py-1 text-xs">€${grossCpp.toFixed(2)}</td>
                     <td class="px-2 py-1 text-xs bg-yellow-50">${(item.duration_index || 1.25).toFixed(2)}</td>
                     <td class="px-2 py-1 text-xs bg-yellow-50">${(item.seasonal_index || 0.9).toFixed(2)}</td>
                     <td class="px-2 py-1"><input class="itm-trp-purchase w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(item.trp_purchase_index || 0.95).toFixed(2)}" data-item-id="${item.id}"></td>
                     <td class="px-2 py-1"><input class="itm-advance-purchase w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(item.advance_purchase_index || 0.95).toFixed(2)}" data-item-id="${item.id}"></td>
+                    <td class="px-2 py-1"><input class="itm-web w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(item.web_index || 1.0).toFixed(2)}" data-item-id="${item.id}"></td>
+                    <td class="px-2 py-1"><input class="itm-advance-payment w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(item.advance_payment_index || 1.0).toFixed(2)}" data-item-id="${item.id}"></td>
+                    <td class="px-2 py-1"><input class="itm-loyalty-discount w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(item.loyalty_discount_index || 1.0).toFixed(2)}" data-item-id="${item.id}"></td>
                     <td class="px-2 py-1"><input class="itm-position w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(item.position_index || 1.0).toFixed(2)}" data-item-id="${item.id}"></td>
                     <td class="px-2 py-1 text-xs gross-price">€${grossPrice.toFixed(2)}</td>
                     <td class="px-2 py-1"><input class="itm-client-discount w-12 text-xs border rounded px-1 py-0.5 bg-blue-50" type="number" step="0.1" min="0" max="100" value="${item.client_discount || 0}" data-item-id="${item.id}"></td>
@@ -1369,15 +1372,18 @@
                     <th class="text-left font-medium px-2 py-1">TG imtis</th>
                     <th class="text-left font-medium px-2 py-1">Kanalo dalis</th>
                     <th class="text-left font-medium px-2 py-1">PT zonos dalis</th>
-                    <th class="text-left font-medium px-2 py-1">TRP perk.</th>
-                    <th class="text-left font-medium px-2 py-1">Affinity1</th>
                     <th class="text-left font-medium px-2 py-1">GRP plan.</th>
+                    <th class="text-left font-medium px-2 py-1">TRP perkamas</th>
+                    <th class="text-left font-medium px-2 py-1">Affinity1</th>
                     <th class="text-left font-medium px-2 py-1">Gross CPP</th>
-                    <th class="text-left font-medium px-2 py-1">Trukm.koef</th>
-                    <th class="text-left font-medium px-2 py-1">Sez.koef</th>
-                    <th class="text-left font-medium px-2 py-1">TRP pirk.</th>
-                    <th class="text-left font-medium px-2 py-1">Išank.</th>
-                    <th class="text-left font-medium px-2 py-1">Pozic.</th>
+                    <th class="text-left font-medium px-2 py-1">Trukmės koeficientas</th>
+                    <th class="text-left font-medium px-2 py-1">Sezoninis koeficientas</th>
+                    <th class="text-left font-medium px-2 py-1">TRP pirkimo</th>
+                    <th class="text-left font-medium px-2 py-1">Išankstinio pirkimo</th>
+                    <th class="text-left font-medium px-2 py-1">WEB</th>
+                    <th class="text-left font-medium px-2 py-1">Išankstinio mokėjimo</th>
+                    <th class="text-left font-medium px-2 py-1">Lojalumo nuolaida</th>
+                    <th class="text-left font-medium px-2 py-1">Pozicijos indeksas</th>
                     <th class="text-left font-medium px-2 py-1">Gross kaina</th>
                     <th class="text-left font-medium px-2 py-1 bg-blue-50">Kl. nuol. %</th>
                     <th class="text-left font-medium px-2 py-1">Net kaina</th>
@@ -1689,14 +1695,17 @@
               <td class="px-2 py-1 text-xs bg-green-50">${r.tg_sample_size || '-'}</td>
               <td class="px-2 py-1 text-xs">${(r.channel_share * 100).toFixed(1)}%</td>
               <td class="px-2 py-1 text-xs">${(r.pt_zone_share * 100).toFixed(1)}%</td>
+              <td class="px-2 py-1 text-xs grp-planned">${grpPlanned.toFixed(2)}</td>
               <td class="px-2 py-1"><input class="itm-trps w-16 text-xs border rounded px-1 py-0.5 bg-purple-50" type="number" step="0.01" value="${r.trps || ''}" placeholder="TRP"></td>
               <td class="px-2 py-1"><input class="itm-affinity1 w-12 text-xs border rounded px-1 py-0.5 bg-purple-50" type="number" step="0.1" value="${r.affinity1 || ''}" placeholder="Affinity"></td>
-              <td class="px-2 py-1 text-xs grp-planned">${grpPlanned.toFixed(2)}</td>
               <td class="px-2 py-1 text-xs">€${grossCpp.toFixed(2)}</td>
               <td class="px-2 py-1 text-xs bg-yellow-50">${(r.duration_index || 1.25).toFixed(2)}</td>
               <td class="px-2 py-1 text-xs bg-yellow-50">${(r.seasonal_index || 0.9).toFixed(2)}</td>
               <td class="px-2 py-1"><input class="itm-trp-purchase w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.trp_purchase_index || 0.95).toFixed(2)}" title="TRP pirkimo indeksas (default: 0.95)"></td>
               <td class="px-2 py-1"><input class="itm-advance-purchase w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.advance_purchase_index || 0.95).toFixed(2)}" title="Išankstinio pirkimo indeksas (default: 0.95)"></td>
+              <td class="px-2 py-1"><input class="itm-web w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.web_index || 1.0).toFixed(2)}" title="WEB indeksas (default: 1.0)"></td>
+              <td class="px-2 py-1"><input class="itm-advance-payment w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.advance_payment_index || 1.0).toFixed(2)}" title="Išankstinio mokėjimo indeksas (default: 1.0)"></td>
+              <td class="px-2 py-1"><input class="itm-loyalty-discount w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.loyalty_discount_index || 1.0).toFixed(2)}" title="Lojalumo nuolaidos indeksas (default: 1.0)"></td>
               <td class="px-2 py-1"><input class="itm-position w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.position_index || 1.0).toFixed(2)}" title="Pozicijos indeksas (default: 1.0)"></td>
               <td class="px-2 py-1 text-xs gross-price">€${grossPrice.toFixed(2)}</td>
               <td class="px-2 py-1"><input class="itm-client-discount w-12 text-xs border rounded px-1 py-0.5 bg-blue-50" type="number" step="0.1" min="0" max="100" value="${r.client_discount || 0}" title="Kliento nuolaida (%)"></td>

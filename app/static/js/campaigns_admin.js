@@ -86,16 +86,19 @@
     }
 
     function calculateGrossPrice(item, grossCpp) {
-      // Gross Price = TRP * CPP * duration_index * seasonal_index * trp_purchase_index * advance_purchase_index * position_index
+      // Gross Price = TRP * CPP * duration_index * seasonal_index * trp_purchase_index * advance_purchase_index * web_index * advance_payment_index * loyalty_discount_index * position_index
       const trps = parseFloat(item.trps) || 0;
       const cpp = parseFloat(grossCpp) || 0;
       const durationIndex = parseFloat(item.duration_index) || 1.0; // From DB
       const seasonalIndex = parseFloat(item.seasonal_index) || 1.0; // From DB
       const trpPurchaseIndex = parseFloat(item.trp_purchase_index) || 0.95;
       const advancePurchaseIndex = parseFloat(item.advance_purchase_index) || 0.95;
+      const webIndex = parseFloat(item.web_index) || 1.0;
+      const advancePaymentIndex = parseFloat(item.advance_payment_index) || 1.0;
+      const loyaltyDiscountIndex = parseFloat(item.loyalty_discount_index) || 1.0;
       const positionIndex = parseFloat(item.position_index) || 1.0;
-      
-      return trps * cpp * durationIndex * seasonalIndex * trpPurchaseIndex * advancePurchaseIndex * positionIndex;
+
+      return trps * cpp * durationIndex * seasonalIndex * trpPurchaseIndex * advancePurchaseIndex * webIndex * advancePaymentIndex * loyaltyDiscountIndex * positionIndex;
     }
 
     function calculateNetPrice(grossPrice, clientDiscount) {
@@ -1141,6 +1144,9 @@
                     const seasonalIndex = parseFloat(item.seasonal_index) || 1.0;  
                     const trpPurchaseIndex = parseFloat(tr.querySelector('.itm-trp-purchase').value) || 0.95;
                     const advancePurchaseIndex = parseFloat(tr.querySelector('.itm-advance-purchase').value) || 0.95;
+                    const webIndex = parseFloat(tr.querySelector('.itm-web').value) || 1.0;
+                    const advancePaymentIndex = parseFloat(tr.querySelector('.itm-advance-payment').value) || 1.0;
+                    const loyaltyDiscountIndex = parseFloat(tr.querySelector('.itm-loyalty-discount').value) || 1.0;
                     const positionIndex = parseFloat(tr.querySelector('.itm-position').value) || 1.0;
                     const clientDiscount = parseFloat(tr.querySelector('.itm-client-discount').value) || 0;
                     const agencyDiscount = parseFloat(tr.querySelector('.itm-agency-discount').value) || 0;
@@ -1152,6 +1158,9 @@
                       seasonal_index: seasonalIndex,
                       trp_purchase_index: trpPurchaseIndex,
                       advance_purchase_index: advancePurchaseIndex,
+                      web_index: webIndex,
+                      advance_payment_index: advancePaymentIndex,
+                      loyalty_discount_index: loyaltyDiscountIndex,
                       position_index: positionIndex
                     };
                     
@@ -1194,6 +1203,9 @@
                   tr.querySelector('.itm-affinity1').addEventListener('input', recalculateGRP);
                   tr.querySelector('.itm-trp-purchase').addEventListener('input', recalculatePrices);
                   tr.querySelector('.itm-advance-purchase').addEventListener('input', recalculatePrices);
+                  tr.querySelector('.itm-web').addEventListener('input', recalculatePrices);
+                  tr.querySelector('.itm-advance-payment').addEventListener('input', recalculatePrices);
+                  tr.querySelector('.itm-loyalty-discount').addEventListener('input', recalculatePrices);
                   tr.querySelector('.itm-position').addEventListener('input', recalculatePrices);
                   tr.querySelector('.itm-client-discount').addEventListener('input', recalculatePrices);
                   tr.querySelector('.itm-agency-discount').addEventListener('input', recalculatePrices);
@@ -1206,6 +1218,9 @@
                       const affinity1 = parseFloat(tr.querySelector('.itm-affinity1').value) || 0;
                       const trpPurchaseIndex = parseFloat(tr.querySelector('.itm-trp-purchase').value) || 0.95;
                       const advancePurchaseIndex = parseFloat(tr.querySelector('.itm-advance-purchase').value) || 0.95;
+                      const webIndex = parseFloat(tr.querySelector('.itm-web').value) || 1.0;
+                      const advancePaymentIndex = parseFloat(tr.querySelector('.itm-advance-payment').value) || 1.0;
+                      const loyaltyDiscountIndex = parseFloat(tr.querySelector('.itm-loyalty-discount').value) || 1.0;
                       const positionIndex = parseFloat(tr.querySelector('.itm-position').value) || 1.0;
                       const clientDiscount = parseFloat(tr.querySelector('.itm-client-discount').value) || 0;
                       const agencyDiscount = parseFloat(tr.querySelector('.itm-agency-discount').value) || 0;
@@ -1213,11 +1228,14 @@
                       await fetchJSON(urlReplace(I_UPDATE, itemId), {
                         method:'PATCH', 
                         headers:{'Content-Type':'application/json'},
-                        body: JSON.stringify({ 
+                        body: JSON.stringify({
                           trps: trps,
                           affinity1: affinity1,
                           trp_purchase_index: trpPurchaseIndex,
                           advance_purchase_index: advancePurchaseIndex,
+                          web_index: webIndex,
+                          advance_payment_index: advancePaymentIndex,
+                          loyalty_discount_index: loyaltyDiscountIndex,
                           position_index: positionIndex,
                           client_discount: clientDiscount,
                           agency_discount: agencyDiscount
@@ -1727,6 +1745,9 @@
               const seasonalIndex = parseFloat(r.seasonal_index) || 1.0; // From original data  
               const trpPurchaseIndex = parseFloat(tr.querySelector('.itm-trp-purchase').value) || 0.95;
               const advancePurchaseIndex = parseFloat(tr.querySelector('.itm-advance-purchase').value) || 0.95;
+              const webIndex = parseFloat(tr.querySelector('.itm-web').value) || 1.0;
+              const advancePaymentIndex = parseFloat(tr.querySelector('.itm-advance-payment').value) || 1.0;
+              const loyaltyDiscountIndex = parseFloat(tr.querySelector('.itm-loyalty-discount').value) || 1.0;
               const positionIndex = parseFloat(tr.querySelector('.itm-position').value) || 1.0;
               const clientDiscount = parseFloat(tr.querySelector('.itm-client-discount').value) || 0;
               const agencyDiscount = parseFloat(tr.querySelector('.itm-agency-discount').value) || 0;
@@ -1738,6 +1759,9 @@
                 seasonal_index: seasonalIndex,
                 trp_purchase_index: trpPurchaseIndex,
                 advance_purchase_index: advancePurchaseIndex,
+                web_index: webIndex,
+                advance_payment_index: advancePaymentIndex,
+                loyalty_discount_index: loyaltyDiscountIndex,
                 position_index: positionIndex
               };
               
@@ -1780,6 +1804,9 @@
             tr.querySelector('.itm-trps').addEventListener('input', recalculatePrices);
             tr.querySelector('.itm-trp-purchase').addEventListener('input', recalculatePrices);
             tr.querySelector('.itm-advance-purchase').addEventListener('input', recalculatePrices);
+            tr.querySelector('.itm-web').addEventListener('input', recalculatePrices);
+            tr.querySelector('.itm-advance-payment').addEventListener('input', recalculatePrices);
+            tr.querySelector('.itm-loyalty-discount').addEventListener('input', recalculatePrices);
             tr.querySelector('.itm-position').addEventListener('input', recalculatePrices);
             tr.querySelector('.itm-client-discount').addEventListener('input', recalculatePrices);
             tr.querySelector('.itm-agency-discount').addEventListener('input', recalculatePrices);
@@ -1791,6 +1818,9 @@
                 const affinity1 = parseFloat(tr.querySelector('.itm-affinity1').value) || 0;
                 const trpPurchaseIndex = parseFloat(tr.querySelector('.itm-trp-purchase').value) || 0.95;
                 const advancePurchaseIndex = parseFloat(tr.querySelector('.itm-advance-purchase').value) || 0.95;
+                const webIndex = parseFloat(tr.querySelector('.itm-web').value) || 1.0;
+                const advancePaymentIndex = parseFloat(tr.querySelector('.itm-advance-payment').value) || 1.0;
+                const loyaltyDiscountIndex = parseFloat(tr.querySelector('.itm-loyalty-discount').value) || 1.0;
                 const positionIndex = parseFloat(tr.querySelector('.itm-position').value) || 1.0;
                 const clientDiscount = parseFloat(tr.querySelector('.itm-client-discount').value) || 0;
                 const agencyDiscount = parseFloat(tr.querySelector('.itm-agency-discount').value) || 0;
@@ -1800,6 +1830,9 @@
                   affinity1: affinity1,
                   trp_purchase_index: trpPurchaseIndex,
                   advance_purchase_index: advancePurchaseIndex,
+                  web_index: webIndex,
+                  advance_payment_index: advancePaymentIndex,
+                  loyalty_discount_index: loyaltyDiscountIndex,
                   position_index: positionIndex,
                   client_discount: clientDiscount,
                   agency_discount: agencyDiscount
@@ -1807,11 +1840,14 @@
                 
                 const response = await fetchJSON(urlReplace(I_UPDATE, r.id), {
                   method:'PATCH', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({ 
+                  body: JSON.stringify({
                     trps: trps,
                     affinity1: affinity1,
                     trp_purchase_index: trpPurchaseIndex,
                     advance_purchase_index: advancePurchaseIndex,
+                    web_index: webIndex,
+                    advance_payment_index: advancePaymentIndex,
+                    loyalty_discount_index: loyaltyDiscountIndex,
                     position_index: positionIndex,
                     client_discount: clientDiscount,
                     agency_discount: agencyDiscount

@@ -218,6 +218,9 @@ def migrate_add_wave_item_fields():
             ("seasonal_index", "REAL DEFAULT 1.0"),
             ("trp_purchase_index", "REAL DEFAULT 0.95"),
             ("advance_purchase_index", "REAL DEFAULT 0.95"),
+            ("web_index", "REAL DEFAULT 1.0"),
+            ("advance_payment_index", "REAL DEFAULT 1.0"),
+            ("loyalty_discount_index", "REAL DEFAULT 1.0"),
             ("position_index", "REAL DEFAULT 1.0"),
             ("gross_price_eur", "REAL"),
             ("client_discount", "REAL DEFAULT 0"),
@@ -849,19 +852,19 @@ def update_wave_item(item_id: int, data: dict):
     # allow overriding any snapped values including discounts and Excel structure fields
     numeric = {"share_primary","share_secondary","prime_share_primary","prime_share_secondary","price_per_sec_eur","trps","client_discount","agency_discount",
                "channel_share","pt_zone_share","clip_duration","affinity1","affinity2","affinity3",
-               "duration_index","seasonal_index","trp_purchase_index","advance_purchase_index","position_index"}
+               "duration_index","seasonal_index","trp_purchase_index","advance_purchase_index","web_index","advance_payment_index","loyalty_discount_index","position_index"}
     sets, args = [], []
     for k in ["owner","target_group","primary_label","secondary_label",
               "share_primary","share_secondary","prime_share_primary","prime_share_secondary",
               "price_per_sec_eur","trps","client_discount","agency_discount",
               "channel_share","pt_zone_share","clip_duration","affinity1","affinity2","affinity3",
-              "duration_index","seasonal_index","trp_purchase_index","advance_purchase_index","position_index"]:
+              "duration_index","seasonal_index","trp_purchase_index","advance_purchase_index","web_index","advance_payment_index","loyalty_discount_index","position_index"]:
         if k in data:
             v = _norm_number(data[k]) if k in numeric else data[k]
             sets.append(f"{k}=?"); args.append(v)
     
     # Recalculate prices and GRP if relevant fields were updated
-    need_price_recalc = any(field in data for field in ["client_discount", "agency_discount", "trps", "clip_duration", "trp_purchase_index", "advance_purchase_index", "position_index", "duration_index", "seasonal_index"])
+    need_price_recalc = any(field in data for field in ["client_discount", "agency_discount", "trps", "clip_duration", "trp_purchase_index", "advance_purchase_index", "web_index", "advance_payment_index", "loyalty_discount_index", "position_index", "duration_index", "seasonal_index"])
     need_grp_recalc = any(field in data for field in ["trps", "affinity1"])
     
     if need_price_recalc or need_grp_recalc:
@@ -878,12 +881,16 @@ def update_wave_item(item_id: int, data: dict):
                 seasonal_index = data.get("seasonal_index", item["seasonal_index"] or 1.0)
                 trp_purchase_index = data.get("trp_purchase_index", item["trp_purchase_index"] or 0.95)
                 advance_purchase_index = data.get("advance_purchase_index", item["advance_purchase_index"] or 0.95)
+                web_index = data.get("web_index", item["web_index"] or 1.0)
+                advance_payment_index = data.get("advance_payment_index", item["advance_payment_index"] or 1.0)
+                loyalty_discount_index = data.get("loyalty_discount_index", item["loyalty_discount_index"] or 1.0)
                 position_index = data.get("position_index", item["position_index"] or 1.0)
                 
                 # Recalculate gross price with all indices and clip duration
                 clip_duration = data.get("clip_duration", item["clip_duration"] or 10)
-                gross_price = (trps * gross_cpp * clip_duration * duration_index * seasonal_index * 
-                             trp_purchase_index * advance_purchase_index * position_index)
+                gross_price = (trps * gross_cpp * clip_duration * duration_index * seasonal_index *
+                             trp_purchase_index * advance_purchase_index * web_index *
+                             advance_payment_index * loyalty_discount_index * position_index)
                 
                 # Get discounts
                 client_discount = data.get("client_discount", item["client_discount"] or 0)

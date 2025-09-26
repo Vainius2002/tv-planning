@@ -2305,9 +2305,8 @@ def export_channel_group_excel(group_id: int):
                     start_date = min(start_dates)
                     end_date = max(end_dates)
 
-                    # Calendar positioning - start from column AB (28) to match example
-                    # Plan labels at AB, campaign names at AC, then calendar starts at AD
-                    calendar_start_col = 30  # Calendar data starts at AD (30)
+                    # Calendar positioning - plan labels at AE (31), campaign names at AF (32), calendar starts at AG (33)
+                    calendar_start_col = 33  # Calendar data starts at AG (33)
 
                     # Calendar headers start at row 1 to align with main table
                     # Month headers at row 1, day numbers at row 2, weekdays at row 3
@@ -2385,8 +2384,20 @@ def export_channel_group_excel(group_id: int):
                         current_date += timedelta(days=1)
                         col_idx += 1
 
-                    # In the example, columns AB and AC are part of the main table headers
-                    # No need to override them - they show 'Ag. nuol. %' and 'Net net kaina'
+                    # Add headers for plan label columns (AE and AF)
+                    plan_header = ws.cell(row=3, column=31)  # Column AE
+                    plan_header.value = "Planas"
+                    plan_header.font = Font(size=9, bold=True, color="FFFFFF")
+                    plan_header.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+                    plan_header.border = border
+                    plan_header.alignment = Alignment(horizontal='center')
+
+                    campaign_header = ws.cell(row=3, column=32)  # Column AF
+                    campaign_header.value = "Kampanija"
+                    campaign_header.font = Font(size=9, bold=True, color="FFFFFF")
+                    campaign_header.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+                    campaign_header.border = border
+                    campaign_header.alignment = Alignment(horizontal='center')
 
                     # Add plan rows with TRP values - one row per plan (matching main table Y positions)
                     # Use the stored data_start_row to match exact positions
@@ -2394,18 +2405,21 @@ def export_channel_group_excel(group_id: int):
                         # Use the exact same Y position as the corresponding plan row in main table
                         row_idx = data_start_row + plan_idx
 
-                        # Plan identifier at column AB (28) - replaces Ag. nuol. % for plan rows
+                        # Add plan identifier and campaign name in columns after the main table (but before calendar dates)
+                        # Put them in columns AE and AF instead of overriding AB and AC
                         plan_label = f"Plan {plan_idx + 1}"
-                        label_cell = ws.cell(row=row_idx, column=28)  # Column AB
+                        label_cell = ws.cell(row=row_idx, column=31)  # Column AE
                         label_cell.value = plan_label
                         label_cell.font = Font(size=9)
                         label_cell.border = border
+                        label_cell.fill = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
 
-                        # Campaign name at column AC (29) - replaces Net net kaina for plan rows
-                        campaign_cell = ws.cell(row=row_idx, column=29)  # Column AC
+                        # Campaign name in next column
+                        campaign_cell = ws.cell(row=row_idx, column=32)  # Column AF
                         campaign_cell.value = item['campaign_name']
                         campaign_cell.font = Font(size=8)
                         campaign_cell.border = border
+                        campaign_cell.fill = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
 
                         # TRP values for each day for this specific plan
                         current_date = start_date
@@ -2456,10 +2470,9 @@ def export_channel_group_excel(group_id: int):
                             current_date += timedelta(days=1)
                             col_idx += 1
 
-                    # Set column widths for calendar section
-                    # Plan labels column (AB - 28) and campaign names column (AC - 29)
-                    ws.column_dimensions['AB'].width = 8   # Plan labels
-                    ws.column_dimensions['AC'].width = 15  # Campaign names
+                    # Set column widths for plan label columns (AE - 31 and AF - 32)
+                    ws.column_dimensions['AE'].width = 8   # Plan labels
+                    ws.column_dimensions['AF'].width = 15  # Campaign names
 
                     # Set calendar date columns to narrow width (approximately 0.4cm)
                     total_days = (end_date - start_date).days + 1
@@ -2529,9 +2542,9 @@ def export_channel_group_excel(group_id: int):
                 except:
                     pass
             if column_letter:
-                # Skip auto-adjustment for calendar columns (AD onwards) - keep our custom narrow width
+                # Skip auto-adjustment for plan labels and calendar columns (AE onwards) - keep our custom widths
                 col_index = openpyxl.utils.column_index_from_string(column_letter)
-                if col_index >= 30:  # AD is column 30, skip calendar columns
+                if col_index >= 31:  # AE is column 31, skip plan labels and calendar columns
                     continue
                 adjusted_width = min(max_length + 2, 50)
                 ws.column_dimensions[column_letter].width = adjusted_width

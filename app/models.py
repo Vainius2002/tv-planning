@@ -2330,18 +2330,34 @@ def export_channel_group_excel(group_id: int):
                         current_date += timedelta(days=1)
                         col_idx += 1
 
-                    # Create month headers at row 1 - put month name in each day cell for consistent width
-                    current_date = start_date
-                    col_idx = calendar_start_col
-                    while current_date <= end_date:
-                        month_cell = ws.cell(row=month_header_row, column=col_idx)
-                        month_cell.value = current_date.strftime('%B %Y')  # Month and year
-                        month_cell.font = Font(bold=True, size=8, color="FFFFFF")  # White text, smaller font to fit
+                    # Create month headers at row 1 - show month name only once per month (merged)
+                    for month_year in months:
+                        span = month_spans[month_year]
+                        start_col = span['start']
+                        end_col = span['end']
+
+                        # Set value and styling for the first cell
+                        month_cell = ws.cell(row=month_header_row, column=start_col)
+                        month_cell.value = span['name']
+                        month_cell.font = Font(bold=True, size=8, color="FFFFFF")  # White text
                         month_cell.alignment = Alignment(horizontal='center')
                         month_cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")  # Same dark blue as main headers
                         month_cell.border = border
-                        current_date += timedelta(days=1)
-                        col_idx += 1
+
+                        # If spanning multiple columns, apply same styling to all cells before merging
+                        if start_col < end_col:
+                            # Apply styling to all cells in the span before merging
+                            for col in range(start_col, end_col + 1):
+                                cell = ws.cell(row=month_header_row, column=col)
+                                cell.font = Font(bold=True, size=8, color="FFFFFF")
+                                cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+                                cell.border = border
+
+                            # Now merge the cells
+                            ws.merge_cells(f'{openpyxl.utils.get_column_letter(start_col)}{month_header_row}:{openpyxl.utils.get_column_letter(end_col)}{month_header_row}')
+                        else:
+                            # Single column month, just apply border
+                            month_cell.border = border
 
                     # Day headers at row 2
                     current_date = start_date
@@ -2445,11 +2461,11 @@ def export_channel_group_excel(group_id: int):
                     ws.column_dimensions['AB'].width = 8   # Plan labels
                     ws.column_dimensions['AC'].width = 15  # Campaign names
 
-                    # Set calendar date columns to consistent width
+                    # Set calendar date columns to narrow width (approximately 0.4cm)
                     total_days = (end_date - start_date).days + 1
                     for col in range(calendar_start_col, calendar_start_col + total_days):
                         col_letter = openpyxl.utils.get_column_letter(col)
-                        ws.column_dimensions[col_letter].width = 4.0
+                        ws.column_dimensions[col_letter].width = 5
 
             except Exception as e:
                 # If calendar generation fails, skip it
@@ -2498,7 +2514,7 @@ def export_channel_group_excel(group_id: int):
                 ws.cell(row=current_row, column=2).number_format = '#,##0.00'
             current_row += 1
 
-        # Auto-adjust column widths
+        # Auto-adjust column widths (but skip calendar columns)
         for column in ws.columns:
             max_length = 0
             column_letter = None
@@ -2513,6 +2529,10 @@ def export_channel_group_excel(group_id: int):
                 except:
                     pass
             if column_letter:
+                # Skip auto-adjustment for calendar columns (AD onwards) - keep our custom narrow width
+                col_index = openpyxl.utils.column_index_from_string(column_letter)
+                if col_index >= 30:  # AD is column 30, skip calendar columns
+                    continue
                 adjusted_width = min(max_length + 2, 50)
                 ws.column_dimensions[column_letter].width = adjusted_width
 

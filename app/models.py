@@ -1306,7 +1306,10 @@ def generate_client_excel_report(campaign_id: int):
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal='center')
         cell.border = border
-    
+
+    # Set header row height to make it taller (CLIENT EXCEL EXPORT)
+    ws.row_dimensions[current_row].height = 120
+
     current_row += 1
     
     # Data rows
@@ -1380,6 +1383,9 @@ def generate_client_excel_report(campaign_id: int):
                 cell.border = border
                 if row_fill:
                     cell.fill = row_fill
+                else:
+                    # Ensure normal background for non-striped rows (especially column 19)
+                    cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
                 cell.font = Font(size=9)  # Smaller font for data
                 cell.alignment = Alignment(horizontal='center', vertical='center')  # Center alignment
             
@@ -2561,8 +2567,8 @@ def export_channel_group_excel(group_id: int):
 
 
         # Set specific widths for columns to properly display content
-        ws.column_dimensions['A'].width = 15  # Pradžia
-        ws.column_dimensions['B'].width = 15  # Pabaiga
+        ws.column_dimensions['A'].width = 12  # Pradžia
+        ws.column_dimensions['B'].width = 12  # Pabaiga
         ws.column_dimensions['C'].width = 18  # Kanalų grupė
         ws.column_dimensions['D'].width = 15  # Kampanija
         ws.column_dimensions['E'].width = 10  # Perkama TG - thinner
@@ -2618,6 +2624,9 @@ def export_channel_group_excel(group_id: int):
                     col_index = openpyxl.utils.column_index_from_string(column_letter)
                     # Skip calendar columns (AE onwards)
                     if col_index >= 31:
+                        continue
+                    # Skip Pradžia and Pabaiga columns from auto-adjustment to keep them narrow
+                    if column_letter in ['A', 'B']:
                         continue
                     # Get current width
                     current_width = ws.column_dimensions[column_letter].width

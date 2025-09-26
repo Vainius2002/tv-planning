@@ -2215,6 +2215,9 @@ def export_channel_group_excel(group_id: int):
 
         current_row += 1
 
+        # Store the starting row for data (needed for calendar alignment)
+        data_start_row = current_row
+
         # Data rows
         for item in rows:
             # Calculate values
@@ -2280,6 +2283,170 @@ def export_channel_group_excel(group_id: int):
                     cell.number_format = '0.0"%"'
 
             current_row += 1
+
+        # Add calendar section to the right of the main table
+        if rows:
+            try:
+                from datetime import datetime, timedelta
+                import json
+
+                # Find the date range from all wave items
+                start_dates = [datetime.strptime(item['start_date'], '%Y-%m-%d') for item in rows if item['start_date']]
+                end_dates = [datetime.strptime(item['end_date'], '%Y-%m-%d') for item in rows if item['end_date']]
+
+                if start_dates and end_dates:
+                    start_date = min(start_dates)
+                    end_date = max(end_dates)
+
+                    # Calendar positioning - start from column AB (28) to match example
+                    # Plan labels at AB, campaign names at AC, then calendar starts at AD
+                    calendar_start_col = 30  # Calendar data starts at AD (30)
+
+                    # Calendar headers start at row 1 to align with main table
+                    # Month headers at row 1, day numbers at row 2, weekdays at row 3
+                    # Then calendar data starts at data_start_row (matches main data)
+                    month_header_row = 1
+                    calendar_end_col = min(calendar_start_col + (end_date - start_date).days + 5, 60)
+
+                    # Month headers
+                    current_date = start_date
+                    col_idx = calendar_start_col
+                    months = []
+                    month_spans = {}
+
+                    while current_date <= end_date:
+                        month_year = current_date.strftime('%Y-%m')
+                        if month_year not in month_spans:
+                            month_spans[month_year] = {'start': col_idx, 'name': current_date.strftime('%B %Y')}
+                            months.append(month_year)
+                        month_spans[month_year]['end'] = col_idx
+                        current_date += timedelta(days=1)
+                        col_idx += 1
+
+                    # Create month headers at row 1
+                    for month_year in months:
+                        span = month_spans[month_year]
+                        start_col = span['start']
+                        end_col = span['end']
+
+                        if start_col < end_col:
+                            ws.merge_cells(f'{openpyxl.utils.get_column_letter(start_col)}{month_header_row}:{openpyxl.utils.get_column_letter(end_col)}{month_header_row}')
+
+                        month_cell = ws.cell(row=month_header_row, column=start_col)
+                        month_cell.value = span['name']
+                        month_cell.font = Font(bold=True, size=10, color="1F4E79")
+                        month_cell.alignment = Alignment(horizontal='center')
+                        month_cell.fill = PatternFill(start_color="E8F4FD", end_color="E8F4FD", fill_type="solid")
+
+                    # Day headers at row 2
+                    current_date = start_date
+                    col_idx = calendar_start_col
+                    while current_date <= end_date:
+                        day_cell = ws.cell(row=2, column=col_idx)
+                        day_cell.value = current_date.strftime('%d')
+                        day_cell.font = Font(size=9, bold=True)
+                        day_cell.alignment = Alignment(horizontal='center')
+                        day_cell.fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
+                        day_cell.border = border
+                        current_date += timedelta(days=1)
+                        col_idx += 1
+
+                    # Weekday headers at row 3
+                    current_date = start_date
+                    col_idx = calendar_start_col
+                    while current_date <= end_date:
+                        weekday_cell = ws.cell(row=3, column=col_idx)
+                        weekday_names = ['Pr', 'An', 'Tr', 'Kt', 'Pn', 'Št', 'Sk']
+                        weekday_cell.value = weekday_names[current_date.weekday()]
+                        weekday_cell.font = Font(size=8)
+                        weekday_cell.alignment = Alignment(horizontal='center')
+                        weekday_cell.border = border
+                        current_date += timedelta(days=1)
+                        col_idx += 1
+
+                    # In the example, columns AB and AC are part of the main table headers
+                    # No need to override them - they show 'Ag. nuol. %' and 'Net net kaina'
+
+                    # Add plan rows with TRP values - one row per plan (matching main table Y positions)
+                    # Use the stored data_start_row to match exact positions
+                    for plan_idx, item in enumerate(rows):
+                        # Use the exact same Y position as the corresponding plan row in main table
+                        row_idx = data_start_row + plan_idx
+
+                        # Plan identifier at column AB (28) - replaces Ag. nuol. % for plan rows
+                        plan_label = f"Plan {plan_idx + 1}"
+                        label_cell = ws.cell(row=row_idx, column=28)  # Column AB
+                        label_cell.value = plan_label
+                        label_cell.font = Font(size=9)
+                        label_cell.border = border
+
+                        # Campaign name at column AC (29) - replaces Net net kaina for plan rows
+                        campaign_cell = ws.cell(row=row_idx, column=29)  # Column AC
+                        campaign_cell.value = item['campaign_name']
+                        campaign_cell.font = Font(size=8)
+                        campaign_cell.border = border
+
+                        # TRP values for each day for this specific plan
+                        current_date = start_date
+                        col_idx = calendar_start_col
+
+                        while current_date <= end_date:
+                            daily_trp = 0
+                            date_str = current_date.strftime('%Y-%m-%d')
+
+                            # Check if this specific plan is active on this date
+                            if (item['start_date'] and item['end_date'] and
+                                item['start_date'] <= date_str <= item['end_date']):
+
+                                # Parse daily TRP distribution if available
+                                if item.get('daily_trp_distribution'):
+                                    try:
+                                        daily_data = json.loads(item['daily_trp_distribution'])
+                                        daily_trp = daily_data.get(date_str, 0)
+                                    except:
+                                        # If no daily distribution, distribute evenly across wave period
+                                        wave_start = datetime.strptime(item['start_date'], '%Y-%m-%d')
+                                        wave_end = datetime.strptime(item['end_date'], '%Y-%m-%d')
+                                        wave_days = (wave_end - wave_start).days + 1
+                                        daily_trp = (item['trps'] or 0) / wave_days if wave_days > 0 else 0
+                                else:
+                                    # Distribute evenly across wave period
+                                    wave_start = datetime.strptime(item['start_date'], '%Y-%m-%d')
+                                    wave_end = datetime.strptime(item['end_date'], '%Y-%m-%d')
+                                    wave_days = (wave_end - wave_start).days + 1
+                                    daily_trp = (item['trps'] or 0) / wave_days if wave_days > 0 else 0
+
+                            # Create cell for EVERY day in the date range (whether active or not)
+                            trp_cell = ws.cell(row=row_idx, column=col_idx)
+
+                            if daily_trp > 0:
+                                trp_cell.value = round(daily_trp, 1)
+                                trp_cell.fill = PatternFill(start_color="E8F5E8", end_color="E8F5E8", fill_type="solid")
+                            else:
+                                trp_cell.value = ""
+                                trp_cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+
+                            trp_cell.font = Font(size=8)
+                            trp_cell.alignment = Alignment(horizontal='center')
+                            trp_cell.border = border
+
+                            current_date += timedelta(days=1)
+                            col_idx += 1
+
+                    # Set column widths for calendar section
+                    # Plan labels column (AB - 28) and campaign names column (AC - 29)
+                    ws.column_dimensions['AB'].width = 8   # Plan labels
+                    ws.column_dimensions['AC'].width = 15  # Campaign names
+
+                    # Set calendar date columns to consistent width
+                    total_days = (end_date - start_date).days + 1
+                    for col in range(calendar_start_col, calendar_start_col + total_days):
+                        col_letter = openpyxl.utils.get_column_letter(col)
+                        ws.column_dimensions[col_letter].width = 4.0
+
+            except Exception as e:
+                # If calendar generation fails, skip it
+                pass
 
         # Add summary section
         current_row += 2

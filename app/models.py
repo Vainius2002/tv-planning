@@ -208,6 +208,7 @@ def migrate_add_wave_item_fields():
             ("channel_id", "INTEGER"),
             ("channel_share", "REAL DEFAULT 0.75"),
             ("pt_zone_share", "REAL DEFAULT 0.55"),
+            ("npt_zone_share", "REAL DEFAULT 0.45"),
             ("clip_duration", "INTEGER DEFAULT 10"),
             ("grp_planned", "REAL"),
             ("affinity1", "REAL"),
@@ -2198,7 +2199,7 @@ def export_channel_group_excel(group_id: int):
         # Column headers - match the exact plan table columns
         headers = [
             'Pradžia', 'Pabaiga', 'Kanalų grupė', 'Perkama TG', 'TVC', 'Trukmė', 'TG dydis (*000)',
-            'TG dalis (%)', 'TG imtis', 'Kanalo dalis', 'PT zonos dalis', 'GRP plan.', 'TRP perkamas',
+            'TG dalis (%)', 'TG imtis', 'Kanalo dalis', 'PT zonos dalis', 'nPT zonos dalis', 'GRP plan.', 'TRP perkamas',
             'Affinity1', 'Gross CPP', 'Trukmės koeficientas', 'Sezoninis koeficientas', 'TRP pirkimo',
             'Išankstinio pirkimo', 'WEB', 'Išankstinio mokėjimo', 'Lojalumo nuolaida', 'Pozicijos indeksas',
             'Gross kaina', 'Kl. nuol. %', 'Net kaina', 'Ag. nuol. %', 'Net net kaina'
@@ -2239,10 +2240,11 @@ def export_channel_group_excel(group_id: int):
                 item['tvc_name'] or '',                                      # TVC
                 item['clip_duration'] or 0,                                  # Trukmė
                 item['tg_size_thousands'] or 0,                             # TG dydis (*000) - from db
-                item['tg_share_percent'] or 0,                              # TG dalis (%) - from db
+                (item['tg_share_percent'] or 0) / 100 if item['tg_share_percent'] else 0,  # TG dalis (%) - from db, convert to decimal
                 item['tg_sample_size'] or 0,                                # TG imtis - from db
-                (item['channel_share'] or 0) * 100,                         # Kanalo dalis
-                (item['pt_zone_share'] or 0) * 100,                         # PT zonos dalis
+                (item['channel_share'] or 0),                              # Kanalo dalis - already decimal
+                (item['pt_zone_share'] or 0),                              # PT zonos dalis - already decimal
+                (item['npt_zone_share'] or 0.45),                          # nPT zonos dalis - already decimal
                 grp_planned,                                                 # GRP plan. (calculated)
                 item['trps'] or 0,                                          # TRP perkamas
                 item['affinity1'] or 0,                                     # Affinity1
@@ -2268,13 +2270,13 @@ def export_channel_group_excel(group_id: int):
                 cell.border = border
 
                 # Format numbers
-                if col in [8, 10, 11]:  # Percentage columns: TG dalis (%), Kanalo dalis, PT zonos dalis
+                if col in [8, 10, 11, 12]:  # Percentage columns: TG dalis (%), Kanalo dalis, PT zonos dalis, nPT zonos dalis
                     cell.number_format = '0.00%'
-                elif col in [16, 17, 18, 19, 20, 21, 22, 23]:  # Index columns
+                elif col in [17, 18, 19, 20, 21, 22, 23, 24]:  # Index columns
                     cell.number_format = '0.00'
-                elif col in [12, 13, 15, 24, 26, 28]:  # Currency columns: GRP plan., TRP perkamas, Gross CPP, Gross kaina, Net kaina, Net net kaina
+                elif col in [13, 14, 16, 25, 27, 29]:  # Currency columns: GRP plan., TRP perkamas, Gross CPP, Gross kaina, Net kaina, Net net kaina
                     cell.number_format = '#,##0.00'
-                elif col in [25, 27]:  # Discount percentage columns: Kl. nuol. %, Ag. nuol. %
+                elif col in [26, 28]:  # Discount percentage columns: Kl. nuol. %, Ag. nuol. %
                     cell.number_format = '0.0"%"'
 
             current_row += 1

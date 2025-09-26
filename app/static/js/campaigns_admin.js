@@ -1111,6 +1111,7 @@
                     <td class="px-2 py-1 text-xs bg-green-50">${item.tg_sample_size || '-'}</td>
                     <td class="px-2 py-1 text-xs">${((item.channel_share || 0.75) * 100).toFixed(1)}%</td>
                     <td class="px-2 py-1 text-xs">${((item.pt_zone_share || 0.55) * 100).toFixed(1)}%</td>
+                    <td class="px-2 py-1 text-xs">${((item.npt_zone_share || 0.45) * 100).toFixed(1)}%</td>
                     <td class="px-2 py-1 text-xs grp-planned">${grpPlanned.toFixed(2)}</td>
                     <td class="px-2 py-1"><input class="itm-trps w-16 text-xs border rounded px-1 py-0.5 bg-purple-50" type="number" step="0.01" value="${item.trps || ''}" placeholder="TRP" data-item-id="${item.id}"></td>
                     <td class="px-2 py-1"><input class="itm-affinity1 w-12 text-xs border rounded px-1 py-0.5 bg-purple-50" type="number" step="0.1" value="${item.affinity1 || ''}" placeholder="Affinity" data-item-id="${item.id}"></td>
@@ -1651,6 +1652,7 @@
             // Hidden fields with default values
             channel_share: 0.75, // 75% default
             pt_zone_share: 0.55, // 55% default
+            npt_zone_share: 0.45, // 45% default
             clip_duration: clipDuration,
             tvc_id: tvcId ? parseInt(tvcId) : 0,
             affinity1: 0, // Will be editable in resulting table
@@ -1713,6 +1715,7 @@
               <td class="px-2 py-1 text-xs bg-green-50">${r.tg_sample_size || '-'}</td>
               <td class="px-2 py-1 text-xs">${(r.channel_share * 100).toFixed(1)}%</td>
               <td class="px-2 py-1 text-xs">${(r.pt_zone_share * 100).toFixed(1)}%</td>
+              <td class="px-2 py-1 text-xs">${((r.npt_zone_share || 0.45) * 100).toFixed(1)}%</td>
               <td class="px-2 py-1 text-xs grp-planned">${grpPlanned.toFixed(2)}</td>
               <td class="px-2 py-1"><input class="itm-trps w-16 text-xs border rounded px-1 py-0.5 bg-purple-50" type="number" step="0.01" value="${r.trps || ''}" placeholder="TRP"></td>
               <td class="px-2 py-1"><input class="itm-affinity1 w-12 text-xs border rounded px-1 py-0.5 bg-purple-50" type="number" step="0.1" value="${r.affinity1 || ''}" placeholder="Affinity"></td>
@@ -2120,6 +2123,7 @@
                 trps: trps || 0,
                 channel_share: 0.75,
                 pt_zone_share: 0.55,
+                npt_zone_share: 0.45,
                 clip_duration: clipDuration || 30,
                 tvc_id: tvcId ? parseInt(tvcId) : 0,
                 affinity1: 0, // Changed from null to 0

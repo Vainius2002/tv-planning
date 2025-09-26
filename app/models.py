@@ -2152,13 +2152,15 @@ def export_channel_group_excel(group_id: int):
     with get_db() as db:
         query = """
         SELECT wi.*, w.start_date, w.end_date, w.campaign_id, c.name as campaign_name,
-               cg.name as channel_group_name, wi.duration_index, wi.seasonal_index,
+               cg.name as channel_group_name, t.name as tvc_name,
+               wi.duration_index, wi.seasonal_index,
                wi.trp_purchase_index, wi.advance_purchase_index, wi.web_index,
                wi.advance_payment_index, wi.loyalty_discount_index, wi.position_index
         FROM wave_items wi
         JOIN waves w ON wi.wave_id = w.id
         JOIN campaigns c ON w.campaign_id = c.id
         JOIN channel_groups cg ON wi.owner = cg.name
+        LEFT JOIN tvcs t ON wi.tvc_id = t.id
         WHERE cg.id = ?
         ORDER BY c.name, w.start_date, wi.id
         """
@@ -2193,13 +2195,13 @@ def export_channel_group_excel(group_id: int):
         cell.alignment = Alignment(horizontal='center')
         current_row += 2
 
-        # Column headers
+        # Column headers - match the exact plan table columns
         headers = [
-            'Kampanija', 'Kanalų grupė', 'Data', 'Perkama TG', 'Pagr. kanalo dalis (%)',
-            'PT zonos dalis', 'nPT zonos dalis', 'Klipo trukmė', 'Perkamas GRP', 'Perkamas TRP',
-            'Affinity', 'Gross CPP (EUR)', 'Trukmės', 'Sezoninis', 'TRP pirkimo',
-            'Išankstinio pirkimo', 'WEB', 'Išankstinio mokėjimo', 'Lojalumo nuolaida',
-            'Gross kaina', 'Nuolaida', 'Viso net kaina (EUR)'
+            'Pradžia', 'Pabaiga', 'Kanalų grupė', 'Perkama TG', 'TVC', 'Trukmė', 'TG dydis (*000)',
+            'TG dalis (%)', 'TG imtis', 'Kanalo dalis', 'PT zonos dalis', 'GRP plan.', 'TRP perkamas',
+            'Affinity1', 'Gross CPP', 'Trukmės koeficientas', 'Sezoninis koeficientas', 'TRP pirkimo',
+            'Išankstinio pirkimo', 'WEB', 'Išankstinio mokėjimo', 'Lojalumo nuolaida', 'Pozicijos indeksas',
+            'Gross kaina', 'Kl. nuol. %', 'Net kaina', 'Ag. nuol. %', 'Net net kaina'
         ]
 
         for col, header in enumerate(headers, 1):
@@ -2226,34 +2228,38 @@ def export_channel_group_excel(group_id: int):
                           (item['loyalty_discount_index'] or 1.0) * (item['position_index'] or 1.0))
 
             net_price = gross_price * (1 - (item['client_discount'] or 0) / 100)
+            net_net_price = net_price * (1 - (item['agency_discount'] or 0) / 100)
 
-            # Date range
-            date_str = f"{item['start_date']} - {item['end_date']}" if item['start_date'] and item['end_date'] else ""
-
-            # Row data
+            # Row data matching the exact plan table columns
             row_data = [
-                item['campaign_name'],
-                item['channel_group_name'],
-                date_str,
-                item['target_group'],
-                (item['channel_share'] or 0) * 100,
-                (item['pt_zone_share'] or 0) * 100,
-                ((1 - (item['pt_zone_share'] or 0)) * 100) if item['pt_zone_share'] else 0,
-                item['clip_duration'] or 0,
-                grp_planned,
-                item['trps'] or 0,
-                item['affinity1'] or 0,
-                gross_cpp,
-                item['duration_index'] or 1.0,
-                item['seasonal_index'] or 1.0,
-                item['trp_purchase_index'] or 1.0,
-                item['advance_purchase_index'] or 1.0,
-                item['web_index'] or 1.0,
-                item['advance_payment_index'] or 1.0,
-                item['loyalty_discount_index'] or 1.0,
-                gross_price,
-                item['client_discount'] or 0,
-                net_price
+                item['start_date'] or '',                                    # Pradžia
+                item['end_date'] or '',                                      # Pabaiga
+                item['channel_group_name'],                                  # Kanalų grupė
+                item['target_group'],                                        # Perkama TG
+                item['tvc_name'] or '',                                      # TVC
+                item['clip_duration'] or 0,                                  # Trukmė
+                item['tg_size_thousands'] or 0,                             # TG dydis (*000) - from db
+                item['tg_share_percent'] or 0,                              # TG dalis (%) - from db
+                item['tg_sample_size'] or 0,                                # TG imtis - from db
+                (item['channel_share'] or 0) * 100,                         # Kanalo dalis
+                (item['pt_zone_share'] or 0) * 100,                         # PT zonos dalis
+                grp_planned,                                                 # GRP plan. (calculated)
+                item['trps'] or 0,                                          # TRP perkamas
+                item['affinity1'] or 0,                                     # Affinity1
+                item['gross_cpp_eur'] or 0,                                 # Gross CPP
+                item['duration_index'] or 1.0,                             # Trukmės koeficientas
+                item['seasonal_index'] or 1.0,                             # Sezoninis koeficientas
+                item['trp_purchase_index'] or 1.0,                         # TRP pirkimo
+                item['advance_purchase_index'] or 1.0,                     # Išankstinio pirkimo
+                item['web_index'] or 1.0,                                  # WEB
+                item['advance_payment_index'] or 1.0,                      # Išankstinio mokėjimo
+                item['loyalty_discount_index'] or 1.0,                     # Lojalumo nuolaida
+                item['position_index'] or 1.0,                             # Pozicijos indeksas
+                gross_price,                                                # Gross kaina
+                item['client_discount'] or 0,                              # Kl. nuol. %
+                net_price,                                                  # Net kaina
+                item['agency_discount'] or 0,                              # Ag. nuol. %
+                net_net_price                                               # Net net kaina
             ]
 
             for col, value in enumerate(row_data, 1):
@@ -2262,12 +2268,14 @@ def export_channel_group_excel(group_id: int):
                 cell.border = border
 
                 # Format numbers
-                if col in [5, 6, 7, 13, 14, 15, 16, 17, 18, 19]:  # Percentage and index columns
+                if col in [8, 10, 11]:  # Percentage columns: TG dalis (%), Kanalo dalis, PT zonos dalis
+                    cell.number_format = '0.00%'
+                elif col in [16, 17, 18, 19, 20, 21, 22, 23]:  # Index columns
                     cell.number_format = '0.00'
-                elif col in [9, 10, 11, 20, 22]:  # Currency columns
+                elif col in [12, 13, 15, 24, 26, 28]:  # Currency columns: GRP plan., TRP perkamas, Gross CPP, Gross kaina, Net kaina, Net net kaina
                     cell.number_format = '#,##0.00'
-                elif col == 21:  # Discount percentage
-                    cell.number_format = '0.0%'
+                elif col in [25, 27]:  # Discount percentage columns: Kl. nuol. %, Ag. nuol. %
+                    cell.number_format = '0.0"%"'
 
             current_row += 1
 

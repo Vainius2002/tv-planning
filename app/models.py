@@ -2205,11 +2205,11 @@ def export_channel_group_excel(group_id: int):
 
         # Column headers - match the exact plan table columns
         headers = [
-            'Pradžia', 'Pabaiga', 'Kanalų grupė', 'Kampanija', 'Perkama TG', 'TVC', 'Trukmė', 'TG dydis (*000)',
-            'TG dalis (%)', 'TG imtis', 'Kanalo dalis', 'PT zonos dalis', 'nPT zonos dalis', 'GRP plan.', 'TRP perkamas',
-            'Affinity1', 'Gross CPP', 'Trukmės koeficientas', 'Sezoninis koeficientas', 'TRP pirkimo',
-            'Išankstinio pirkimo', 'WEB', 'Išankstinio mokėjimo', 'Lojalumo nuolaida', 'Pozicijos indeksas',
-            'Gross kaina', 'Kl. nuol. %', 'Net kaina', 'Ag. nuol. %', 'Net net kaina'
+            'Pradžia', 'Pabaiga', 'Kanalų grupė', 'Kampanija', 'Perkama TG', 'TVC', 'Trukmė', 'TG\ndydis (*000)',
+            'TG\ndalis (%)', 'TG\nimtis', 'Kanalo\ndalis', 'PT zonos\ndalis', 'nPT zonos\ndalis', 'GRP\nplanuojamas', 'TRP\nperkamas',
+            'Affinity1', 'Gross CPP', 'Trukmės\nkoeficientas', 'Sezoninis\nkoeficientas', 'TRP\npirkimo',
+            'Išankstinio\npirkimo', 'WEB', 'Išankstinio\nmokėjimo', 'Lojalumo\nnuolaida', 'Pozicijos\nindeksas',
+            'Gross\nkaina', 'Kliento\nnuolaida %', 'Net kaina', 'Agentūros\nnuolaida %', 'Net net kaina'
         ]
 
         for col, header in enumerate(headers, 1):
@@ -2218,7 +2218,10 @@ def export_channel_group_excel(group_id: int):
             cell.font = header_font
             cell.fill = header_fill
             cell.border = border
-            cell.alignment = Alignment(horizontal='center')
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+        # Set header row height to accommodate wrapped text
+        ws.row_dimensions[current_row].height = 40
 
         current_row += 1
 
@@ -2526,12 +2529,39 @@ def export_channel_group_excel(group_id: int):
                 pass
 
 
-        # Set specific widths for Pradžia and Pabaiga columns to match
+        # Set specific widths for columns to properly display content
         ws.column_dimensions['A'].width = 15  # Pradžia
         ws.column_dimensions['B'].width = 15  # Pabaiga
         ws.column_dimensions['C'].width = 18  # Kanalų grupė
+        ws.column_dimensions['D'].width = 15  # Kampanija
+        ws.column_dimensions['E'].width = 15  # Perkama TG
+        ws.column_dimensions['F'].width = 12  # TVC
+        ws.column_dimensions['G'].width = 10  # Trukmė
+        ws.column_dimensions['H'].width = 12  # TG dydis (*000)
+        ws.column_dimensions['I'].width = 10  # TG dalis (%)
+        ws.column_dimensions['J'].width = 10  # TG imtis
+        ws.column_dimensions['K'].width = 10  # Kanalo dalis
+        ws.column_dimensions['L'].width = 10  # PT zonos dalis
+        ws.column_dimensions['M'].width = 12  # nPT zonos dalis
+        ws.column_dimensions['N'].width = 12  # GRP planuojamas
+        ws.column_dimensions['O'].width = 11  # TRP perkamas
+        ws.column_dimensions['P'].width = 10  # Affinity1
+        ws.column_dimensions['Q'].width = 12  # Gross CPP
+        ws.column_dimensions['R'].width = 12  # Trukmės koeficientas
+        ws.column_dimensions['S'].width = 12  # Sezoninis koeficientas
+        ws.column_dimensions['T'].width = 10  # TRP pirkimo
+        ws.column_dimensions['U'].width = 12  # Išankstinio pirkimo
+        ws.column_dimensions['V'].width = 8   # WEB
+        ws.column_dimensions['W'].width = 12  # Išankstinio mokėjimo
+        ws.column_dimensions['X'].width = 12  # Lojalumo nuolaida
+        ws.column_dimensions['Y'].width = 12  # Pozicijos indeksas
+        ws.column_dimensions['Z'].width = 12  # Gross kaina
+        ws.column_dimensions['AA'].width = 12 # Kliento nuolaida %
+        ws.column_dimensions['AB'].width = 12 # Net kaina
+        ws.column_dimensions['AC'].width = 12 # Agentūros nuolaida %
+        ws.column_dimensions['AD'].width = 14 # Net net kaina
 
-        # Auto-adjust column widths (but skip calendar columns and first 3 columns)
+        # Auto-adjust column widths if content is wider than preset widths
         for column in ws.columns:
             max_length = 0
             column_letter = None
@@ -2547,11 +2577,15 @@ def export_channel_group_excel(group_id: int):
                     pass
             if column_letter:
                 col_index = openpyxl.utils.column_index_from_string(column_letter)
-                # Skip auto-adjustment for first 3 columns (A, B, C) and calendar columns (AE onwards)
-                if col_index <= 3 or col_index >= 31:
+                # Skip calendar columns (AE onwards)
+                if col_index >= 31:
                     continue
-                adjusted_width = min(max_length + 2, 50)
-                ws.column_dimensions[column_letter].width = adjusted_width
+                # Get current width
+                current_width = ws.column_dimensions[column_letter].width
+                # Only adjust if content requires more width
+                if max_length + 2 > current_width:
+                    adjusted_width = min(max_length + 2, 50)
+                    ws.column_dimensions[column_letter].width = adjusted_width
 
     # Save to BytesIO
     output = BytesIO()

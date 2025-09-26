@@ -2167,6 +2167,13 @@ def export_channel_group_excel(group_id: int):
         """
         rows = db.execute(query, (group_id,)).fetchall()
 
+    # Load TRP distribution data for all campaigns using this channel group
+    campaign_trp_data = {}
+    if rows:
+        campaign_ids = list(set(row['campaign_id'] for row in rows))
+        for campaign_id in campaign_ids:
+            campaign_trp_data[campaign_id] = load_trp_distribution(campaign_id)
+
     if not rows:
         # Create empty Excel with message
         wb = openpyxl.Workbook()
@@ -2398,19 +2405,21 @@ def export_channel_group_excel(group_id: int):
                             if (item['start_date'] and item['end_date'] and
                                 item['start_date'] <= date_str <= item['end_date']):
 
-                                # Parse daily TRP distribution if available
-                                if item.get('daily_trp_distribution'):
-                                    try:
-                                        daily_data = json.loads(item['daily_trp_distribution'])
-                                        daily_trp = daily_data.get(date_str, 0)
-                                    except:
-                                        # If no daily distribution, distribute evenly across wave period
+                                # Get TRP value from campaign TRP distribution data
+                                campaign_id = item['campaign_id']
+                                if campaign_id in campaign_trp_data:
+                                    trp_data = campaign_trp_data[campaign_id]
+                                    if date_str in trp_data:
+                                        # Use actual TRP calendar data
+                                        daily_trp = trp_data[date_str]
+                                    else:
+                                        # If no TRP calendar data for this date, distribute evenly across wave period
                                         wave_start = datetime.strptime(item['start_date'], '%Y-%m-%d')
                                         wave_end = datetime.strptime(item['end_date'], '%Y-%m-%d')
                                         wave_days = (wave_end - wave_start).days + 1
                                         daily_trp = (item['trps'] or 0) / wave_days if wave_days > 0 else 0
                                 else:
-                                    # Distribute evenly across wave period
+                                    # No TRP distribution data for campaign, distribute evenly
                                     wave_start = datetime.strptime(item['start_date'], '%Y-%m-%d')
                                     wave_end = datetime.strptime(item['end_date'], '%Y-%m-%d')
                                     wave_days = (wave_end - wave_start).days + 1

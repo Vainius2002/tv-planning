@@ -1291,20 +1291,20 @@ def generate_client_excel_report(campaign_id: int):
     # Main table starts at row 15 (after campaign info)
     current_row = 15
     
-    # Table headers
+    # Table headers - match the channel group Excel style
     headers = [
-        'Laikotarpis', 'Kanalų grupė', 'Perkama tikslinė grupė', 'TVC', 'Trukmė', 
-        'TG dydis (*000)', 'TG dalis (%)', 'TG imtis', 'Kanalo dalis (%)', 'PT zonos dalis (%)', 
-        'TRP perkama', 'Affinity1', 'GRP planuojamas', 'Gross CPP', 'Trukmės koeficientas', 'Sezoninis koeficientas', 
-        'TRP pirkimo koeficientas', 'Išankstinis koeficientas', 'Pozicijos indeksas', 'Gross kaina', 'Kliento nuolaida %', 'Net kaina', 
-        'Agentūros nuolaida %', 'Net net kaina'
+        'Pradžia', 'Pabaiga', 'Kanalų grupė', 'Kampanija', 'Perkama TG', 'TVC', 'Trukmė', 'TG\ndydis (*000)',
+        'TG\ndalis (%)', 'TG\nimtis', 'Kanalo\ndalis', 'PT zonos\ndalis', 'nPT zonos\ndalis', 'GRP\nplanuojamas', 'TRP\nperkamas',
+        'Affinity1', 'Gross CPP', 'Trukmės\nkoeficientas', 'Sezoninis\nkoeficientas', 'TRP\npirkimo',
+        'Išankstinio\npirkimo', 'WEB', 'Išankstinio\nmokėjimo', 'Lojalumo\nnuolaida', 'Pozicijos\nindeksas',
+        'Gross\nkaina', 'Kliento\nnuolaida %', 'Net kaina', 'Agentūros\nnuolaida %', 'Net net kaina'
     ]
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=current_row, column=col)
         cell.value = header
         cell.font = header_font
         cell.fill = header_fill
-        cell.alignment = Alignment(horizontal='center')
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         cell.border = border
 
     # Set header row height to make it taller (CLIENT EXCEL EXPORT)
@@ -1351,43 +1351,56 @@ def generate_client_excel_report(campaign_id: int):
             agency_discount = item.get('agency_discount', 0)
             net_net_price = net_price * (1 - agency_discount / 100)
             
-            ws.cell(row=current_row, column=1).value = f"{wave.get('start_date', '')} - {wave.get('end_date', '')}"
-            ws.cell(row=current_row, column=2).value = item['owner']  # Kanalų grupė
-            ws.cell(row=current_row, column=3).value = item['target_group']  # Perkama TG
-            ws.cell(row=current_row, column=4).value = item.get('tvc_name', '-')  # TVC
-            ws.cell(row=current_row, column=5).value = item.get('tvc_duration', item.get('clip_duration', 0))  # Trukmė
-            ws.cell(row=current_row, column=6).value = tg_size  # TG dydis (*000)
-            ws.cell(row=current_row, column=7).value = f"{tg_share}%" if tg_share > 0 else ""  # TG dalis (%)
-            ws.cell(row=current_row, column=8).value = tg_sample if tg_sample > 0 else ""  # TG imtis
-            ws.cell(row=current_row, column=9).value = f"{channel_share:.1f}%"  # Kanalo dalis
-            ws.cell(row=current_row, column=10).value = f"{pt_zone_share:.1f}%"  # PT zonos dalis
-            ws.cell(row=current_row, column=11).value = item['trps']  # TRP perk.
-            ws.cell(row=current_row, column=12).value = affinity1 if affinity1 > 0 else ""  # Affinity1
-            ws.cell(row=current_row, column=13).value = round(grp_planned, 2) if grp_planned > 0 else ""  # GRP plan.
-            ws.cell(row=current_row, column=14).value = f"€{gross_cpp:.2f}"  # Gross CPP
-            ws.cell(row=current_row, column=15).value = duration_idx  # Trukm.koef
-            ws.cell(row=current_row, column=16).value = seasonal_idx  # Sez.koef
-            ws.cell(row=current_row, column=17).value = trp_purchase_idx  # TRP pirk.
-            ws.cell(row=current_row, column=18).value = advance_idx  # Išank.
-            ws.cell(row=current_row, column=19).value = position_idx  # Pozic.
-            ws.cell(row=current_row, column=20).value = f"€{gross_price:.2f}"  # Gross kaina
-            ws.cell(row=current_row, column=21).value = f"{client_discount}%" if client_discount > 0 else "0%"  # Kl. nuol. %
-            ws.cell(row=current_row, column=22).value = f"€{net_price:.2f}"  # Net kaina
-            ws.cell(row=current_row, column=23).value = f"{agency_discount}%" if agency_discount > 0 else "0%"  # Ag. nuol. %
-            ws.cell(row=current_row, column=24).value = f"€{net_net_price:.2f}"  # Net net kaina
+            # Match the channel group Excel data structure
+            ws.cell(row=current_row, column=1).value = wave.get('start_date', '')  # Pradžia
+            ws.cell(row=current_row, column=2).value = wave.get('end_date', '')  # Pabaiga
+            ws.cell(row=current_row, column=3).value = item['owner']  # Kanalų grupė
+            ws.cell(row=current_row, column=4).value = campaign['name']  # Kampanija
+            ws.cell(row=current_row, column=5).value = item['target_group']  # Perkama TG
+            ws.cell(row=current_row, column=6).value = item.get('tvc_name', '-')  # TVC
+            ws.cell(row=current_row, column=7).value = item.get('tvc_duration', item.get('clip_duration', 0))  # Trukmė
+            ws.cell(row=current_row, column=8).value = tg_size  # TG dydis (*000)
+            ws.cell(row=current_row, column=9).value = tg_share / 100 if tg_share > 0 else 0  # TG dalis (%) - as decimal
+            ws.cell(row=current_row, column=10).value = tg_sample if tg_sample > 0 else ""  # TG imtis
+            ws.cell(row=current_row, column=11).value = channel_share / 100  # Kanalo dalis - as decimal
+            ws.cell(row=current_row, column=12).value = pt_zone_share / 100  # PT zonos dalis - as decimal
+            ws.cell(row=current_row, column=13).value = 0.45  # nPT zonos dalis - default value
+            ws.cell(row=current_row, column=14).value = round(grp_planned, 2) if grp_planned > 0 else ""  # GRP planuojamas
+            ws.cell(row=current_row, column=15).value = item['trps']  # TRP perkamas
+            ws.cell(row=current_row, column=16).value = affinity1 if affinity1 > 0 else ""  # Affinity1
+            ws.cell(row=current_row, column=17).value = gross_cpp  # Gross CPP - as number, not formatted
+            ws.cell(row=current_row, column=18).value = duration_idx  # Trukmės koeficientas
+            ws.cell(row=current_row, column=19).value = seasonal_idx  # Sezoninis koeficientas
+            ws.cell(row=current_row, column=20).value = trp_purchase_idx  # TRP pirkimo
+            ws.cell(row=current_row, column=21).value = advance_idx  # Išankstinio pirkimo
+            ws.cell(row=current_row, column=22).value = item.get('web_index', 1.0)  # WEB
+            ws.cell(row=current_row, column=23).value = item.get('advance_payment_index', 1.0)  # Išankstinio mokėjimo
+            ws.cell(row=current_row, column=24).value = item.get('loyalty_discount_index', 1.0)  # Lojalumo nuolaida
+            ws.cell(row=current_row, column=25).value = position_idx  # Pozicijos indeksas
+            ws.cell(row=current_row, column=26).value = gross_price  # Gross kaina - as number
+            ws.cell(row=current_row, column=27).value = client_discount / 100  # Kliento nuolaida % - as decimal
+            ws.cell(row=current_row, column=28).value = net_price  # Net kaina - as number
+            ws.cell(row=current_row, column=29).value = agency_discount / 100  # Agentūros nuolaida % - as decimal
+            ws.cell(row=current_row, column=30).value = net_net_price  # Net net kaina - as number
             
-            # Apply zebra striping and borders
-            row_fill = light_fill if row_count % 2 == 1 else None
-            for col in range(1, 25):
+            # Apply borders and formatting to all 30 columns
+            for col in range(1, 31):
                 cell = ws.cell(row=current_row, column=col)
                 cell.border = border
-                if row_fill:
-                    cell.fill = row_fill
-                else:
-                    # Ensure normal background for non-striped rows (especially column 19)
-                    cell.fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
-                cell.font = Font(size=9)  # Smaller font for data
-                cell.alignment = Alignment(horizontal='center', vertical='center')  # Center alignment
+
+                # Add center alignment for Pradžia, Pabaiga, and Kanalų grupė columns
+                if col in [1, 2, 3]:  # Pradžia, Pabaiga, Kanalų grupė
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+
+                # Format numbers - match channel group Excel formatting
+                if col in [9, 11, 12, 13]:  # Percentage columns: TG dalis (%), Kanalo dalis, PT zonos dalis, nPT zonos dalis
+                    cell.number_format = '0.00%'
+                elif col in [18, 19, 20, 21, 22, 23, 24, 25]:  # Index columns
+                    cell.number_format = '0.00'
+                elif col in [14, 15, 17, 26, 28, 30]:  # Currency columns: GRP plan., TRP perkamas, Gross CPP, Gross kaina, Net kaina, Net net kaina
+                    cell.number_format = '#,##0.00'
+                elif col in [27, 29]:  # Discount percentage columns: Kl. nuol. %, Ag. nuol. %
+                    cell.number_format = '0.0"%"'
             
             current_row += 1
             row_count += 1
@@ -1467,22 +1480,10 @@ def generate_client_excel_report(campaign_id: int):
                 
                 # Create horizontal calendar like in the UI - start from column AA (27) to not interfere with main table
                 
-                # First add calendar title above the calendar (spanning across calendar columns)
-                calendar_title_row = cal_start_row - 2  # 2 rows above calendar
-                calendar_start_col = 26  # Z
-                calendar_end_col = min(26 + (end_date - start_date).days + 3, 50)  # Estimate calendar width
-                
-                if calendar_start_col < calendar_end_col:
-                    ws.merge_cells(f'{openpyxl.utils.get_column_letter(calendar_start_col)}{calendar_title_row}:{openpyxl.utils.get_column_letter(calendar_end_col)}{calendar_title_row}')
-                    title_cell = ws.cell(row=calendar_title_row, column=calendar_start_col)
-                    title_cell.value = "KAMPANIJOS KALENDORIUS IR TRP PASKIRSTYMAS"
-                    title_cell.font = Font(bold=True, size=12, color="1F4E79")
-                    title_cell.alignment = Alignment(horizontal='center')
-                    title_cell.fill = PatternFill(start_color="E3F2FD", end_color="E3F2FD", fill_type="solid")
                 
                 # Month headers row
                 current_date = start_date
-                col_idx = 26  # Start calendar from column Z
+                col_idx = 35  # Start calendar from column AI - push to the right
                 months = []
                 month_spans = {}
                 
@@ -1519,7 +1520,7 @@ def generate_client_excel_report(campaign_id: int):
                 
                 # Day numbers row
                 current_date = start_date
-                col_idx = 26  # Start from column Z
+                col_idx = 35  # Start from column AI
                 while current_date <= end_date:
                     day_cell = ws.cell(row=cal_start_row + 1, column=col_idx)
                     day_cell.value = current_date.day
@@ -1538,7 +1539,7 @@ def generate_client_excel_report(campaign_id: int):
                 
                 # Week days row
                 current_date = start_date
-                col_idx = 26  # Start from column Z
+                col_idx = 35  # Start from column AI
                 weekday_names = ['Pr', 'An', 'Tr', 'Kt', 'Pn', 'Št', 'Sk']
                 while current_date <= end_date:
                     weekday_cell = ws.cell(row=cal_start_row + 2, column=col_idx)
@@ -1572,7 +1573,7 @@ def generate_client_excel_report(campaign_id: int):
                             daily_trp = wave_total_trp / wave_days if wave_days > 0 else 0
                             
                             current_date = start_date
-                            col_idx = 26  # Start from column Z
+                            col_idx = 35  # Start from column AI
                             
                             while current_date <= end_date:
                                 wave_cell = ws.cell(row=row_idx, column=col_idx)
@@ -1628,16 +1629,6 @@ def generate_client_excel_report(campaign_id: int):
                             continue
                 
                 # Total TRP summary calculated from all waves
-                total_campaign_trp = sum(sum(item['trps'] for item in wave['items'] if item.get('trps', 0) > 0) for wave in waves)
-                if total_campaign_trp > 0:
-                    summary_row = trp_row + 2
-                    ws.merge_cells(f'A{summary_row}:E{summary_row}')
-                    summary_cell = ws[f'A{summary_row}']
-                    summary_cell.value = f"BENDRAS KAMPANIJOS TRP: {total_campaign_trp:.2f}"
-                    summary_cell.font = Font(bold=True, size=12, color="1F4E79")
-                    summary_cell.alignment = Alignment(horizontal='center')
-                    summary_cell.fill = total_fill
-                    summary_cell.border = thick_border
                 
                 # Set row heights for calendar section to standard readable height
                 for row in range(cal_start_row, trp_row + 3):  # All calendar rows
@@ -1647,7 +1638,7 @@ def generate_client_excel_report(campaign_id: int):
                         pass  # Skip if row setting fails
                 
                 # Make calendar columns wider to show TRP values properly
-                calendar_start_col = 26  # Z column
+                calendar_start_col = 35  # AI column - push calendar further to the right
                 calendar_end_col = min(col_idx + 1, 60)  # Limit to reasonable range
                 for col in range(calendar_start_col, calendar_end_col):
                     try:
@@ -1687,25 +1678,38 @@ def generate_client_excel_report(campaign_id: int):
                     except:
                         pass  # Give up gracefully
     
-    # Professional footer
-    current_row += 3
-    ws.merge_cells(f'A{current_row}:X{current_row}')
-    footer_cell = ws[f'A{current_row}']
-    from datetime import datetime
-    footer_cell.value = f"Ataskaita sugeneruota: {datetime.now().strftime('%Y-%m-%d %H:%M')} | TV Planner Sistema"
-    footer_cell.font = Font(size=8, italic=True, color="808080")
-    footer_cell.alignment = Alignment(horizontal='center')
     
-    # Adjust column widths - normal widths for main table (without Banga column)
-    column_widths = [
-        24, 18, 25, 12, 8,      # Laikotarpis (wider for dates), Kanalų grupė, Perkama tikslinė grupė, TVC, Trukmė
-        13, 11, 10, 15, 15,     # TG dydis, TG dalis, TG imtis, Kanalo dalis, PT zonos dalis
-        13, 11, 15, 13, 20,     # TRP perkama, Affinity1, GRP planuojamas, Gross CPP, Trukmės koeficientas
-        20, 22, 20, 18, 13,     # Sezoninis koeficientas, TRP pirkimo koeficientas, Išankstinis koeficientas, Pozicijos indeksas, Gross kaina
-        16, 13, 16, 16          # Kliento nuolaida %, Net kaina, Agentūros nuolaida %, Net net kaina
-    ]
-    for col, width in enumerate(column_widths, 1):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
+    # Set specific widths for columns to match channel group Excel style
+    ws.column_dimensions['A'].width = 12  # Pradžia
+    ws.column_dimensions['B'].width = 12  # Pabaiga
+    ws.column_dimensions['C'].width = 18  # Kanalų grupė
+    ws.column_dimensions['D'].width = 15  # Kampanija
+    ws.column_dimensions['E'].width = 10  # Perkama TG - thinner
+    ws.column_dimensions['F'].width = 8   # TVC - thinner
+    ws.column_dimensions['G'].width = 7   # Trukmė - thinner
+    ws.column_dimensions['H'].width = 8   # TG dydis (*000) - thinner
+    ws.column_dimensions['I'].width = 7   # TG dalis (%) - thinner
+    ws.column_dimensions['J'].width = 7   # TG imtis - thinner
+    ws.column_dimensions['K'].width = 7   # Kanalo dalis - thinner
+    ws.column_dimensions['L'].width = 8   # PT zonos dalis - thinner
+    ws.column_dimensions['M'].width = 9   # nPT zonos dalis - thinner
+    ws.column_dimensions['N'].width = 9   # GRP planuojamas - thinner
+    ws.column_dimensions['O'].width = 8   # TRP perkamas - thinner
+    ws.column_dimensions['P'].width = 8   # Affinity1 - thinner
+    ws.column_dimensions['Q'].width = 9   # Gross CPP - thinner
+    ws.column_dimensions['R'].width = 9   # Trukmės koeficientas - thinner
+    ws.column_dimensions['S'].width = 9   # Sezoninis koeficientas - thinner
+    ws.column_dimensions['T'].width = 8   # TRP pirkimo - thinner
+    ws.column_dimensions['U'].width = 9   # Išankstinio pirkimo - thinner
+    ws.column_dimensions['V'].width = 6   # WEB - thinner
+    ws.column_dimensions['W'].width = 9   # Išankstinio mokėjimo - thinner
+    ws.column_dimensions['X'].width = 9   # Lojalumo nuolaida - thinner
+    ws.column_dimensions['Y'].width = 9   # Pozicijos indeksas - thinner
+    ws.column_dimensions['Z'].width = 9   # Gross kaina - thinner
+    ws.column_dimensions['AA'].width = 9  # Kliento nuolaida % - thinner
+    ws.column_dimensions['AB'].width = 9  # Net kaina - thinner
+    ws.column_dimensions['AC'].width = 9  # Agentūros nuolaida % - thinner
+    ws.column_dimensions['AD'].width = 10 # Net net kaina - thinner
     
     # Save to BytesIO
     print(f"DEBUG: Saving workbook to BytesIO", file=sys.stderr, flush=True)
@@ -2415,8 +2419,8 @@ def export_channel_group_excel(group_id: int):
                     start_date = min(start_dates)
                     end_date = max(end_dates)
 
-                    # Calendar positioning - main table now has 30 columns (A-AD), calendar starts at AE (31)
-                    calendar_start_col = 31  # Calendar data starts at AE (31)
+                    # Calendar positioning - main table now has 30 columns (A-AD), calendar starts further right for better spacing
+                    calendar_start_col = 35  # Calendar data starts at AI (35) - push further to the right
 
                     # Calendar headers start at row 1 to align with main table
                     # Month headers at row 1, day numbers at row 2, weekdays at row 3

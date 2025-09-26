@@ -366,18 +366,33 @@ def update_campaign_status(cid):
 @bp.route("/campaigns/<cid>/export/client-excel", methods=["GET"])
 def export_client_excel(cid):
     """Export client Excel report"""
+    import sys
+    print(f"DEBUG: Client Excel export requested for cid={cid}", file=sys.stderr, flush=True)
+
     try:
         local_cid = get_local_campaign_id(cid)
+        print(f"DEBUG: Local cid={local_cid}", file=sys.stderr, flush=True)
+
         excel_file = models.generate_client_excel_report(local_cid)
+        print(f"DEBUG: Excel file generated: {excel_file}", file=sys.stderr, flush=True)
         if not excel_file:
             return jsonify({"status": "error", "message": "Campaign not found"}), 404
         
         # Get campaign name for filename
         campaign_data = models.get_campaign_report_data(local_cid)
         campaign_name = campaign_data['campaign']['name'] if campaign_data else f"Campaign_{local_cid}"
-        
-        # Clean filename
-        safe_name = "".join(c for c in campaign_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+
+        # Replace Lithuanian characters with ASCII equivalents
+        char_replacements = {
+            'ą': 'a', 'č': 'c', 'ę': 'e', 'ė': 'e', 'į': 'i', 'š': 's', 'ų': 'u', 'ū': 'u', 'ž': 'z',
+            'Ą': 'A', 'Č': 'C', 'Ę': 'E', 'Ė': 'E', 'Į': 'I', 'Š': 'S', 'Ų': 'U', 'Ū': 'U', 'Ž': 'Z'
+        }
+        safe_name = campaign_name
+        for lithuanian_char, ascii_char in char_replacements.items():
+            safe_name = safe_name.replace(lithuanian_char, ascii_char)
+
+        # Clean filename - keep only alphanumeric, spaces, hyphens, underscores
+        safe_name = "".join(c for c in safe_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
         filename = f"TV_Plan_{safe_name}_{datetime.now().strftime('%Y%m%d')}.xlsx"
         
         return send_file(

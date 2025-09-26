@@ -253,24 +253,16 @@
             <div class="flex flex-wrap gap-1">
               <button class="open px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white hover:bg-slate-50">Atidaryti</button>
               <button class="export-client px-3 py-1.5 text-xs rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" data-campaign-id="${c.id}">Excel klientui</button>
-              <a href="${urlReplace(C_EXPORT_CSV, c.id)}" class="export-agency px-3 py-1.5 text-xs rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 no-underline inline-block">CSV agentūrai</a>
               <button class="del px-3 py-1.5 text-xs rounded-lg border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100">Šalinti</button>
             </div>
           </td>`;
         tr.querySelector('.open').addEventListener('click', () => openCampaign(c));
-        tr.querySelector('.export-client').addEventListener('click', async () => {
-          try {
-            const url = urlReplace(C_EXPORT_EXCEL, c.id);
-            // Create a temporary link to download the file
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = '';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          } catch (error) {
-            alert('Klaida eksportuojant Excel failą: ' + error.message);
-          }
+        tr.querySelector('.export-client').addEventListener('click', () => {
+          const url = urlReplace(C_EXPORT_EXCEL, c.id);
+          console.log('Exporting client Excel for campaign:', c.id, 'URL:', url);
+
+          // Use window.open to handle HTTP download properly
+          window.open(url, '_blank');
         });
         tr.querySelector('.del').addEventListener('click', async () => {
           if(!confirm('Šalinti kampaniją?')) return;

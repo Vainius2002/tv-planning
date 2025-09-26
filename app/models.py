@@ -1216,16 +1216,22 @@ import io
 
 def generate_client_excel_report(campaign_id: int):
     """Generate Excel report for client (with client discounts applied)"""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from io import BytesIO
+    from datetime import datetime, timedelta
+    import sys
+
     data = get_campaign_report_data(campaign_id)
     if not data:
         return None
-    
+
     campaign = data['campaign']
     waves = data['waves']
-    
+
     # Load TRP calendar data
     trp_data = load_trp_distribution(campaign_id)
-    
+
     # Create workbook
     wb = openpyxl.Workbook()
     ws = wb.active

@@ -1,7 +1,8 @@
 from . import bp
-from flask import render_template, request, jsonify
+from flask import render_template, request, jsonify, Response
 from app import models
 import sqlite3
+from io import BytesIO
 
 # ---------------------------
 # Page (HTML)
@@ -99,6 +100,32 @@ def ch_update(cid):
 def ch_delete(cid):
     models.delete_channel(cid)
     return jsonify({"status": "ok"})
+
+
+# ---------------------------
+# Excel Export for Channel Group
+# ---------------------------
+@bp.route("/channel-groups/<int:group_id>/export-excel", methods=["GET"])
+def export_channel_group_excel(group_id):
+    """Export Excel file for all campaigns using this channel group"""
+    try:
+        excel_buffer = models.export_channel_group_excel(group_id)
+
+        # Get group name for filename
+        group = models.get_channel_group_by_id(group_id)
+        group_name = group['name'] if group else f'Group_{group_id}'
+        filename = f'{group_name}_kanalu_ataskaita.xlsx'
+
+        response = Response(
+            excel_buffer.getvalue(),
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={
+                'Content-Disposition': f'attachment; filename={filename}'
+            }
+        )
+        return response
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 # ---------------------------

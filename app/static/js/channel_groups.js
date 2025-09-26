@@ -48,6 +48,7 @@
           <td class="px-4 py-2">
             <div class="flex gap-2">
               <button data-id="${g.id}" class="px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white hover:bg-slate-50 load">Rodyti kanalus</button>
+              <button class="px-3 py-1.5 text-xs rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 export-excel" data-group-id="${g.id}">Excel kanalui</button>
               <button class="px-3 py-1.5 text-xs rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 cg-save">Saugoti</button>
               <button class="px-3 py-1.5 text-xs rounded-lg border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 cg-del">Šalinti</button>
             </div>
@@ -57,6 +58,11 @@
           const gid = e.currentTarget.dataset.id;
           cgSelect.value = gid;
           await loadChannels(gid);
+        });
+        tr.querySelector('.export-excel').addEventListener('click', async (e) => {
+          const groupId = e.currentTarget.dataset.groupId;
+          // Direct download using window.location
+          window.location.href = `/tv-planner/channel-groups/${groupId}/export-excel`;
         });
         tr.querySelector('.cg-save').addEventListener('click', async () => {
           const name = tr.querySelector('.cg-name').value.trim();

@@ -274,6 +274,11 @@ def list_channel_groups():
         rows = db.execute("SELECT id, name FROM channel_groups ORDER BY name").fetchall()
         return [dict(r) for r in rows]
 
+def get_channel_group_by_id(group_id: int):
+    with get_db() as db:
+        row = db.execute("SELECT id, name FROM channel_groups WHERE id = ?", (group_id,)).fetchone()
+        return dict(row) if row else None
+
 def create_channel(channel_group_id: int, name: str, size: str):
     size = size.lower()
     if size not in ("big","small"):
@@ -2128,5 +2133,207 @@ def migrate_remove_pricing_list_requirement():
                 print("pricing_list_id already allows NULL values")
         else:
             print("pricing_list_id column does not exist")
-        
+
         db.commit()
+
+
+def export_channel_group_excel(group_id: int):
+    """Export Excel file for all campaigns using this channel group"""
+    from datetime import datetime
+
+    # Get channel group info
+    group = get_channel_group_by_id(group_id)
+    if not group:
+        raise ValueError(f"Channel group {group_id} not found")
+
+    group_name = group['name']
+
+    # Get all wave items that use channels from this group
+    with get_db() as db:
+        query = """
+        SELECT wi.*, w.start_date, w.end_date, w.campaign_id, c.name as campaign_name,
+               cg.name as channel_group_name, wi.duration_index, wi.seasonal_index,
+               wi.trp_purchase_index, wi.advance_purchase_index, wi.web_index,
+               wi.advance_payment_index, wi.loyalty_discount_index, wi.position_index
+        FROM wave_items wi
+        JOIN waves w ON wi.wave_id = w.id
+        JOIN campaigns c ON w.campaign_id = c.id
+        JOIN channel_groups cg ON wi.owner = cg.name
+        WHERE cg.id = ?
+        ORDER BY c.name, w.start_date, wi.id
+        """
+        rows = db.execute(query, (group_id,)).fetchall()
+
+    if not rows:
+        # Create empty Excel with message
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Kanalų ataskaita"
+        ws['A1'] = f"Kanalų grupės '{group_name}' planai nerasti"
+        ws['A1'].font = Font(size=14, bold=True)
+    else:
+        # Create workbook with data
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Kanalų ataskaita"
+
+        # Styles
+        header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        header_font = Font(color="FFFFFF", bold=True, size=10)
+        border = Border(left=Side(style='thin'), right=Side(style='thin'),
+                       top=Side(style='thin'), bottom=Side(style='thin'))
+
+        current_row = 1
+
+        # Main header
+        ws.merge_cells(f'A{current_row}:V{current_row}')
+        cell = ws[f'A{current_row}']
+        cell.value = f"KANALŲ GRUPĖS '{group_name}' PLANŲ ATASKAITA"
+        cell.font = Font(size=16, bold=True, color="1F4E79")
+        cell.alignment = Alignment(horizontal='center')
+        current_row += 2
+
+        # Column headers
+        headers = [
+            'Kampanija', 'Kanalų grupė', 'Data', 'Perkama TG', 'Pagr. kanalo dalis (%)',
+            'PT zonos dalis', 'nPT zonos dalis', 'Klipo trukmė', 'Perkamas GRP', 'Perkamas TRP',
+            'Affinity', 'Gross CPP (EUR)', 'Trukmės', 'Sezoninis', 'TRP pirkimo',
+            'Išankstinio pirkimo', 'WEB', 'Išankstinio mokėjimo', 'Lojalumo nuolaida',
+            'Gross kaina', 'Nuolaida', 'Viso net kaina (EUR)'
+        ]
+
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=current_row, column=col)
+            cell.value = header
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = border
+            cell.alignment = Alignment(horizontal='center')
+
+        current_row += 1
+
+        # Data rows
+        for item in rows:
+            # Calculate values
+            gross_cpp = item['gross_cpp_eur'] or 0
+            grp_planned = (item['trps'] * 100 / item['affinity1']) if item['affinity1'] and item['affinity1'] > 0 else 0
+
+            # Gross price calculation
+            gross_price = (item['trps'] * gross_cpp * item['clip_duration'] *
+                          (item['duration_index'] or 1.0) * (item['seasonal_index'] or 1.0) *
+                          (item['trp_purchase_index'] or 1.0) * (item['advance_purchase_index'] or 1.0) *
+                          (item['web_index'] or 1.0) * (item['advance_payment_index'] or 1.0) *
+                          (item['loyalty_discount_index'] or 1.0) * (item['position_index'] or 1.0))
+
+            net_price = gross_price * (1 - (item['client_discount'] or 0) / 100)
+
+            # Date range
+            date_str = f"{item['start_date']} - {item['end_date']}" if item['start_date'] and item['end_date'] else ""
+
+            # Row data
+            row_data = [
+                item['campaign_name'],
+                item['channel_group_name'],
+                date_str,
+                item['target_group'],
+                (item['channel_share'] or 0) * 100,
+                (item['pt_zone_share'] or 0) * 100,
+                ((1 - (item['pt_zone_share'] or 0)) * 100) if item['pt_zone_share'] else 0,
+                item['clip_duration'] or 0,
+                grp_planned,
+                item['trps'] or 0,
+                item['affinity1'] or 0,
+                gross_cpp,
+                item['duration_index'] or 1.0,
+                item['seasonal_index'] or 1.0,
+                item['trp_purchase_index'] or 1.0,
+                item['advance_purchase_index'] or 1.0,
+                item['web_index'] or 1.0,
+                item['advance_payment_index'] or 1.0,
+                item['loyalty_discount_index'] or 1.0,
+                gross_price,
+                item['client_discount'] or 0,
+                net_price
+            ]
+
+            for col, value in enumerate(row_data, 1):
+                cell = ws.cell(row=current_row, column=col)
+                cell.value = value
+                cell.border = border
+
+                # Format numbers
+                if col in [5, 6, 7, 13, 14, 15, 16, 17, 18, 19]:  # Percentage and index columns
+                    cell.number_format = '0.00'
+                elif col in [9, 10, 11, 20, 22]:  # Currency columns
+                    cell.number_format = '#,##0.00'
+                elif col == 21:  # Discount percentage
+                    cell.number_format = '0.0%'
+
+            current_row += 1
+
+        # Add summary section
+        current_row += 2
+
+        # Summary header
+        ws.merge_cells(f'A{current_row}:F{current_row}')
+        cell = ws[f'A{current_row}']
+        cell.value = "SUVESTINĖ"
+        cell.font = Font(size=14, bold=True, color="1F4E79")
+        cell.alignment = Alignment(horizontal='center')
+        cell.fill = PatternFill(start_color="F8F9FA", end_color="F8F9FA", fill_type="solid")
+        current_row += 1
+
+        # Calculate totals
+        total_trp = sum(item['trps'] or 0 for item in rows)
+        total_gross = sum((item['trps'] or 0) * (item['gross_cpp_eur'] or 0) * (item['clip_duration'] or 0) *
+                         (item['duration_index'] or 1.0) * (item['seasonal_index'] or 1.0) *
+                         (item['trp_purchase_index'] or 1.0) * (item['advance_purchase_index'] or 1.0) *
+                         (item['web_index'] or 1.0) * (item['advance_payment_index'] or 1.0) *
+                         (item['loyalty_discount_index'] or 1.0) * (item['position_index'] or 1.0)
+                         for item in rows)
+        total_net = sum((item['trps'] or 0) * (item['gross_cpp_eur'] or 0) * (item['clip_duration'] or 0) *
+                       (item['duration_index'] or 1.0) * (item['seasonal_index'] or 1.0) *
+                       (item['trp_purchase_index'] or 1.0) * (item['advance_purchase_index'] or 1.0) *
+                       (item['web_index'] or 1.0) * (item['advance_payment_index'] or 1.0) *
+                       (item['loyalty_discount_index'] or 1.0) * (item['position_index'] or 1.0) *
+                       (1 - (item['client_discount'] or 0) / 100) for item in rows)
+
+        # Summary data
+        summary_data = [
+            ['Bendras TRP:', total_trp],
+            ['Bendra gross suma (EUR):', total_gross],
+            ['Bendra net suma (EUR):', total_net],
+            ['Planų skaičius:', len(rows)]
+        ]
+
+        for label, value in summary_data:
+            ws.cell(row=current_row, column=1).value = label
+            ws.cell(row=current_row, column=1).font = Font(bold=True)
+            ws.cell(row=current_row, column=2).value = value
+            if 'suma' in label:
+                ws.cell(row=current_row, column=2).number_format = '#,##0.00'
+            current_row += 1
+
+        # Auto-adjust column widths
+        for column in ws.columns:
+            max_length = 0
+            column_letter = None
+            for cell in column:
+                try:
+                    # Skip merged cells
+                    if hasattr(cell, 'column_letter'):
+                        if column_letter is None:
+                            column_letter = cell.column_letter
+                        if cell.value and len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                except:
+                    pass
+            if column_letter:
+                adjusted_width = min(max_length + 2, 50)
+                ws.column_dimensions[column_letter].width = adjusted_width
+
+    # Save to BytesIO
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output

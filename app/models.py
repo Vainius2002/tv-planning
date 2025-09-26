@@ -1209,8 +1209,7 @@ def delete_trp_distribution(campaign_id: int):
     with get_db() as db:
         db.execute("DELETE FROM trp_distribution WHERE campaign_id = ?", (campaign_id,))
 
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+# openpyxl imports moved inside export_channel_group_excel function
 from io import BytesIO
 import csv
 import io
@@ -1697,9 +1696,11 @@ def generate_client_excel_report(campaign_id: int):
         ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
     
     # Save to BytesIO
+    print(f"DEBUG: Saving workbook to BytesIO", file=sys.stderr, flush=True)
     output = BytesIO()
     wb.save(output)
     output.seek(0)
+    print(f"DEBUG: Excel generation complete, returning buffer", file=sys.stderr, flush=True)
     return output
 
 def generate_agency_csv_order(campaign_id: int):
@@ -2141,6 +2142,23 @@ def migrate_remove_pricing_list_requirement():
 def export_channel_group_excel(group_id: int):
     """Export Excel file for all campaigns using this channel group"""
     from datetime import datetime
+    import sys
+    from io import BytesIO
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    print(f"DEBUG: Starting Excel export for group_id={group_id}", file=sys.stderr, flush=True)
+
+    # Quick test - return minimal Excel file
+    if group_id == 996:
+        print(f"DEBUG: Creating test Excel for group 996", file=sys.stderr, flush=True)
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws['A1'] = f"Test Excel for group {group_id}"
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        return output
 
     # Get channel group info
     group = get_channel_group_by_id(group_id)
@@ -2148,9 +2166,11 @@ def export_channel_group_excel(group_id: int):
         raise ValueError(f"Channel group {group_id} not found")
 
     group_name = group['name']
+    print(f"DEBUG: Found group name={group_name}", file=sys.stderr)
 
     # Get all wave items that use channels from this group
     with get_db() as db:
+        # First get the channel group name from the ID
         query = """
         SELECT wi.*, w.start_date, w.end_date, w.campaign_id, c.name as campaign_name,
                cg.name as channel_group_name, t.name as tvc_name,
@@ -2160,19 +2180,24 @@ def export_channel_group_excel(group_id: int):
         FROM wave_items wi
         JOIN waves w ON wi.wave_id = w.id
         JOIN campaigns c ON w.campaign_id = c.id
-        JOIN channel_groups cg ON wi.owner = cg.name
+        JOIN channel_groups cg ON cg.id = ?
         LEFT JOIN tvcs t ON wi.tvc_id = t.id
-        WHERE cg.id = ?
+        WHERE wi.owner = cg.name
         ORDER BY c.name, w.start_date, wi.id
         """
         rows = db.execute(query, (group_id,)).fetchall()
+
+    print(f"DEBUG: Found {len(rows)} rows for group_id={group_id}", file=sys.stderr, flush=True)
 
     # Load TRP distribution data for all campaigns using this channel group
     campaign_trp_data = {}
     if rows:
         campaign_ids = list(set(row['campaign_id'] for row in rows))
+        print(f"DEBUG: Loading TRP data for campaigns: {campaign_ids}", file=sys.stderr, flush=True)
         for campaign_id in campaign_ids:
+            print(f"DEBUG: Loading TRP data for campaign {campaign_id}", file=sys.stderr, flush=True)
             campaign_trp_data[campaign_id] = load_trp_distribution(campaign_id)
+            print(f"DEBUG: Loaded TRP data for campaign {campaign_id}: {len(campaign_trp_data[campaign_id])} entries", file=sys.stderr, flush=True)
 
     if not rows:
         # Create empty Excel with message
@@ -2562,33 +2587,46 @@ def export_channel_group_excel(group_id: int):
         ws.column_dimensions['AD'].width = 10 # Net net kaina - thinner
 
         # Auto-adjust column widths if content is wider than preset widths
-        for column in ws.columns:
-            max_length = 0
-            column_letter = None
-            for cell in column:
-                try:
-                    # Skip merged cells
-                    if hasattr(cell, 'column_letter'):
-                        if column_letter is None:
-                            column_letter = cell.column_letter
-                        if cell.value and len(str(cell.value)) > max_length:
-                            max_length = len(str(cell.value))
-                except:
-                    pass
-            if column_letter:
-                col_index = openpyxl.utils.column_index_from_string(column_letter)
-                # Skip calendar columns (AE onwards)
-                if col_index >= 31:
-                    continue
-                # Get current width
-                current_width = ws.column_dimensions[column_letter].width
-                # Only adjust if content requires more width
-                if max_length + 2 > current_width:
-                    adjusted_width = min(max_length + 2, 50)
-                    ws.column_dimensions[column_letter].width = adjusted_width
+        try:
+            print(f"DEBUG: Starting auto-adjust column widths", file=sys.stderr, flush=True)
+            column_count = 0
+            for column in ws.columns:
+                column_count += 1
+                if column_count > 100:  # Safety limit to prevent infinite loops
+                    print(f"DEBUG: Breaking auto-adjust after 100 columns", file=sys.stderr, flush=True)
+                    break
+
+                max_length = 0
+                column_letter = None
+                for cell in column:
+                    try:
+                        # Skip merged cells
+                        if hasattr(cell, 'column_letter'):
+                            if column_letter is None:
+                                column_letter = cell.column_letter
+                            if cell.value and len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                    except:
+                        pass
+                if column_letter:
+                    col_index = openpyxl.utils.column_index_from_string(column_letter)
+                    # Skip calendar columns (AE onwards)
+                    if col_index >= 31:
+                        continue
+                    # Get current width
+                    current_width = ws.column_dimensions[column_letter].width
+                    # Only adjust if content requires more width
+                    if max_length + 2 > current_width:
+                        adjusted_width = min(max_length + 2, 50)
+                        ws.column_dimensions[column_letter].width = adjusted_width
+            print(f"DEBUG: Finished auto-adjust, processed {column_count} columns", file=sys.stderr, flush=True)
+        except Exception as e:
+            print(f"DEBUG: Error in auto-adjust: {e}", file=sys.stderr, flush=True)
 
     # Save to BytesIO
+    print(f"DEBUG: Saving workbook to BytesIO", file=sys.stderr, flush=True)
     output = BytesIO()
     wb.save(output)
     output.seek(0)
+    print(f"DEBUG: Excel generation complete, returning buffer", file=sys.stderr, flush=True)
     return output

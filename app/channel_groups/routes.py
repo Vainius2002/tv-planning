@@ -105,26 +105,73 @@ def ch_delete(cid):
 # ---------------------------
 # Excel Export for Channel Group
 # ---------------------------
+@bp.route("/test-excel", methods=["GET"])
+def test_excel():
+    """Simple test endpoint"""
+    return jsonify({"status": "ok", "message": "Test endpoint works"}), 200
+
 @bp.route("/channel-groups/<int:group_id>/export-excel", methods=["GET"])
 def export_channel_group_excel(group_id):
     """Export Excel file for all campaigns using this channel group"""
+    # Test immediate response - don't even import anything
+    if group_id == 998:
+        return jsonify({"status": "immediate_test", "message": "Route handler reached"}), 200
+
+    import sys
+    import traceback
+
+    print(f"DEBUG ROUTE: Starting export for group_id={group_id}", file=sys.stderr, flush=True)
+
+    # Quick test to see if the route is working at all
+    if group_id == 999:
+        print("DEBUG: Test response for group 999", file=sys.stderr, flush=True)
+        return jsonify({"status": "test", "message": "Route is working"}), 200
+
     try:
+        print(f"DEBUG ROUTE: About to call export function for group_id={group_id}", file=sys.stderr, flush=True)
+
+        # Temporarily skip the actual Excel generation to test
+        if group_id == 997:
+            return jsonify({"status": "skip", "message": "Skipping Excel generation for test"}), 200
+
         excel_buffer = models.export_channel_group_excel(group_id)
+
+        print(f"DEBUG ROUTE: Excel buffer created successfully", file=sys.stderr, flush=True)
 
         # Get group name for filename
         group = models.get_channel_group_by_id(group_id)
         group_name = group['name'] if group else f'Group_{group_id}'
-        filename = f'{group_name}_kanalu_ataskaita.xlsx'
+
+        # Sanitize filename for HTTP headers (replace Lithuanian characters with ASCII equivalents)
+        import re
+        # Replace Lithuanian characters with ASCII equivalents
+        char_replacements = {
+            'ą': 'a', 'č': 'c', 'ę': 'e', 'ė': 'e', 'į': 'i', 'š': 's', 'ų': 'u', 'ū': 'u', 'ž': 'z',
+            'Ą': 'A', 'Č': 'C', 'Ę': 'E', 'Ė': 'E', 'Į': 'I', 'Š': 'S', 'Ų': 'U', 'Ū': 'U', 'Ž': 'Z'
+        }
+        safe_group_name = group_name
+        for lithuanian_char, ascii_char in char_replacements.items():
+            safe_group_name = safe_group_name.replace(lithuanian_char, ascii_char)
+
+        # Remove any remaining non-ASCII characters and replace spaces with underscores
+        safe_group_name = re.sub(r'[^\w\-_\. ]', '', safe_group_name).replace(' ', '_')
+        filename = f'{safe_group_name}_kanalu_ataskaita.xlsx'
+
+        print(f"DEBUG ROUTE: Creating response with filename={filename}", file=sys.stderr, flush=True)
 
         response = Response(
             excel_buffer.getvalue(),
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             headers={
-                'Content-Disposition': f'attachment; filename={filename}'
+                'Content-Disposition': f'attachment; filename="{filename}"'
             }
         )
+
+        print(f"DEBUG ROUTE: Response created, returning...", file=sys.stderr, flush=True)
         return response
     except Exception as e:
+        print(f"ERROR in export_channel_group_excel: {str(e)}", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 

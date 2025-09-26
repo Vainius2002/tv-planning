@@ -59,10 +59,20 @@
           cgSelect.value = gid;
           await loadChannels(gid);
         });
-        tr.querySelector('.export-excel').addEventListener('click', async (e) => {
+        tr.querySelector('.export-excel').addEventListener('click', (e) => {
           const groupId = e.currentTarget.dataset.groupId;
-          // Direct download using window.location
-          window.location.href = `/tv-planner/channel-groups/${groupId}/export-excel`;
+          console.log('Export button clicked, groupId:', groupId);
+
+          if (!groupId) {
+            alert('Klaida: grupės ID nerastas');
+            return;
+          }
+
+          // Use the same method as window.location.href - simplest approach
+          const url = `/tv-planner/channel-groups/${groupId}/export-excel`;
+          console.log('Navigating to:', url);
+
+          window.open(url, '_blank');
         });
         tr.querySelector('.cg-save').addEventListener('click', async () => {
           const name = tr.querySelector('.cg-name').value.trim();

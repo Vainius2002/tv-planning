@@ -2292,6 +2292,67 @@ def export_channel_group_excel(group_id: int):
 
             current_row += 1
 
+        # Add totals row after all plan data
+        if rows:
+            # Calculate totals and averages
+            total_grp = sum((item['trps'] * 100 / item['affinity1']) if item['affinity1'] and item['affinity1'] > 0 else 0 for item in rows)
+            total_trp = sum(item['trps'] or 0 for item in rows)
+
+            # Calculate average affinity (only from non-zero values)
+            affinity_values = [item['affinity1'] for item in rows if item['affinity1'] and item['affinity1'] > 0]
+            avg_affinity = sum(affinity_values) / len(affinity_values) if affinity_values else 0
+
+            # Calculate total prices
+            total_gross = 0
+            total_net = 0
+            total_net_net = 0
+
+            for item in rows:
+                gross_cpp = item['gross_cpp_eur'] or 0
+                gross_price = (item['trps'] or 0) * gross_cpp * (item['clip_duration'] or 0) * \
+                             (item['duration_index'] or 1.0) * (item['seasonal_index'] or 1.0) * \
+                             (item['trp_purchase_index'] or 1.0) * (item['advance_purchase_index'] or 1.0) * \
+                             (item['web_index'] or 1.0) * (item['advance_payment_index'] or 1.0) * \
+                             (item['loyalty_discount_index'] or 1.0) * (item['position_index'] or 1.0)
+
+                net_price = gross_price * (1 - (item['client_discount'] or 0) / 100)
+                net_net_price = net_price * (1 - (item['agency_discount'] or 0) / 100)
+
+                total_gross += gross_price
+                total_net += net_price
+                total_net_net += net_net_price
+
+            # Add totals row
+            totals_row_data = [''] * 30  # Create empty row with 30 columns
+            totals_row_data[0] = 'VISO:'  # First column shows "VISO:"
+            totals_row_data[13] = total_grp    # GRP plan. (column 14, index 13)
+            totals_row_data[14] = total_trp    # TRP perkamas (column 15, index 14)
+            totals_row_data[15] = avg_affinity # Affinity1 average (column 16, index 15)
+            totals_row_data[25] = total_gross  # Gross kaina (column 26, index 25)
+            totals_row_data[27] = total_net    # Net kaina (column 28, index 27)
+            totals_row_data[29] = total_net_net # Net net kaina (column 30, index 29)
+
+            # Style totals row
+            total_fill = PatternFill(start_color="FFE6CC", end_color="FFE6CC", fill_type="solid")  # Light orange
+            total_font = Font(bold=True, size=10)
+
+            for col, value in enumerate(totals_row_data, 1):
+                cell = ws.cell(row=current_row, column=col)
+                cell.value = value
+                cell.font = total_font
+                cell.fill = total_fill
+                cell.border = border
+
+                # Apply number formatting for totals
+                if col in [14, 15, 17, 26, 28, 30]:  # Currency/number columns
+                    if value and isinstance(value, (int, float)):
+                        cell.number_format = '#,##0.00'
+                elif col == 16:  # Affinity average
+                    if value and isinstance(value, (int, float)):
+                        cell.number_format = '0.00'
+
+            current_row += 1
+
         # Add calendar section to the right of the main table
         if rows:
             try:

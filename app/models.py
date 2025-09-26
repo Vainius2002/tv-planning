@@ -2280,6 +2280,10 @@ def export_channel_group_excel(group_id: int):
                 cell.value = value
                 cell.border = border
 
+                # Add center alignment for Pradžia, Pabaiga, and Kanalų grupė columns
+                if col in [1, 2, 3]:  # Pradžia, Pabaiga, Kanalų grupė
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+
                 # Format numbers (column numbers shifted by 1 due to added Kampanija column)
                 if col in [9, 11, 12, 13]:  # Percentage columns: TG dalis (%), Kanalo dalis, PT zonos dalis, nPT zonos dalis
                     cell.number_format = '0.00%'
@@ -2342,6 +2346,10 @@ def export_channel_group_excel(group_id: int):
                 cell.font = total_font
                 cell.fill = total_fill
                 cell.border = border
+
+                # Add center alignment for Pradžia, Pabaiga, and Kanalų grupė columns
+                if col in [1, 2, 3]:  # Pradžia, Pabaiga, Kanalų grupė
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
 
                 # Apply number formatting for totals
                 if col in [14, 15, 17, 26, 28, 30]:  # Currency/number columns
@@ -2518,7 +2526,12 @@ def export_channel_group_excel(group_id: int):
                 pass
 
 
-        # Auto-adjust column widths (but skip calendar columns)
+        # Set specific widths for Pradžia and Pabaiga columns to match
+        ws.column_dimensions['A'].width = 15  # Pradžia
+        ws.column_dimensions['B'].width = 15  # Pabaiga
+        ws.column_dimensions['C'].width = 18  # Kanalų grupė
+
+        # Auto-adjust column widths (but skip calendar columns and first 3 columns)
         for column in ws.columns:
             max_length = 0
             column_letter = None
@@ -2533,9 +2546,9 @@ def export_channel_group_excel(group_id: int):
                 except:
                     pass
             if column_letter:
-                # Skip auto-adjustment for calendar columns (AE onwards) - keep our custom widths
                 col_index = openpyxl.utils.column_index_from_string(column_letter)
-                if col_index >= 31:  # AE is column 31, skip calendar columns
+                # Skip auto-adjustment for first 3 columns (A, B, C) and calendar columns (AE onwards)
+                if col_index <= 3 or col_index >= 31:
                     continue
                 adjusted_width = min(max_length + 2, 50)
                 ws.column_dimensions[column_letter].width = adjusted_width

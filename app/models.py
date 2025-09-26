@@ -2205,7 +2205,7 @@ def export_channel_group_excel(group_id: int):
 
         # Column headers - match the exact plan table columns
         headers = [
-            'Pradžia', 'Pabaiga', 'Kanalų grupė', 'Perkama TG', 'TVC', 'Trukmė', 'TG dydis (*000)',
+            'Pradžia', 'Pabaiga', 'Kanalų grupė', 'Kampanija', 'Perkama TG', 'TVC', 'Trukmė', 'TG dydis (*000)',
             'TG dalis (%)', 'TG imtis', 'Kanalo dalis', 'PT zonos dalis', 'nPT zonos dalis', 'GRP plan.', 'TRP perkamas',
             'Affinity1', 'Gross CPP', 'Trukmės koeficientas', 'Sezoninis koeficientas', 'TRP pirkimo',
             'Išankstinio pirkimo', 'WEB', 'Išankstinio mokėjimo', 'Lojalumo nuolaida', 'Pozicijos indeksas',
@@ -2246,6 +2246,7 @@ def export_channel_group_excel(group_id: int):
                 item['start_date'] or '',                                    # Pradžia
                 item['end_date'] or '',                                      # Pabaiga
                 item['channel_group_name'],                                  # Kanalų grupė
+                item['campaign_name'],                                       # Kampanija
                 item['target_group'],                                        # Perkama TG
                 item['tvc_name'] or '',                                      # TVC
                 item['clip_duration'] or 0,                                  # Trukmė
@@ -2279,14 +2280,14 @@ def export_channel_group_excel(group_id: int):
                 cell.value = value
                 cell.border = border
 
-                # Format numbers
-                if col in [8, 10, 11, 12]:  # Percentage columns: TG dalis (%), Kanalo dalis, PT zonos dalis, nPT zonos dalis
+                # Format numbers (column numbers shifted by 1 due to added Kampanija column)
+                if col in [9, 11, 12, 13]:  # Percentage columns: TG dalis (%), Kanalo dalis, PT zonos dalis, nPT zonos dalis
                     cell.number_format = '0.00%'
-                elif col in [17, 18, 19, 20, 21, 22, 23, 24]:  # Index columns
+                elif col in [18, 19, 20, 21, 22, 23, 24, 25]:  # Index columns
                     cell.number_format = '0.00'
-                elif col in [13, 14, 16, 25, 27, 29]:  # Currency columns: GRP plan., TRP perkamas, Gross CPP, Gross kaina, Net kaina, Net net kaina
+                elif col in [14, 15, 17, 26, 28, 30]:  # Currency columns: GRP plan., TRP perkamas, Gross CPP, Gross kaina, Net kaina, Net net kaina
                     cell.number_format = '#,##0.00'
-                elif col in [26, 28]:  # Discount percentage columns: Kl. nuol. %, Ag. nuol. %
+                elif col in [27, 29]:  # Discount percentage columns: Kl. nuol. %, Ag. nuol. %
                     cell.number_format = '0.0"%"'
 
             current_row += 1
@@ -2305,8 +2306,8 @@ def export_channel_group_excel(group_id: int):
                     start_date = min(start_dates)
                     end_date = max(end_dates)
 
-                    # Calendar positioning - plan labels at AE (31), campaign names at AF (32), calendar starts at AG (33)
-                    calendar_start_col = 33  # Calendar data starts at AG (33)
+                    # Calendar positioning - main table now has 30 columns (A-AD), calendar starts at AE (31)
+                    calendar_start_col = 31  # Calendar data starts at AE (31)
 
                     # Calendar headers start at row 1 to align with main table
                     # Month headers at row 1, day numbers at row 2, weekdays at row 3
@@ -2384,20 +2385,7 @@ def export_channel_group_excel(group_id: int):
                         current_date += timedelta(days=1)
                         col_idx += 1
 
-                    # Add headers for plan label columns (AE and AF)
-                    plan_header = ws.cell(row=3, column=31)  # Column AE
-                    plan_header.value = "Planas"
-                    plan_header.font = Font(size=9, bold=True, color="FFFFFF")
-                    plan_header.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-                    plan_header.border = border
-                    plan_header.alignment = Alignment(horizontal='center')
-
-                    campaign_header = ws.cell(row=3, column=32)  # Column AF
-                    campaign_header.value = "Kampanija"
-                    campaign_header.font = Font(size=9, bold=True, color="FFFFFF")
-                    campaign_header.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-                    campaign_header.border = border
-                    campaign_header.alignment = Alignment(horizontal='center')
+                    # No need for separate calendar headers since Kampanija is now in main table
 
                     # Add plan rows with TRP values - one row per plan (matching main table Y positions)
                     # Use the stored data_start_row to match exact positions
@@ -2405,21 +2393,7 @@ def export_channel_group_excel(group_id: int):
                         # Use the exact same Y position as the corresponding plan row in main table
                         row_idx = data_start_row + plan_idx
 
-                        # Add plan identifier and campaign name in columns after the main table (but before calendar dates)
-                        # Put them in columns AE and AF instead of overriding AB and AC
-                        plan_label = f"Plan {plan_idx + 1}"
-                        label_cell = ws.cell(row=row_idx, column=31)  # Column AE
-                        label_cell.value = plan_label
-                        label_cell.font = Font(size=9)
-                        label_cell.border = border
-                        label_cell.fill = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
-
-                        # Campaign name in next column
-                        campaign_cell = ws.cell(row=row_idx, column=32)  # Column AF
-                        campaign_cell.value = item['campaign_name']
-                        campaign_cell.font = Font(size=8)
-                        campaign_cell.border = border
-                        campaign_cell.fill = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
+                        # No need for separate plan labels since campaign name is now in main table
 
                         # TRP values for each day for this specific plan
                         current_date = start_date
@@ -2470,9 +2444,7 @@ def export_channel_group_excel(group_id: int):
                             current_date += timedelta(days=1)
                             col_idx += 1
 
-                    # Set column widths for plan label columns (AE - 31 and AF - 32)
-                    ws.column_dimensions['AE'].width = 8   # Plan labels
-                    ws.column_dimensions['AF'].width = 15  # Campaign names
+                    # No need for separate plan label column widths
 
                     # Set calendar date columns to narrow width (approximately 0.4cm)
                     total_days = (end_date - start_date).days + 1
@@ -2542,9 +2514,9 @@ def export_channel_group_excel(group_id: int):
                 except:
                     pass
             if column_letter:
-                # Skip auto-adjustment for plan labels and calendar columns (AE onwards) - keep our custom widths
+                # Skip auto-adjustment for calendar columns (AE onwards) - keep our custom widths
                 col_index = openpyxl.utils.column_index_from_string(column_letter)
-                if col_index >= 31:  # AE is column 31, skip plan labels and calendar columns
+                if col_index >= 31:  # AE is column 31, skip calendar columns
                     continue
                 adjusted_width = min(max_length + 2, 50)
                 ws.column_dimensions[column_letter].width = adjusted_width

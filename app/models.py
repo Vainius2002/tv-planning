@@ -2517,48 +2517,6 @@ def export_channel_group_excel(group_id: int):
                 # If calendar generation fails, skip it
                 pass
 
-        # Add summary section
-        current_row += 2
-
-        # Summary header
-        ws.merge_cells(f'A{current_row}:F{current_row}')
-        cell = ws[f'A{current_row}']
-        cell.value = "SUVESTINĖ"
-        cell.font = Font(size=14, bold=True, color="1F4E79")
-        cell.alignment = Alignment(horizontal='center')
-        cell.fill = PatternFill(start_color="F8F9FA", end_color="F8F9FA", fill_type="solid")
-        current_row += 1
-
-        # Calculate totals
-        total_trp = sum(item['trps'] or 0 for item in rows)
-        total_gross = sum((item['trps'] or 0) * (item['gross_cpp_eur'] or 0) * (item['clip_duration'] or 0) *
-                         (item['duration_index'] or 1.0) * (item['seasonal_index'] or 1.0) *
-                         (item['trp_purchase_index'] or 1.0) * (item['advance_purchase_index'] or 1.0) *
-                         (item['web_index'] or 1.0) * (item['advance_payment_index'] or 1.0) *
-                         (item['loyalty_discount_index'] or 1.0) * (item['position_index'] or 1.0)
-                         for item in rows)
-        total_net = sum((item['trps'] or 0) * (item['gross_cpp_eur'] or 0) * (item['clip_duration'] or 0) *
-                       (item['duration_index'] or 1.0) * (item['seasonal_index'] or 1.0) *
-                       (item['trp_purchase_index'] or 1.0) * (item['advance_purchase_index'] or 1.0) *
-                       (item['web_index'] or 1.0) * (item['advance_payment_index'] or 1.0) *
-                       (item['loyalty_discount_index'] or 1.0) * (item['position_index'] or 1.0) *
-                       (1 - (item['client_discount'] or 0) / 100) for item in rows)
-
-        # Summary data
-        summary_data = [
-            ['Bendras TRP:', total_trp],
-            ['Bendra gross suma (EUR):', total_gross],
-            ['Bendra net suma (EUR):', total_net],
-            ['Planų skaičius:', len(rows)]
-        ]
-
-        for label, value in summary_data:
-            ws.cell(row=current_row, column=1).value = label
-            ws.cell(row=current_row, column=1).font = Font(bold=True)
-            ws.cell(row=current_row, column=2).value = value
-            if 'suma' in label:
-                ws.cell(row=current_row, column=2).number_format = '#,##0.00'
-            current_row += 1
 
         # Auto-adjust column widths (but skip calendar columns)
         for column in ws.columns:

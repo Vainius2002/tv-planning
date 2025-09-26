@@ -2330,20 +2330,18 @@ def export_channel_group_excel(group_id: int):
                         current_date += timedelta(days=1)
                         col_idx += 1
 
-                    # Create month headers at row 1
-                    for month_year in months:
-                        span = month_spans[month_year]
-                        start_col = span['start']
-                        end_col = span['end']
-
-                        if start_col < end_col:
-                            ws.merge_cells(f'{openpyxl.utils.get_column_letter(start_col)}{month_header_row}:{openpyxl.utils.get_column_letter(end_col)}{month_header_row}')
-
-                        month_cell = ws.cell(row=month_header_row, column=start_col)
-                        month_cell.value = span['name']
-                        month_cell.font = Font(bold=True, size=10, color="1F4E79")
+                    # Create month headers at row 1 - put month name in each day cell for consistent width
+                    current_date = start_date
+                    col_idx = calendar_start_col
+                    while current_date <= end_date:
+                        month_cell = ws.cell(row=month_header_row, column=col_idx)
+                        month_cell.value = current_date.strftime('%B %Y')  # Month and year
+                        month_cell.font = Font(bold=True, size=8, color="FFFFFF")  # White text, smaller font to fit
                         month_cell.alignment = Alignment(horizontal='center')
-                        month_cell.fill = PatternFill(start_color="E8F4FD", end_color="E8F4FD", fill_type="solid")
+                        month_cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")  # Same dark blue as main headers
+                        month_cell.border = border
+                        current_date += timedelta(days=1)
+                        col_idx += 1
 
                     # Day headers at row 2
                     current_date = start_date

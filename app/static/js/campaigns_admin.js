@@ -86,7 +86,8 @@
     }
 
     function calculateGrossPrice(item, grossCpp) {
-      // Gross Price = TRP * CPP * duration_index * seasonal_index * trp_purchase_index * advance_purchase_index * web_index * advance_payment_index * loyalty_discount_index * position_index
+      // Gross Price = klipo trukme * trp perkamas * gross cpp * trukmes indeksas * sezoninis * trp pirkimo * isankstinio * web * isankstinio mokejimo * lojalumo nuolaida
+      const clipDuration = parseFloat(item.clip_duration) || 0;
       const trps = parseFloat(item.trps) || 0;
       const cpp = parseFloat(grossCpp) || 0;
       const durationIndex = parseFloat(item.duration_index) || 1.0; // From DB
@@ -96,9 +97,8 @@
       const webIndex = parseFloat(item.web_index) || 1.0;
       const advancePaymentIndex = parseFloat(item.advance_payment_index) || 1.0;
       const loyaltyDiscountIndex = parseFloat(item.loyalty_discount_index) || 1.0;
-      const positionIndex = parseFloat(item.position_index) || 1.0;
 
-      return trps * cpp * durationIndex * seasonalIndex * trpPurchaseIndex * advancePurchaseIndex * webIndex * advancePaymentIndex * loyaltyDiscountIndex * positionIndex;
+      return clipDuration * trps * cpp * durationIndex * seasonalIndex * trpPurchaseIndex * advancePurchaseIndex * webIndex * advancePaymentIndex * loyaltyDiscountIndex;
     }
 
     function calculateNetPrice(grossPrice, clientDiscount) {

@@ -2242,7 +2242,7 @@ def export_channel_group_excel(group_id: int):
             'Pradžia', 'Pabaiga', 'Kanalų grupė', 'Kampanija', 'Perkama TG', 'TVC', 'Trukmė', 'TG\ndydis (*000)',
             'TG\ndalis (%)', 'TG\nimtis', 'Kanalo\ndalis', 'PT zonos\ndalis', 'nPT zonos\ndalis', 'GRP\nplanuojamas', 'TRP\nperkamas',
             'Affinity1', 'Gross CPP', 'Trukmės\nkoeficientas', 'Sezoninis\nkoeficientas', 'TRP\npirkimo',
-            'Išankstinio\npirkimo', 'WEB', 'Išankstinio\nmokėjimo', 'Lojalumo\nnuolaida', 'Pozicijos\nindeksas',
+            'Išankstinio\npirkimo', 'WEB', 'Išankstinio\nmokėjimo', 'Lojalumo\nnuolaida',
             'Gross\nkaina', 'Kliento\nnuolaida %', 'Net kaina', 'Agentūros\nnuolaida %', 'Net net kaina'
         ]
 
@@ -2306,7 +2306,6 @@ def export_channel_group_excel(group_id: int):
                 item['web_index'] or 1.0,                                  # WEB
                 item['advance_payment_index'] or 1.0,                      # Išankstinio mokėjimo
                 item['loyalty_discount_index'] or 1.0,                     # Lojalumo nuolaida
-                item['position_index'] or 1.0,                             # Pozicijos indeksas
                 base_gross_price,                                           # Gross kaina
                 item['client_discount'] or 0,                              # Kl. nuol. %
                 net_price,                                                  # Net kaina
@@ -2361,14 +2360,14 @@ def export_channel_group_excel(group_id: int):
                 total_net_net += net_net_price
 
             # Add totals row
-            totals_row_data = [''] * 30  # Create empty row with 30 columns
+            totals_row_data = [''] * 29  # Create empty row with 29 columns (reduced by 1 after removing position index)
             totals_row_data[0] = 'VISO:'  # First column shows "VISO:"
             totals_row_data[13] = total_grp    # GRP plan. (column 14, index 13)
             totals_row_data[14] = total_trp    # TRP perkamas (column 15, index 14)
             totals_row_data[15] = avg_affinity # Affinity1 average (column 16, index 15)
-            totals_row_data[25] = total_gross  # Gross kaina (column 26, index 25)
-            totals_row_data[27] = total_net    # Net kaina (column 28, index 27)
-            totals_row_data[29] = total_net_net # Net net kaina (column 30, index 29)
+            totals_row_data[24] = total_gross  # Gross kaina (column 25, index 24)
+            totals_row_data[26] = total_net    # Net kaina (column 27, index 26)
+            totals_row_data[28] = total_net_net # Net net kaina (column 29, index 28)
 
             # Style totals row
             total_fill = PatternFill(start_color="FFE6CC", end_color="FFE6CC", fill_type="solid")  # Light orange
@@ -2585,12 +2584,11 @@ def export_channel_group_excel(group_id: int):
         ws.column_dimensions['V'].width = 6   # WEB - thinner
         ws.column_dimensions['W'].width = 9   # Išankstinio mokėjimo - thinner
         ws.column_dimensions['X'].width = 9   # Lojalumo nuolaida - thinner
-        ws.column_dimensions['Y'].width = 9   # Pozicijos indeksas - thinner
-        ws.column_dimensions['Z'].width = 9   # Gross kaina - thinner
-        ws.column_dimensions['AA'].width = 9  # Kliento nuolaida % - thinner
-        ws.column_dimensions['AB'].width = 9  # Net kaina - thinner
-        ws.column_dimensions['AC'].width = 9  # Agentūros nuolaida % - thinner
-        ws.column_dimensions['AD'].width = 10 # Net net kaina - thinner
+        ws.column_dimensions['Y'].width = 9   # Gross kaina - thinner
+        ws.column_dimensions['Z'].width = 9   # Kliento nuolaida % - thinner
+        ws.column_dimensions['AA'].width = 9  # Net kaina - thinner
+        ws.column_dimensions['AB'].width = 9  # Agentūros nuolaida % - thinner
+        ws.column_dimensions['AC'].width = 10 # Net net kaina - thinner
 
         # Auto-adjust column widths if content is wider than preset widths
         try:

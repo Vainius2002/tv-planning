@@ -1115,7 +1115,6 @@
                     <td class="px-2 py-1"><input class="itm-web w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(item.web_index || 1.0).toFixed(2)}" data-item-id="${item.id}"></td>
                     <td class="px-2 py-1"><input class="itm-advance-payment w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(item.advance_payment_index || 1.0).toFixed(2)}" data-item-id="${item.id}"></td>
                     <td class="px-2 py-1"><input class="itm-loyalty-discount w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(item.loyalty_discount_index || 1.0).toFixed(2)}" data-item-id="${item.id}"></td>
-                    <td class="px-2 py-1"><input class="itm-position w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(item.position_index || 1.0).toFixed(2)}" data-item-id="${item.id}"></td>
                     <td class="px-2 py-1 text-xs gross-price">€${grossPrice.toFixed(2)}</td>
                     <td class="px-2 py-1"><input class="itm-client-discount w-12 text-xs border rounded px-1 py-0.5 bg-blue-50" type="number" step="0.1" min="0" max="100" value="${item.client_discount || 0}" data-item-id="${item.id}"></td>
                     <td class="px-2 py-1 text-xs net-price">€${netPrice.toFixed(2)}</td>
@@ -1140,7 +1139,7 @@
                     const webIndex = parseFloat(tr.querySelector('.itm-web').value) || 1.0;
                     const advancePaymentIndex = parseFloat(tr.querySelector('.itm-advance-payment').value) || 1.0;
                     const loyaltyDiscountIndex = parseFloat(tr.querySelector('.itm-loyalty-discount').value) || 1.0;
-                    const positionIndex = parseFloat(tr.querySelector('.itm-position').value) || 1.0;
+                    const positionIndex = 1.0;
                     const clientDiscount = parseFloat(tr.querySelector('.itm-client-discount').value) || 0;
                     const agencyDiscount = parseFloat(tr.querySelector('.itm-agency-discount').value) || 0;
                     
@@ -1199,7 +1198,6 @@
                   tr.querySelector('.itm-web').addEventListener('input', recalculatePrices);
                   tr.querySelector('.itm-advance-payment').addEventListener('input', recalculatePrices);
                   tr.querySelector('.itm-loyalty-discount').addEventListener('input', recalculatePrices);
-                  tr.querySelector('.itm-position').addEventListener('input', recalculatePrices);
                   tr.querySelector('.itm-client-discount').addEventListener('input', recalculatePrices);
                   tr.querySelector('.itm-agency-discount').addEventListener('input', recalculatePrices);
                   
@@ -1214,7 +1212,7 @@
                       const webIndex = parseFloat(tr.querySelector('.itm-web').value) || 1.0;
                       const advancePaymentIndex = parseFloat(tr.querySelector('.itm-advance-payment').value) || 1.0;
                       const loyaltyDiscountIndex = parseFloat(tr.querySelector('.itm-loyalty-discount').value) || 1.0;
-                      const positionIndex = parseFloat(tr.querySelector('.itm-position').value) || 1.0;
+                      const positionIndex = 1.0;
                       const clientDiscount = parseFloat(tr.querySelector('.itm-client-discount').value) || 0;
                       const agencyDiscount = parseFloat(tr.querySelector('.itm-agency-discount').value) || 0;
                       
@@ -1719,7 +1717,6 @@
               <td class="px-2 py-1"><input class="itm-web w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.web_index || 1.0).toFixed(2)}" title="WEB indeksas (default: 1.0)"></td>
               <td class="px-2 py-1"><input class="itm-advance-payment w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.advance_payment_index || 1.0).toFixed(2)}" title="Išankstinio mokėjimo indeksas (default: 1.0)"></td>
               <td class="px-2 py-1"><input class="itm-loyalty-discount w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.loyalty_discount_index || 1.0).toFixed(2)}" title="Lojalumo nuolaidos indeksas (default: 1.0)"></td>
-              <td class="px-2 py-1"><input class="itm-position w-12 text-xs border rounded px-1 py-0.5 bg-gray-100" type="number" step="0.01" value="${(r.position_index || 1.0).toFixed(2)}" title="Pozicijos indeksas (default: 1.0)"></td>
               <td class="px-2 py-1 text-xs gross-price">€${grossPrice.toFixed(2)}</td>
               <td class="px-2 py-1"><input class="itm-client-discount w-12 text-xs border rounded px-1 py-0.5 bg-blue-50" type="number" step="0.1" min="0" max="100" value="${r.client_discount || 0}" title="Kliento nuolaida (%)"></td>
               <td class="px-2 py-1 text-xs net-price">€${netPrice.toFixed(2)}</td>
@@ -1743,7 +1740,7 @@
               const webIndex = parseFloat(tr.querySelector('.itm-web').value) || 1.0;
               const advancePaymentIndex = parseFloat(tr.querySelector('.itm-advance-payment').value) || 1.0;
               const loyaltyDiscountIndex = parseFloat(tr.querySelector('.itm-loyalty-discount').value) || 1.0;
-              const positionIndex = parseFloat(tr.querySelector('.itm-position').value) || 1.0;
+              const positionIndex = 1.0;
               const clientDiscount = parseFloat(tr.querySelector('.itm-client-discount').value) || 0;
               const agencyDiscount = parseFloat(tr.querySelector('.itm-agency-discount').value) || 0;
               
@@ -1802,7 +1799,6 @@
             tr.querySelector('.itm-web').addEventListener('input', recalculatePrices);
             tr.querySelector('.itm-advance-payment').addEventListener('input', recalculatePrices);
             tr.querySelector('.itm-loyalty-discount').addEventListener('input', recalculatePrices);
-            tr.querySelector('.itm-position').addEventListener('input', recalculatePrices);
             tr.querySelector('.itm-client-discount').addEventListener('input', recalculatePrices);
             tr.querySelector('.itm-agency-discount').addEventListener('input', recalculatePrices);
             
@@ -1816,7 +1812,7 @@
                 const webIndex = parseFloat(tr.querySelector('.itm-web').value) || 1.0;
                 const advancePaymentIndex = parseFloat(tr.querySelector('.itm-advance-payment').value) || 1.0;
                 const loyaltyDiscountIndex = parseFloat(tr.querySelector('.itm-loyalty-discount').value) || 1.0;
-                const positionIndex = parseFloat(tr.querySelector('.itm-position').value) || 1.0;
+                const positionIndex = 1.0;
                 const clientDiscount = parseFloat(tr.querySelector('.itm-client-discount').value) || 0;
                 const agencyDiscount = parseFloat(tr.querySelector('.itm-agency-discount').value) || 0;
                 

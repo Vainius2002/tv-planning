@@ -1251,16 +1251,16 @@ def generate_client_excel_report(campaign_id: int):
     current_row = 1
     
     # Campaign header
-    ws.merge_cells(f'A{current_row}:X{current_row}')
+    ws.merge_cells(f'A{current_row}:P{current_row}')
     cell = ws[f'A{current_row}']
     cell.value = f"TV KOMUNIKACIJOS PLANAS"
     cell.font = Font(size=18, bold=True, color="1F4E79")
     cell.alignment = Alignment(horizontal='center')
     cell.fill = PatternFill(start_color="F8F9FA", end_color="F8F9FA", fill_type="solid")
     current_row += 1
-    
+
     # Campaign name
-    ws.merge_cells(f'A{current_row}:X{current_row}')
+    ws.merge_cells(f'A{current_row}:P{current_row}')
     cell = ws[f'A{current_row}']
     cell.value = f"KAMPANIJA: {campaign['name'].upper()}"
     cell.font = Font(size=14, bold=True, color="1F4E79")
@@ -1291,13 +1291,12 @@ def generate_client_excel_report(campaign_id: int):
     # Main table starts at row 15 (after campaign info)
     current_row = 15
     
-    # Table headers - match the channel group Excel style
+    # Table headers - keeping only the columns you want (16 columns total)
     headers = [
-        'Pradžia', 'Pabaiga', 'Kanalų grupė', 'Kampanija', 'Perkama TG', 'TVC', 'Trukmė', 'TG\ndydis (*000)',
-        'TG\ndalis (%)', 'TG\nimtis', 'Kanalo\ndalis', 'PT zonos\ndalis', 'nPT zonos\ndalis', 'GRP\nplanuojamas', 'TRP\nperkamas',
-        'Affinity1', 'Gross CPP', 'Trukmės\nkoeficientas', 'Sezoninis\nkoeficientas', 'TRP\npirkimo',
-        'Išankstinio\npirkimo', 'WEB', 'Išankstinio\nmokėjimo', 'Lojalumo\nnuolaida', 'Pozicijos\nindeksas',
-        'Gross\nkaina', 'Kliento\nnuolaida %', 'Net kaina', 'Agentūros\nnuolaida %', 'Net net kaina'
+        'Pradžia', 'Pabaiga', 'Kanalų grupė', 'Perkama TG', 'TVC', 'Trukmė',
+        'Kanalo dalis', 'PT zonos dalis', 'nPT zonos dalis', 'GRP plan.',
+        'Gross CPP', 'Trukmės koeficientas', 'Sezoninis koeficientas',
+        'Gross kaina', 'Kl. nuol. %', 'Net kaina'
     ]
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=current_row, column=col)
@@ -1351,57 +1350,49 @@ def generate_client_excel_report(campaign_id: int):
             agency_discount = item.get('agency_discount', 0)
             net_net_price = net_price * (1 - agency_discount / 100)
             
-            # Match the channel group Excel data structure
+            # Populate only the 16 remaining columns
             ws.cell(row=current_row, column=1).value = wave.get('start_date', '')  # Pradžia
             ws.cell(row=current_row, column=2).value = wave.get('end_date', '')  # Pabaiga
             ws.cell(row=current_row, column=3).value = item['owner']  # Kanalų grupė
-            ws.cell(row=current_row, column=4).value = campaign['name']  # Kampanija
-            ws.cell(row=current_row, column=5).value = item['target_group']  # Perkama TG
-            ws.cell(row=current_row, column=6).value = item.get('tvc_name', '-')  # TVC
-            ws.cell(row=current_row, column=7).value = item.get('tvc_duration', item.get('clip_duration', 0))  # Trukmė
-            ws.cell(row=current_row, column=8).value = tg_size  # TG dydis (*000)
-            ws.cell(row=current_row, column=9).value = tg_share / 100 if tg_share > 0 else 0  # TG dalis (%) - as decimal
-            ws.cell(row=current_row, column=10).value = tg_sample if tg_sample > 0 else ""  # TG imtis
-            ws.cell(row=current_row, column=11).value = channel_share / 100  # Kanalo dalis - as decimal
-            ws.cell(row=current_row, column=12).value = pt_zone_share / 100  # PT zonos dalis - as decimal
-            ws.cell(row=current_row, column=13).value = 0.45  # nPT zonos dalis - default value
-            ws.cell(row=current_row, column=14).value = round(grp_planned, 2) if grp_planned > 0 else ""  # GRP planuojamas
-            ws.cell(row=current_row, column=15).value = item['trps']  # TRP perkamas
-            ws.cell(row=current_row, column=16).value = affinity1 if affinity1 > 0 else ""  # Affinity1
-            ws.cell(row=current_row, column=17).value = gross_cpp  # Gross CPP - as number, not formatted
-            ws.cell(row=current_row, column=18).value = duration_idx  # Trukmės koeficientas
-            ws.cell(row=current_row, column=19).value = seasonal_idx  # Sezoninis koeficientas
-            ws.cell(row=current_row, column=20).value = trp_purchase_idx  # TRP pirkimo
-            ws.cell(row=current_row, column=21).value = advance_idx  # Išankstinio pirkimo
-            ws.cell(row=current_row, column=22).value = item.get('web_index', 1.0)  # WEB
-            ws.cell(row=current_row, column=23).value = item.get('advance_payment_index', 1.0)  # Išankstinio mokėjimo
-            ws.cell(row=current_row, column=24).value = item.get('loyalty_discount_index', 1.0)  # Lojalumo nuolaida
-            ws.cell(row=current_row, column=25).value = position_idx  # Pozicijos indeksas
-            ws.cell(row=current_row, column=26).value = gross_price  # Gross kaina - as number
-            ws.cell(row=current_row, column=27).value = client_discount / 100  # Kliento nuolaida % - as decimal
-            ws.cell(row=current_row, column=28).value = net_price  # Net kaina - as number
-            ws.cell(row=current_row, column=29).value = agency_discount / 100  # Agentūros nuolaida % - as decimal
-            ws.cell(row=current_row, column=30).value = net_net_price  # Net net kaina - as number
+            ws.cell(row=current_row, column=4).value = item['target_group']  # Perkama TG
+            ws.cell(row=current_row, column=5).value = item.get('tvc_name', '-')  # TVC
+            ws.cell(row=current_row, column=6).value = item.get('tvc_duration', item.get('clip_duration', 0))  # Trukmė
+            ws.cell(row=current_row, column=7).value = channel_share / 100  # Kanalo dalis - as decimal
+            ws.cell(row=current_row, column=8).value = pt_zone_share / 100  # PT zonos dalis - as decimal
+            ws.cell(row=current_row, column=9).value = 0.45  # nPT zonos dalis - default value
+            ws.cell(row=current_row, column=10).value = round(grp_planned, 2) if grp_planned > 0 else ""  # GRP plan.
+            ws.cell(row=current_row, column=11).value = gross_cpp  # Gross CPP - as number
+            ws.cell(row=current_row, column=12).value = duration_idx  # Trukmės koeficientas
+            ws.cell(row=current_row, column=13).value = seasonal_idx  # Sezoninis koeficientas
+            ws.cell(row=current_row, column=14).value = gross_price  # Gross kaina - as number
+            ws.cell(row=current_row, column=15).value = client_discount / 100  # Kl. nuol. % - as decimal
+            ws.cell(row=current_row, column=16).value = net_price  # Net kaina - as number
             
-            # Apply borders and formatting to all 30 columns
-            for col in range(1, 31):
+            # Apply borders and formatting to all 16 columns
+            for col in range(1, 17):
                 cell = ws.cell(row=current_row, column=col)
                 cell.border = border
 
-                # Add center alignment for Pradžia, Pabaiga, and Kanalų grupė columns
-                if col in [1, 2, 3]:  # Pradžia, Pabaiga, Kanalų grupė
-                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                # Add center alignment for Pradžia, Pabaiga, and Kanalų grupė columns with text wrapping
+                if col in [1, 2, 3]:  # Pradžia, Pabaiga, Kanalų grupę
+                    cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                else:
+                    # All other columns get text wrapping with left alignment
+                    cell.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
 
-                # Format numbers - match channel group Excel formatting
-                if col in [9, 11, 12, 13]:  # Percentage columns: TG dalis (%), Kanalo dalis, PT zonos dalis, nPT zonos dalis
+                # Format numbers based on new 16-column structure
+                if col in [7, 8, 9]:  # Percentage columns: Kanalo dalis, PT zonos dalis, nPT zonos dalis
                     cell.number_format = '0.00%'
-                elif col in [18, 19, 20, 21, 22, 23, 24, 25]:  # Index columns
+                elif col in [12, 13]:  # Index columns: Trukmės koeficientas, Sezoninis koeficientas
                     cell.number_format = '0.00'
-                elif col in [14, 15, 17, 26, 28, 30]:  # Currency columns: GRP plan., TRP perkamas, Gross CPP, Gross kaina, Net kaina, Net net kaina
+                elif col in [10, 11, 14, 16]:  # Number/Currency columns: GRP plan., Gross CPP, Gross kaina, Net kaina
                     cell.number_format = '#,##0.00'
-                elif col in [27, 29]:  # Discount percentage columns: Kl. nuol. %, Ag. nuol. %
+                elif col == 15:  # Discount percentage column: Kl. nuol. %
                     cell.number_format = '0.0"%"'
-            
+
+            # Set row height to accommodate wrapped text
+            ws.row_dimensions[current_row].height = 40
+
             current_row += 1
             row_count += 1
         
@@ -1430,20 +1421,31 @@ def generate_client_excel_report(campaign_id: int):
             
             current_row += 2
     
-    # Grand total
-    ws.merge_cells(f'A{current_row}:W{current_row}')
+    # Grand total - updated to span 16 columns with proper borders
+    ws.merge_cells(f'A{current_row}:O{current_row}')  # Merge A to O (15 columns)
     cell = ws[f'A{current_row}']
     cell.value = "BENDRA KAMPANIJOS SUMA:"
     cell.font = Font(bold=True, size=12, color="1F4E79")
     cell.alignment = Alignment(horizontal='right')
     cell.fill = total_fill
     cell.border = thick_border
-    
-    total_cell = ws.cell(row=current_row, column=24)
+
+    # Total amount in the last column (P - column 16)
+    total_cell = ws.cell(row=current_row, column=16)
     total_cell.value = f"€{total_cost:.2f}"
     total_cell.font = Font(bold=True, size=12, color="1F4E79")
     total_cell.fill = total_fill
     total_cell.border = thick_border
+
+    # Add borders to all cells in the total row to ensure complete border coverage
+    for col in range(1, 17):  # All 16 columns
+        cell = ws.cell(row=current_row, column=col)
+        cell.fill = total_fill
+        cell.border = thick_border
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+    # Set row height for the total row
+    ws.row_dimensions[current_row].height = 45
     
     # Add Enhanced TRP Calendar at the same level as main table (to the right)
     if trp_data or (campaign.get('start_date') and campaign.get('end_date')):
@@ -1679,37 +1681,23 @@ def generate_client_excel_report(campaign_id: int):
                         pass  # Give up gracefully
     
     
-    # Set specific widths for columns to match channel group Excel style
-    ws.column_dimensions['A'].width = 12  # Pradžia
-    ws.column_dimensions['B'].width = 12  # Pabaiga
-    ws.column_dimensions['C'].width = 18  # Kanalų grupė
-    ws.column_dimensions['D'].width = 15  # Kampanija
-    ws.column_dimensions['E'].width = 10  # Perkama TG - thinner
-    ws.column_dimensions['F'].width = 8   # TVC - thinner
-    ws.column_dimensions['G'].width = 7   # Trukmė - thinner
-    ws.column_dimensions['H'].width = 8   # TG dydis (*000) - thinner
-    ws.column_dimensions['I'].width = 7   # TG dalis (%) - thinner
-    ws.column_dimensions['J'].width = 7   # TG imtis - thinner
-    ws.column_dimensions['K'].width = 7   # Kanalo dalis - thinner
-    ws.column_dimensions['L'].width = 8   # PT zonos dalis - thinner
-    ws.column_dimensions['M'].width = 9   # nPT zonos dalis - thinner
-    ws.column_dimensions['N'].width = 9   # GRP planuojamas - thinner
-    ws.column_dimensions['O'].width = 8   # TRP perkamas - thinner
-    ws.column_dimensions['P'].width = 8   # Affinity1 - thinner
-    ws.column_dimensions['Q'].width = 9   # Gross CPP - thinner
-    ws.column_dimensions['R'].width = 9   # Trukmės koeficientas - thinner
-    ws.column_dimensions['S'].width = 9   # Sezoninis koeficientas - thinner
-    ws.column_dimensions['T'].width = 8   # TRP pirkimo - thinner
-    ws.column_dimensions['U'].width = 9   # Išankstinio pirkimo - thinner
-    ws.column_dimensions['V'].width = 6   # WEB - thinner
-    ws.column_dimensions['W'].width = 9   # Išankstinio mokėjimo - thinner
-    ws.column_dimensions['X'].width = 9   # Lojalumo nuolaida - thinner
-    ws.column_dimensions['Y'].width = 9   # Pozicijos indeksas - thinner
-    ws.column_dimensions['Z'].width = 9   # Gross kaina - thinner
-    ws.column_dimensions['AA'].width = 9  # Kliento nuolaida % - thinner
-    ws.column_dimensions['AB'].width = 9  # Net kaina - thinner
-    ws.column_dimensions['AC'].width = 9  # Agentūros nuolaida % - thinner
-    ws.column_dimensions['AD'].width = 10 # Net net kaina - thinner
+    # Set wider column widths for the 16 remaining columns to properly fit content
+    ws.column_dimensions['A'].width = 16   # Pradžia
+    ws.column_dimensions['B'].width = 16   # Pabaiga
+    ws.column_dimensions['C'].width = 20   # Kanalų grupę
+    ws.column_dimensions['D'].width = 18   # Perkama TG
+    ws.column_dimensions['E'].width = 15   # TVC
+    ws.column_dimensions['F'].width = 12   # Trukmé
+    ws.column_dimensions['G'].width = 15   # Kanalo dalis
+    ws.column_dimensions['H'].width = 15   # PT zonos dalis
+    ws.column_dimensions['I'].width = 16   # nPT zonos dalis
+    ws.column_dimensions['J'].width = 14   # GRP plan.
+    ws.column_dimensions['K'].width = 14   # Gross CPP
+    ws.column_dimensions['L'].width = 18   # Trukmés koeficientas
+    ws.column_dimensions['M'].width = 18   # Sezoninis koeficientas
+    ws.column_dimensions['N'].width = 16   # Gross kaina
+    ws.column_dimensions['O'].width = 15   # Kl. nuol. %
+    ws.column_dimensions['P'].width = 16   # Net kaina
     
     # Save to BytesIO
     print(f"DEBUG: Saving workbook to BytesIO", file=sys.stderr, flush=True)

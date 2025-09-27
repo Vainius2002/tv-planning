@@ -1276,7 +1276,7 @@ def generate_client_excel_report(campaign_id: int):
         ("Kampanijos laikotarpis:", f"{campaign.get('start_date', '')} - {campaign.get('end_date', '')}"),
         ("Klientas:", campaign.get('client', '')),
         ("Agentūra:", campaign.get('agency', '')),
-        ("Produktas:", campaign.get('product', '')),
+        ("Kampanija:", campaign.get('product', '')),
         ("Kainoraštis:", campaign.get('pricing_list_name', '')),
         ("Statusas:", campaign.get('status', 'draft').replace('_', ' ').title())
     ]
@@ -1406,51 +1406,9 @@ def generate_client_excel_report(campaign_id: int):
             costs = wave['costs']
             client_cost = costs['client_cost']
             total_cost += client_cost
-            
-            ws.merge_cells(f'A{current_row}:W{current_row}')
-            cell = ws[f'A{current_row}']
-            discount_text = f" (-{costs['client_discount_percent']}%)" if costs['client_discount_percent'] > 0 else ""
-            cell.value = f"Bangos suma{discount_text}:"
-            cell.font = wave_font
-            cell.fill = wave_fill
-            cell.alignment = Alignment(horizontal='right')
-            
-            ws.cell(row=current_row, column=24).value = f"€{client_cost:.2f}"
-            ws.cell(row=current_row, column=24).font = wave_font
-            ws.cell(row=current_row, column=24).fill = wave_fill
-            
-            for col in range(1, 25):
-                cell = ws.cell(row=current_row, column=col)
-                cell.border = border
-                cell.fill = wave_fill
-            
-            current_row += 2
+
+            current_row += 1
     
-    # Grand total - updated to span 16 columns with proper borders
-    ws.merge_cells(f'A{current_row}:O{current_row}')  # Merge A to O (15 columns)
-    cell = ws[f'A{current_row}']
-    cell.value = "BENDRA KAMPANIJOS SUMA:"
-    cell.font = Font(bold=True, size=12, color="1F4E79")
-    cell.alignment = Alignment(horizontal='right')
-    cell.fill = total_fill
-    cell.border = thick_border
-
-    # Total amount in the last column (P - column 16)
-    total_cell = ws.cell(row=current_row, column=16)
-    total_cell.value = f"€{total_cost:.2f}"
-    total_cell.font = Font(bold=True, size=12, color="1F4E79")
-    total_cell.fill = total_fill
-    total_cell.border = thick_border
-
-    # Add borders to all cells in the total row to ensure complete border coverage
-    for col in range(1, 17):  # All 16 columns
-        cell = ws.cell(row=current_row, column=col)
-        cell.fill = total_fill
-        cell.border = thick_border
-        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-
-    # Set row height for the total row
-    ws.row_dimensions[current_row].height = 45
     
     # Add Enhanced TRP Calendar at the same level as main table (to the right)
     if trp_data or (campaign.get('start_date') and campaign.get('end_date')):
@@ -1485,12 +1443,12 @@ def generate_client_excel_report(campaign_id: int):
                 # Show all active days - no date limiting, just make columns narrower
                 calendar_limited = False  # We're not limiting dates anymore
                 
-                # Create horizontal calendar like in the UI - start from column AA (27) to not interfere with main table
+                # Create horizontal calendar like in the UI - start from column Z (26) closer to main table
                 
                 
                 # Month headers row
                 current_date = start_date
-                col_idx = 35  # Start calendar from column AI - push to the right
+                col_idx = 26  # Start calendar from column Z - closer to the main table
                 months = []
                 month_spans = {}
                 
@@ -1527,7 +1485,7 @@ def generate_client_excel_report(campaign_id: int):
                 
                 # Day numbers row
                 current_date = start_date
-                col_idx = 35  # Start from column AI
+                col_idx = 26  # Start from column Z
                 while current_date <= end_date:
                     day_cell = ws.cell(row=cal_start_row + 1, column=col_idx)
                     day_cell.value = current_date.day
@@ -1546,7 +1504,7 @@ def generate_client_excel_report(campaign_id: int):
                 
                 # Week days row
                 current_date = start_date
-                col_idx = 35  # Start from column AI
+                col_idx = 26  # Start from column Z
                 weekday_names = ['Pr', 'An', 'Tr', 'Kt', 'Pn', 'Št', 'Sk']
                 while current_date <= end_date:
                     weekday_cell = ws.cell(row=cal_start_row + 2, column=col_idx)
@@ -1578,9 +1536,9 @@ def generate_client_excel_report(campaign_id: int):
                             wave_total_trp = sum(item['trps'] for item in wave['items'] if item.get('trps', 0) > 0)
                             wave_days = (wave_end - wave_start).days + 1
                             daily_trp = wave_total_trp / wave_days if wave_days > 0 else 0
-                            
+
                             current_date = start_date
-                            col_idx = 35  # Start from column AI
+                            col_idx = 26  # Start from column Z
                             
                             while current_date <= end_date:
                                 wave_cell = ws.cell(row=row_idx, column=col_idx)
@@ -1615,7 +1573,7 @@ def generate_client_excel_report(campaign_id: int):
                 trp_row = row_idx  # row_idx will be at the end of all wave rows
                 
                 # Column labels for the calendar
-                ws.cell(row=cal_start_row + 2, column=col_idx + 1).value = "Savaitės dienos"
+                ws.cell(row=cal_start_row + 2, column=20).value = "Savaitės dienos"
                 ws.cell(row=cal_start_row + 2, column=col_idx + 1).font = Font(size=8, italic=True)
                 
                 # Wave labels with TRP totals
@@ -1645,7 +1603,7 @@ def generate_client_excel_report(campaign_id: int):
                         pass  # Skip if row setting fails
                 
                 # Make calendar columns wider to show TRP values properly
-                calendar_start_col = 35  # AI column - push calendar further to the right
+                calendar_start_col = 19  # S column - closer to the main table
                 calendar_end_col = min(col_idx + 1, 60)  # Limit to reasonable range
                 for col in range(calendar_start_col, calendar_end_col):
                     try:
@@ -2441,7 +2399,7 @@ def export_channel_group_excel(group_id: int):
                     end_date = max(end_dates)
 
                     # Calendar positioning - main table now has 30 columns (A-AD), calendar starts further right for better spacing
-                    calendar_start_col = 35  # Calendar data starts at AI (35) - push further to the right
+                    calendar_start_col = 19  # Calendar data starts at S (19) - closer to the main table
 
                     # Calendar headers start at row 1 to align with main table
                     # Month headers at row 1, day numbers at row 2, weekdays at row 3
@@ -2646,8 +2604,8 @@ def export_channel_group_excel(group_id: int):
                         pass
                 if column_letter:
                     col_index = openpyxl.utils.column_index_from_string(column_letter)
-                    # Skip calendar columns (AE onwards)
-                    if col_index >= 31:
+                    # Skip calendar columns (Z onwards)
+                    if col_index >= 26:
                         continue
                     # Skip Pradžia and Pabaiga columns from auto-adjustment to keep them narrow
                     if column_letter in ['A', 'B']:

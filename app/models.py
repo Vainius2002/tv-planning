@@ -2379,12 +2379,12 @@ def export_channel_group_excel(group_id: int):
                     end_date = max(end_dates)
 
                     # Calendar positioning - main table now has 30 columns (A-AD), calendar starts further right for better spacing
-                    calendar_start_col = 19  # Calendar data starts at S (19) - closer to the main table
+                    calendar_start_col = 30  # Calendar data starts at AD (30) - to the right of all plan data
 
-                    # Calendar headers start at row 3 (after main header and column headers)
-                    # Month headers at row 3, day numbers at row 4, weekdays at row 5
+                    # Calendar headers start at row 1 to align with main table
+                    # Month headers at row 1, day numbers at row 2, weekdays at row 3
                     # Then calendar data starts at data_start_row (matches main data)
-                    month_header_row = 3
+                    month_header_row = 1
                     calendar_end_col = min(calendar_start_col + (end_date - start_date).days + 5, 60)
 
                     # Month headers
@@ -2422,11 +2422,11 @@ def export_channel_group_excel(group_id: int):
                         if start_col < end_col:
                             ws.merge_cells(f'{openpyxl.utils.get_column_letter(start_col)}{month_header_row}:{openpyxl.utils.get_column_letter(end_col)}{month_header_row}')
 
-                    # Day headers at row 4
+                    # Day headers at row 2
                     current_date = start_date
                     col_idx = calendar_start_col
                     while current_date <= end_date:
-                        day_cell = ws.cell(row=4, column=col_idx)
+                        day_cell = ws.cell(row=2, column=col_idx)
                         day_cell.value = current_date.strftime('%d')
                         day_cell.font = Font(size=9, bold=True)
                         day_cell.alignment = Alignment(horizontal='center')
@@ -2435,15 +2435,17 @@ def export_channel_group_excel(group_id: int):
                         current_date += timedelta(days=1)
                         col_idx += 1
 
-                    # Weekday headers at row 5
+                    # Weekday headers at row 3
                     current_date = start_date
                     col_idx = calendar_start_col
                     while current_date <= end_date:
-                        weekday_cell = ws.cell(row=5, column=col_idx)
+                        weekday_cell = ws.cell(row=3, column=col_idx)
                         weekday_names = ['Pr', 'An', 'Tr', 'Kt', 'Pn', 'Št', 'Sk']
-                        weekday_cell.value = weekday_names[current_date.weekday()]
-                        weekday_cell.font = Font(size=8)
+                        weekday_value = weekday_names[current_date.weekday()]
+                        weekday_cell.value = weekday_value
+                        weekday_cell.font = Font(size=8, bold=True)
                         weekday_cell.alignment = Alignment(horizontal='center')
+                        weekday_cell.fill = PatternFill(start_color="E6E6E6", end_color="E6E6E6", fill_type="solid")  # Light gray background
                         weekday_cell.border = border
                         current_date += timedelta(days=1)
                         col_idx += 1

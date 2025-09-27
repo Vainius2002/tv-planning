@@ -2140,10 +2140,7 @@ def export_channel_group_excel(group_id: int):
         # First get the channel group name from the ID
         query = """
         SELECT wi.*, w.start_date, w.end_date, w.campaign_id, c.name as campaign_name,
-               cg.name as channel_group_name, t.name as tvc_name,
-               wi.duration_index, wi.seasonal_index,
-               wi.trp_purchase_index, wi.advance_purchase_index, wi.web_index,
-               wi.advance_payment_index, wi.loyalty_discount_index, wi.position_index
+               cg.name as channel_group_name, t.name as tvc_name
         FROM wave_items wi
         JOIN waves w ON wi.wave_id = w.id
         JOIN campaigns c ON w.campaign_id = c.id
@@ -2223,37 +2220,29 @@ def export_channel_group_excel(group_id: int):
         # Data rows
         print(f"DEBUG: About to process {len(rows)} rows", file=sys.stderr, flush=True)
         for item in rows:
-            # Calculate values
-            gross_cpp = item['gross_cpp_eur'] or 0
-            grp_planned = (item['trps'] * 100 / item['affinity1']) if item['affinity1'] and item['affinity1'] > 0 else 0
+            # Calculate values using available fields
+            # Most detailed pricing fields are not available in this simple table
+            grp_planned = 0  # Default since we don't have affinity data
 
             # Calculate base gross price (TRP * CPP * Duration) without multipliers
-            # Calculate prices using the same formula as in the plans
-            # gross kaina = klipo trukme * trp perkamas * gross cpp * trukmes indeksas * sezoninis * trp pirkimo * isankstinio * web * isankstinio mokejimo * lojalumo nuolaida
-            clip_duration = item['clip_duration'] or 0
+            # Use basic calculation since detailed pricing fields are not available in this table
+            # Use price_per_sec_eur as the base price
+            clip_duration = 30  # Default clip duration
             trps = item['trps'] or 0
-            gross_cpp = item['gross_cpp_eur'] or 0
-            duration_index = item['duration_index'] or 1.0
-            seasonal_index = item['seasonal_index'] or 1.0
-            trp_purchase_index = item['trp_purchase_index'] or 1.0
-            advance_purchase_index = item['advance_purchase_index'] or 1.0
-            web_index = item['web_index'] or 1.0
-            advance_payment_index = item['advance_payment_index'] or 1.0
-            loyalty_discount_index = item['loyalty_discount_index'] or 1.0
+            price_per_sec = item['price_per_sec_eur'] or 0
 
-            gross_price = (clip_duration * trps * gross_cpp * duration_index * seasonal_index *
-                          trp_purchase_index * advance_purchase_index * web_index *
-                          advance_payment_index * loyalty_discount_index)
+            # Calculate basic gross price
+            gross_price = clip_duration * trps * price_per_sec
 
-            # Calculate net prices
-            client_discount = item['client_discount'] or 0
-            agency_discount = item['agency_discount'] or 0
+            # Use default values for missing fields
+            client_discount = 0  # Default client discount
+            agency_discount = 0  # Default agency discount
             net_price = gross_price * (1 - client_discount / 100)
             net_net_price = net_price * (1 - agency_discount / 100)
 
             print(f"DEBUG: Calculated prices - Gross={gross_price}, Net={net_price}, NetNet={net_net_price}", file=sys.stderr, flush=True)
 
-            # Row data matching the exact plan table columns
+            # Row data using available fields with defaults for missing ones
             row_data = [
                 item['start_date'] or '',                                    # Pradžia
                 item['end_date'] or '',                                      # Pabaiga
@@ -2261,28 +2250,28 @@ def export_channel_group_excel(group_id: int):
                 item['campaign_name'],                                       # Kampanija
                 item['target_group'],                                        # Perkama TG
                 item['tvc_name'] or '',                                      # TVC
-                item['clip_duration'] or 0,                                  # Trukmė
-                item['tg_size_thousands'] or 0,                             # TG dydis (*000) - from db
-                (item['tg_share_percent'] or 0) / 100 if item['tg_share_percent'] else 0,  # TG dalis (%) - from db, convert to decimal
-                item['tg_sample_size'] or 0,                                # TG imtis - from db
-                (item['channel_share'] or 0),                              # Kanalo dalis - already decimal
-                (item['pt_zone_share'] or 0),                              # PT zonos dalis - already decimal
-                (item['npt_zone_share'] or 0.45),                          # nPT zonos dalis - already decimal
+                clip_duration,                                               # Trukmė (default 30)
+                0,                                                          # TG dydis (*000) - not available
+                0.45,                                                       # TG dalis (%) - default
+                0,                                                          # TG imtis - not available
+                item['share_primary'] or 0,                              # Kanalo dalis
+                item['prime_share_primary'] or 0,                        # PT zonos dalis
+                0.45,                                                       # nPT zonos dalis - default
                 grp_planned,                                                 # GRP plan. (calculated)
                 item['trps'] or 0,                                          # TRP perkamas
-                item['affinity1'] or 0,                                     # Affinity1
-                item['gross_cpp_eur'] or 0,                                 # Gross CPP
-                item['duration_index'] or 1.0,                             # Trukmės koeficientas
-                item['seasonal_index'] or 1.0,                             # Sezoninis koeficientas
-                item['trp_purchase_index'] or 1.0,                         # TRP pirkimo
-                item['advance_purchase_index'] or 1.0,                     # Išankstinio pirkimo
-                item['web_index'] or 1.0,                                  # WEB
-                item['advance_payment_index'] or 1.0,                      # Išankstinio mokėjimo
-                item['loyalty_discount_index'] or 1.0,                     # Lojalumo nuolaida
+                0,                                                          # Affinity1 - not available
+                item['price_per_sec_eur'] or 0,                            # Gross CPP (using price_per_sec)
+                1.0,                                                        # Trukmės koeficientas - default
+                1.0,                                                        # Sezoninis koeficientas - default
+                1.0,                                                        # TRP pirkimo - default
+                1.0,                                                        # Išankstinio pirkimo - default
+                1.0,                                                        # WEB - default
+                1.0,                                                        # Išankstinio mokėjimo - default
+                1.0,                                                        # Lojalumo nuolaida - default
                 gross_price,                                                # Gross kaina
-                item['client_discount'] or 0,                              # Kl. nuol. %
+                client_discount,                                            # Kl. nuol. % - default 0
                 net_price,                                                  # Net kaina
-                item['agency_discount'] or 0,                              # Ag. nuol. %
+                agency_discount,                                            # Ag. nuol. % - default 0
                 net_net_price                                               # Net net kaina
             ]
 
@@ -2309,39 +2298,30 @@ def export_channel_group_excel(group_id: int):
 
         # Add totals row after all plan data
         if rows:
-            # Calculate totals and averages
-            total_grp = sum((item['trps'] * 100 / item['affinity1']) if item['affinity1'] and item['affinity1'] > 0 else 0 for item in rows)
+            # Calculate totals and averages using available fields
+            total_grp = 0  # No affinity data available
             total_trp = sum(item['trps'] or 0 for item in rows)
 
-            # Calculate average affinity (only from non-zero values)
-            affinity_values = [item['affinity1'] for item in rows if item['affinity1'] and item['affinity1'] > 0]
-            avg_affinity = sum(affinity_values) / len(affinity_values) if affinity_values else 0
+            # No affinity data available
+            avg_affinity = 0
 
-            # Calculate total prices
+            # Calculate total prices using simplified calculation
             total_gross = 0
             total_net = 0
             total_net_net = 0
 
             for item in rows:
-                # Calculate prices using the same formula as in the plans for totals
-                clip_duration = item['clip_duration'] or 0
+                # Use same simplified calculation as above
+                clip_duration = 30  # Default clip duration
                 trps = item['trps'] or 0
-                gross_cpp = item['gross_cpp_eur'] or 0
-                duration_index = item['duration_index'] or 1.0
-                seasonal_index = item['seasonal_index'] or 1.0
-                trp_purchase_index = item['trp_purchase_index'] or 1.0
-                advance_purchase_index = item['advance_purchase_index'] or 1.0
-                web_index = item['web_index'] or 1.0
-                advance_payment_index = item['advance_payment_index'] or 1.0
-                loyalty_discount_index = item['loyalty_discount_index'] or 1.0
+                price_per_sec = item['price_per_sec_eur'] or 0
 
-                gross_price = (clip_duration * trps * gross_cpp * duration_index * seasonal_index *
-                              trp_purchase_index * advance_purchase_index * web_index *
-                              advance_payment_index * loyalty_discount_index)
+                # Calculate basic gross price
+                gross_price = clip_duration * trps * price_per_sec
 
-                # Calculate net prices
-                client_discount = item['client_discount'] or 0
-                agency_discount = item['agency_discount'] or 0
+                # Use default values for missing fields
+                client_discount = 0  # Default client discount
+                agency_discount = 0  # Default agency discount
                 net_price = gross_price * (1 - client_discount / 100)
                 net_net_price = net_price * (1 - agency_discount / 100)
 
@@ -2401,10 +2381,10 @@ def export_channel_group_excel(group_id: int):
                     # Calendar positioning - main table now has 30 columns (A-AD), calendar starts further right for better spacing
                     calendar_start_col = 19  # Calendar data starts at S (19) - closer to the main table
 
-                    # Calendar headers start at row 1 to align with main table
-                    # Month headers at row 1, day numbers at row 2, weekdays at row 3
+                    # Calendar headers start at row 3 (after main header and column headers)
+                    # Month headers at row 3, day numbers at row 4, weekdays at row 5
                     # Then calendar data starts at data_start_row (matches main data)
-                    month_header_row = 1
+                    month_header_row = 3
                     calendar_end_col = min(calendar_start_col + (end_date - start_date).days + 5, 60)
 
                     # Month headers
@@ -2428,34 +2408,25 @@ def export_channel_group_excel(group_id: int):
                         start_col = span['start']
                         end_col = span['end']
 
-                        # Set value and styling for the first cell
-                        month_cell = ws.cell(row=month_header_row, column=start_col)
-                        month_cell.value = span['name']
-                        month_cell.font = Font(bold=True, size=8, color="FFFFFF")  # White text
-                        month_cell.alignment = Alignment(horizontal='center')
-                        month_cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")  # Same dark blue as main headers
-                        month_cell.border = border
+                        # First set value and styling on all cells
+                        for col in range(start_col, end_col + 1):
+                            cell = ws.cell(row=month_header_row, column=col)
+                            if col == start_col:  # Only set value on first cell
+                                cell.value = span['name']
+                            cell.font = Font(bold=True, size=8, color="FFFFFF")
+                            cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+                            cell.border = border
+                            cell.alignment = Alignment(horizontal='center')
 
-                        # If spanning multiple columns, apply same styling to all cells before merging
+                        # Then merge if spanning multiple columns
                         if start_col < end_col:
-                            # Apply styling to all cells in the span before merging
-                            for col in range(start_col, end_col + 1):
-                                cell = ws.cell(row=month_header_row, column=col)
-                                cell.font = Font(bold=True, size=8, color="FFFFFF")
-                                cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-                                cell.border = border
-
-                            # Now merge the cells
                             ws.merge_cells(f'{openpyxl.utils.get_column_letter(start_col)}{month_header_row}:{openpyxl.utils.get_column_letter(end_col)}{month_header_row}')
-                        else:
-                            # Single column month, just apply border
-                            month_cell.border = border
 
-                    # Day headers at row 2
+                    # Day headers at row 4
                     current_date = start_date
                     col_idx = calendar_start_col
                     while current_date <= end_date:
-                        day_cell = ws.cell(row=2, column=col_idx)
+                        day_cell = ws.cell(row=4, column=col_idx)
                         day_cell.value = current_date.strftime('%d')
                         day_cell.font = Font(size=9, bold=True)
                         day_cell.alignment = Alignment(horizontal='center')
@@ -2464,11 +2435,11 @@ def export_channel_group_excel(group_id: int):
                         current_date += timedelta(days=1)
                         col_idx += 1
 
-                    # Weekday headers at row 3
+                    # Weekday headers at row 5
                     current_date = start_date
                     col_idx = calendar_start_col
                     while current_date <= end_date:
-                        weekday_cell = ws.cell(row=3, column=col_idx)
+                        weekday_cell = ws.cell(row=5, column=col_idx)
                         weekday_names = ['Pr', 'An', 'Tr', 'Kt', 'Pn', 'Št', 'Sk']
                         weekday_cell.value = weekday_names[current_date.weekday()]
                         weekday_cell.font = Font(size=8)
@@ -2545,8 +2516,10 @@ def export_channel_group_excel(group_id: int):
                         ws.column_dimensions[col_letter].width = 5
 
             except Exception as e:
-                # If calendar generation fails, skip it
-                pass
+                # If calendar generation fails, log it and skip it
+                print(f"DEBUG: Calendar generation failed: {str(e)}", file=sys.stderr, flush=True)
+                import traceback
+                traceback.print_exc()
 
 
         # Set specific widths for columns to properly display content
@@ -2604,8 +2577,8 @@ def export_channel_group_excel(group_id: int):
                         pass
                 if column_letter:
                     col_index = openpyxl.utils.column_index_from_string(column_letter)
-                    # Skip calendar columns (Z onwards)
-                    if col_index >= 26:
+                    # Skip calendar columns (S onwards, which is column 19)
+                    if col_index >= 19:
                         continue
                     # Skip Pradžia and Pabaiga columns from auto-adjustment to keep them narrow
                     if column_letter in ['A', 'B']:

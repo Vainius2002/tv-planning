@@ -2220,29 +2220,33 @@ def export_channel_group_excel(group_id: int):
         # Data rows
         print(f"DEBUG: About to process {len(rows)} rows", file=sys.stderr, flush=True)
         for item in rows:
-            # Calculate values using available fields
-            # Most detailed pricing fields are not available in this simple table
-            grp_planned = 0  # Default since we don't have affinity data
-
-            # Calculate base gross price (TRP * CPP * Duration) without multipliers
-            # Use basic calculation since detailed pricing fields are not available in this table
-            # Use price_per_sec_eur as the base price
-            clip_duration = 30  # Default clip duration
+            # Calculate values using actual database fields
+            # gross kaina = klipo trukme * trp perkamas * gross cpp * trukmes indeksas * sezoninis * trp pirkimo * isankstinio * web * isankstinio mokejimo * lojalumo nuolaida
+            clip_duration = item['clip_duration'] or 30
             trps = item['trps'] or 0
-            price_per_sec = item['price_per_sec_eur'] or 0
+            gross_cpp = item['gross_cpp_eur'] or 0
+            duration_index = item['duration_index'] or 1.0
+            seasonal_index = item['seasonal_index'] or 1.0
+            trp_purchase_index = item['trp_purchase_index'] or 1.0
+            advance_purchase_index = item['advance_purchase_index'] or 1.0
+            web_index = item['web_index'] or 1.0
+            advance_payment_index = item['advance_payment_index'] or 1.0
+            loyalty_discount_index = item['loyalty_discount_index'] or 1.0
 
-            # Calculate basic gross price
-            gross_price = clip_duration * trps * price_per_sec
+            gross_price = (clip_duration * trps * gross_cpp * duration_index * seasonal_index *
+                          trp_purchase_index * advance_purchase_index * web_index *
+                          advance_payment_index * loyalty_discount_index)
 
-            # Use default values for missing fields
-            client_discount = 0  # Default client discount
-            agency_discount = 0  # Default agency discount
+            # Calculate net prices
+            client_discount = item['client_discount'] or 0
+            agency_discount = item['agency_discount'] or 0
             net_price = gross_price * (1 - client_discount / 100)
             net_net_price = net_price * (1 - agency_discount / 100)
 
-            print(f"DEBUG: Calculated prices - Gross={gross_price}, Net={net_price}, NetNet={net_net_price}", file=sys.stderr, flush=True)
 
-            # Row data using available fields with defaults for missing ones
+            # Row data using actual database fields
+            grp_planned = (item['trps'] * 100 / item['affinity1']) if item['affinity1'] and item['affinity1'] > 0 else 0
+
             row_data = [
                 item['start_date'] or '',                                    # Pradžia
                 item['end_date'] or '',                                      # Pabaiga
@@ -2250,29 +2254,29 @@ def export_channel_group_excel(group_id: int):
                 item['campaign_name'],                                       # Kampanija
                 item['target_group'],                                        # Perkama TG
                 item['tvc_name'] or '',                                      # TVC
-                clip_duration,                                               # Trukmė (default 30)
-                0,                                                          # TG dydis (*000) - not available
-                0.45,                                                       # TG dalis (%) - default
-                0,                                                          # TG imtis - not available
-                item['share_primary'] or 0,                              # Kanalo dalis
-                item['prime_share_primary'] or 0,                        # PT zonos dalis
-                0.45,                                                       # nPT zonos dalis - default
-                grp_planned,                                                 # GRP plan. (calculated)
-                item['trps'] or 0,                                          # TRP perkamas
-                0,                                                          # Affinity1 - not available
-                item['price_per_sec_eur'] or 0,                            # Gross CPP (using price_per_sec)
-                1.0,                                                        # Trukmės koeficientas - default
-                1.0,                                                        # Sezoninis koeficientas - default
-                1.0,                                                        # TRP pirkimo - default
-                1.0,                                                        # Išankstinio pirkimo - default
-                1.0,                                                        # WEB - default
-                1.0,                                                        # Išankstinio mokėjimo - default
-                1.0,                                                        # Lojalumo nuolaida - default
-                gross_price,                                                # Gross kaina
-                client_discount,                                            # Kl. nuol. % - default 0
-                net_price,                                                  # Net kaina
-                agency_discount,                                            # Ag. nuol. % - default 0
-                net_net_price                                               # Net net kaina
+                item['clip_duration'] or 30,                               # Trukmė
+                item['tg_size_thousands'] or 0,                            # TG dydis (*000)
+                (item['tg_share_percent'] or 0) / 100,                     # TG dalis (%) - convert to decimal
+                item['tg_sample_size'] or 0,                               # TG imtis
+                item['channel_share'] or 0,                                # Kanalo dalis
+                item['pt_zone_share'] or 0,                                # PT zonos dalis
+                item['npt_zone_share'] or 0,                               # nPT zonos dalis
+                grp_planned,                                                # GRP plan. (calculated)
+                item['trps'] or 0,                                         # TRP perkamas
+                item['affinity1'] or 0,                                    # Affinity1
+                item['gross_cpp_eur'] or 0,                               # Gross CPP
+                item['duration_index'] or 1.0,                            # Trukmės koeficientas
+                item['seasonal_index'] or 1.0,                            # Sezoninis koeficientas
+                item['trp_purchase_index'] or 1.0,                        # TRP pirkimo
+                item['advance_purchase_index'] or 1.0,                    # Išankstinio pirkimo
+                item['web_index'] or 1.0,                                 # WEB
+                item['advance_payment_index'] or 1.0,                     # Išankstinio mokėjimo
+                item['loyalty_discount_index'] or 1.0,                    # Lojalumo nuolaida
+                gross_price,                                               # Gross kaina
+                item['client_discount'] or 0,                             # Kl. nuol. %
+                net_price,                                                 # Net kaina
+                item['agency_discount'] or 0,                             # Ag. nuol. %
+                net_net_price                                              # Net net kaina
             ]
 
             for col, value in enumerate(row_data, 1):
@@ -2286,13 +2290,17 @@ def export_channel_group_excel(group_id: int):
 
                 # Format numbers (column numbers after removing Pozicijos indeksas)
                 if col in [9, 11, 12, 13]:  # Percentage columns: TG dalis (%), Kanalo dalis, PT zonos dalis, nPT zonos dalis
-                    cell.number_format = '0.00%'
-                elif col in [18, 19, 20, 21, 22, 23, 24]:  # Index columns (reduced by 1 after removing position index)
-                    cell.number_format = '0.00'
+                    if value and isinstance(value, (int, float)):
+                        cell.number_format = '0.00%'
+                elif col in [18, 19, 20, 21, 22, 23, 24]:  # Index columns
+                    if value and isinstance(value, (int, float)):
+                        cell.number_format = '0.00'
                 elif col in [14, 15, 17, 25, 27, 29]:  # Currency columns: GRP plan., TRP perkamas, Gross CPP, Gross kaina, Net kaina, Net net kaina
-                    cell.number_format = '#,##0.00'
+                    if value and isinstance(value, (int, float)):
+                        cell.number_format = '#,##0.00'
                 elif col in [26, 28]:  # Discount percentage columns: Kl. nuol. %, Ag. nuol. %
-                    cell.number_format = '0.0"%"'
+                    if value and isinstance(value, (int, float)):
+                        cell.number_format = '0.0"%"'
 
             current_row += 1
 

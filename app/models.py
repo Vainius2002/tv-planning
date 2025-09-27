@@ -2306,30 +2306,41 @@ def export_channel_group_excel(group_id: int):
 
         # Add totals row after all plan data
         if rows:
-            # Calculate totals and averages using available fields
-            total_grp = 0  # No affinity data available
+            # Calculate totals and averages properly
+            total_grp = 0
             total_trp = sum(item['trps'] or 0 for item in rows)
-
-            # No affinity data available
-            avg_affinity = 0
-
-            # Calculate total prices using simplified calculation
             total_gross = 0
             total_net = 0
             total_net_net = 0
 
+            # Calculate average affinity (only from non-zero values)
+            affinity_values = [item['affinity1'] for item in rows if item['affinity1'] and item['affinity1'] > 0]
+            avg_affinity = sum(affinity_values) / len(affinity_values) if affinity_values else 0
+
             for item in rows:
-                # Use same simplified calculation as above
-                clip_duration = 30  # Default clip duration
+                # Calculate GRP for this item and add to total
+                if item['affinity1'] and item['affinity1'] > 0:
+                    grp = (item['trps'] or 0) * 100 / item['affinity1']
+                    total_grp += grp
+
+                # Use same price calculation as in rows
+                clip_duration = item['clip_duration'] or 30
                 trps = item['trps'] or 0
-                price_per_sec = item['price_per_sec_eur'] or 0
+                gross_cpp = item['gross_cpp_eur'] or 0
+                duration_index = item['duration_index'] or 1.0
+                seasonal_index = item['seasonal_index'] or 1.0
+                trp_purchase_index = item['trp_purchase_index'] or 1.0
+                advance_purchase_index = item['advance_purchase_index'] or 1.0
+                web_index = item['web_index'] or 1.0
+                advance_payment_index = item['advance_payment_index'] or 1.0
+                loyalty_discount_index = item['loyalty_discount_index'] or 1.0
 
-                # Calculate basic gross price
-                gross_price = clip_duration * trps * price_per_sec
+                gross_price = (clip_duration * trps * gross_cpp * duration_index * seasonal_index *
+                              trp_purchase_index * advance_purchase_index * web_index *
+                              advance_payment_index * loyalty_discount_index)
 
-                # Use default values for missing fields
-                client_discount = 0  # Default client discount
-                agency_discount = 0  # Default agency discount
+                client_discount = item['client_discount'] or 0
+                agency_discount = item['agency_discount'] or 0
                 net_price = gross_price * (1 - client_discount / 100)
                 net_net_price = net_price * (1 - agency_discount / 100)
 

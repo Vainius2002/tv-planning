@@ -2270,15 +2270,30 @@ def export_channel_group_excel(group_id: int):
             grp_planned = (item['trps'] * 100 / item['affinity1']) if item['affinity1'] and item['affinity1'] > 0 else 0
 
             # Calculate base gross price (TRP * CPP * Duration) without multipliers
-            # This shows the base calculation before all the coefficients/indices are applied
-            base_gross_price = (item['trps'] or 0) * (item['gross_cpp_eur'] or 0) * (item['clip_duration'] or 0)
-            print(f"DEBUG: TRP={item['trps']}, CPP={item['gross_cpp_eur']}, Duration={item['clip_duration']}, Base Gross={base_gross_price}", file=sys.stderr, flush=True)
+            # Calculate prices using the same formula as in the plans
+            # gross kaina = klipo trukme * trp perkamas * gross cpp * trukmes indeksas * sezoninis * trp pirkimo * isankstinio * web * isankstinio mokejimo * lojalumo nuolaida
+            clip_duration = item['clip_duration'] or 0
+            trps = item['trps'] or 0
+            gross_cpp = item['gross_cpp_eur'] or 0
+            duration_index = item['duration_index'] or 1.0
+            seasonal_index = item['seasonal_index'] or 1.0
+            trp_purchase_index = item['trp_purchase_index'] or 1.0
+            advance_purchase_index = item['advance_purchase_index'] or 1.0
+            web_index = item['web_index'] or 1.0
+            advance_payment_index = item['advance_payment_index'] or 1.0
+            loyalty_discount_index = item['loyalty_discount_index'] or 1.0
 
-            # Apply client discount to base gross price
-            net_price = base_gross_price * (1 - (item['client_discount'] or 0) / 100)
+            gross_price = (clip_duration * trps * gross_cpp * duration_index * seasonal_index *
+                          trp_purchase_index * advance_purchase_index * web_index *
+                          advance_payment_index * loyalty_discount_index)
 
-            # Calculate net_net_price from net_price and agency discount
-            net_net_price = net_price * (1 - (item['agency_discount'] or 0) / 100)
+            # Calculate net prices
+            client_discount = item['client_discount'] or 0
+            agency_discount = item['agency_discount'] or 0
+            net_price = gross_price * (1 - client_discount / 100)
+            net_net_price = net_price * (1 - agency_discount / 100)
+
+            print(f"DEBUG: Calculated prices - Gross={gross_price}, Net={net_price}, NetNet={net_net_price}", file=sys.stderr, flush=True)
 
             # Row data matching the exact plan table columns
             row_data = [
@@ -2306,7 +2321,7 @@ def export_channel_group_excel(group_id: int):
                 item['web_index'] or 1.0,                                  # WEB
                 item['advance_payment_index'] or 1.0,                      # Išankstinio mokėjimo
                 item['loyalty_discount_index'] or 1.0,                     # Lojalumo nuolaida
-                base_gross_price,                                           # Gross kaina
+                gross_price,                                                # Gross kaina
                 item['client_discount'] or 0,                              # Kl. nuol. %
                 net_price,                                                  # Net kaina
                 item['agency_discount'] or 0,                              # Ag. nuol. %
@@ -2322,14 +2337,14 @@ def export_channel_group_excel(group_id: int):
                 if col in [1, 2, 3]:  # Pradžia, Pabaiga, Kanalų grupė
                     cell.alignment = Alignment(horizontal='center', vertical='center')
 
-                # Format numbers (column numbers shifted by 1 due to added Kampanija column)
+                # Format numbers (column numbers after removing Pozicijos indeksas)
                 if col in [9, 11, 12, 13]:  # Percentage columns: TG dalis (%), Kanalo dalis, PT zonos dalis, nPT zonos dalis
                     cell.number_format = '0.00%'
-                elif col in [18, 19, 20, 21, 22, 23, 24, 25]:  # Index columns
+                elif col in [18, 19, 20, 21, 22, 23, 24]:  # Index columns (reduced by 1 after removing position index)
                     cell.number_format = '0.00'
-                elif col in [14, 15, 17, 26, 28, 30]:  # Currency columns: GRP plan., TRP perkamas, Gross CPP, Gross kaina, Net kaina, Net net kaina
+                elif col in [14, 15, 17, 25, 27, 29]:  # Currency columns: GRP plan., TRP perkamas, Gross CPP, Gross kaina, Net kaina, Net net kaina
                     cell.number_format = '#,##0.00'
-                elif col in [27, 29]:  # Discount percentage columns: Kl. nuol. %, Ag. nuol. %
+                elif col in [26, 28]:  # Discount percentage columns: Kl. nuol. %, Ag. nuol. %
                     cell.number_format = '0.0"%"'
 
             current_row += 1
@@ -2350,12 +2365,29 @@ def export_channel_group_excel(group_id: int):
             total_net_net = 0
 
             for item in rows:
-                # Calculate base gross price (TRP * CPP * Duration) without multipliers
-                base_gross_price = (item['trps'] or 0) * (item['gross_cpp_eur'] or 0) * (item['clip_duration'] or 0)
-                net_price = base_gross_price * (1 - (item['client_discount'] or 0) / 100)
-                net_net_price = net_price * (1 - (item['agency_discount'] or 0) / 100)
+                # Calculate prices using the same formula as in the plans for totals
+                clip_duration = item['clip_duration'] or 0
+                trps = item['trps'] or 0
+                gross_cpp = item['gross_cpp_eur'] or 0
+                duration_index = item['duration_index'] or 1.0
+                seasonal_index = item['seasonal_index'] or 1.0
+                trp_purchase_index = item['trp_purchase_index'] or 1.0
+                advance_purchase_index = item['advance_purchase_index'] or 1.0
+                web_index = item['web_index'] or 1.0
+                advance_payment_index = item['advance_payment_index'] or 1.0
+                loyalty_discount_index = item['loyalty_discount_index'] or 1.0
 
-                total_gross += base_gross_price
+                gross_price = (clip_duration * trps * gross_cpp * duration_index * seasonal_index *
+                              trp_purchase_index * advance_purchase_index * web_index *
+                              advance_payment_index * loyalty_discount_index)
+
+                # Calculate net prices
+                client_discount = item['client_discount'] or 0
+                agency_discount = item['agency_discount'] or 0
+                net_price = gross_price * (1 - client_discount / 100)
+                net_net_price = net_price * (1 - agency_discount / 100)
+
+                total_gross += gross_price
                 total_net += net_price
                 total_net_net += net_net_price
 
